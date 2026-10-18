@@ -15,7 +15,7 @@ import { BADGES, BADGE_REWARD, BADGE_TIER_NAMES } from '../data/badges.js';
 import { UPGRADES, CITY, CHOICES } from '../data/restaurant.js';
 import { CUSTOMERS } from '../data/customers.js';
 import { FIRST_ORDERS, ORDER_RAMP } from '../data/orders.js';
-import { buildSprite, use, ICONS, medalSvg, restaurantSvg } from './art.js';
+import { buildSprite, use, ICONS, badgeSvg, restaurantSvg } from './art.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
 import { createArcade } from './arcade.js';
 import { GEMS } from '../data/arcade.js';
@@ -506,7 +506,7 @@ function checkBadges() {
       S.dollars += BADGE_REWARD[lv - 1];
       S.gems += GEMS.badge[lv - 1];
       celebrate({
-        art: medalSvg(b.id, lv), title: 'Badge earned!', name: `${b.name}: ${BADGE_TIER_NAMES[lv - 1]}`,
+        art: badgeSvg(b.id, lv), reveal: true, title: 'Badge earned!', name: `${b.name}: ${BADGE_TIER_NAMES[lv - 1]}`,
         line: `${b.tiers[lv - 1].toLocaleString()} ${b.tiers[lv - 1] === 1 ? b.one : b.unit}`, reward: BADGE_REWARD[lv - 1], gems: GEMS.badge[lv - 1],
       });
     }
@@ -526,6 +526,7 @@ function showCelebration() {
   const el = $('#celebrate');
   el.querySelector('.cele-art').innerHTML = c.art;
   el.querySelector('.cele-art').classList.toggle('wide', !!c.wide);
+  el.querySelector('.cele-art').classList.toggle('reveal', !!c.reveal); // badges: the lid lifts off
   el.querySelector('.cele-title').textContent = c.title;
   el.querySelector('.cele-name').textContent = c.name;
   el.querySelector('.cele-line').textContent = c.line;
@@ -1060,19 +1061,18 @@ function openRecipes() {
 // The badge shelf
 function openBadges() {
   const earned = BADGES.reduce((t, b) => t + (S.badges[b.id] || 0), 0);
-  $('#badge-count').textContent = `${earned} of ${BADGES.length * 3} earned`;
+  $('#badge-count').textContent = `${earned} of ${BADGES.length * 3} golden spoons earned`;
   $('#badge-list').innerHTML = BADGES.map(b => {
     const lv = S.badges[b.id] || 0;
-    const medals = [1, 2, 3].map(t => `<div class="medal${t <= lv ? ' got' : ''}">${medalSvg(b.id, t <= lv ? t : 0)}</div>`).join('');
     let progress;
     if (b.soon) progress = `<span class="soon">Coming in a later update</span>`;
-    else if (lv >= 3) progress = `<span>All three earned!</span>`;
+    else if (lv >= 3) progress = `<span>All three spoons!</span>`;
     else {
       const goal = b.tiers[lv], have = Math.min(statFor(b), goal);
       progress = `<span>${have.toLocaleString()} of ${goal.toLocaleString()} ${b.unit} for ${BADGE_TIER_NAMES[lv].toLowerCase()}</span>` +
         `<div class="bar-track"><div class="bar-fill" style="width:${Math.round(have / goal * 100)}%"></div></div>`;
     }
-    return `<li class="badge${b.soon ? ' is-soon' : ''}"><div class="medals">${medals}</div><div class="badge-text"><b>${b.name}</b>${progress}</div></li>`;
+    return `<li class="badge${b.soon ? ' is-soon' : ''}"><div class="plate">${badgeSvg(b.id, lv)}</div><div class="badge-text"><b>${b.name}</b>${progress}</div></li>`;
   }).join('');
   openSheet('#badges');
 }
@@ -1260,7 +1260,7 @@ function boot() {
   $('#hint-btn .nav-icon').innerHTML = ICONS.bulb;
   $('#nav-restaurant .nav-icon').innerHTML = ICONS.house;
   $('#nav-recipes .nav-icon').innerHTML = ICONS.book;
-  $('#nav-badges .nav-icon').innerHTML = ICONS.medal;
+  $('#nav-badges .nav-icon').innerHTML = ICONS.cloche;
   $('#settings-btn .nav-icon').innerHTML = ICONS.gear;
   S = loadSave();
   if (S) migrate(S); else { newGame(); writeSave(S); }

@@ -44,7 +44,7 @@ const two = (sp, c, dark, d = 1.6) => E('g', { transform: `translate(${d} ${d})`
 // Shadow on the far side of a shape: the shape minus a copy of itself nudged toward the light.
 function shade(sp, dx = -7, dy = -7, op = .17) {
   const id = `sh${uid++}`;
-  const big = { x: -20, y: -20, width: 440, height: 260 }; // covers item art and the wide restaurant
+  const big = { x: -60, y: -60, width: 480, height: 300 }; // covers item art, badge friends and the wide restaurant
   return E('mask', { id, maskUnits: 'userSpaceOnUse', ...big },
     E('rect', { ...big, fill: '#000' }) + fill(sp, '#fff') +
     E('g', { transform: `translate(${dx} ${dy})` }, fill(sp, '#000'))) +
@@ -549,31 +549,84 @@ export const CUSTOMER_ART = {
   },
 };
 
-// ---------- badge medals ----------
-const METALS = [
-  ['#e6dfd6', '#bdb4a9'], // not earned yet
-  ['#df9258', '#a8612e'], // bronze
-  ['#e1e5ec', '#98a2b3'], // silver
-  ['#f8c840', '#c48a12'], // gold
-];
-const GLYPHS = {
-  chef: c => fill(P('M-10,4 C-16,-2 -13,-14 -5,-11 C-3,-18 5,-18 7,-11 C14,-14 17,-2 10,4 Z'), c) + fill(R(-10, 3, 20, 7, 2), c),
-  merger: c => fill(P('M0,-15 Q2,-2 15,0 Q2,2 0,15 Q-2,2 -15,0 Q-2,-2 0,-15 Z'), c),
-  collector: c => fill(P(sc(TULIP, 0, -1, 1.3)), c) + line('M0,11 L0,16', c, 3),
-  tycoon: c => E('text', { x: 0, y: 9, 'text-anchor': 'middle', 'font-size': 26, 'font-family': 'Righteous, sans-serif', fill: c }, '$'),
-  traveller: c => fill(P('M0,15 C-6,7 -11,2 -11,-3 A11,11 0 1,1 11,-3 C11,2 6,7 0,15 Z'), c),
-  arcade: c => fill(C(0, 0, 11), c) + fill(C(-4, -4, 3), '#fff', { opacity: .5 }),
-  scholar: c => fill(P('M-14,-8 Q-6,-12 0,-7 Q6,-12 14,-8 L14,10 Q6,6 0,11 Q-6,6 -14,10 Z'), c),
+// ---------- badges: a food friend under a silver lid, rated in golden spoons ----------
+// A smaller face than face() above, for the little badge friends: everything scales with r.
+function tinyFace(x1, x2, y, r = 2, eye = K.ink) {
+  const mx = (x1 + x2) / 2, my = y + r * 2.3;
+  return fill(C(x1 - r * 1.5, y + r * 2, r * 1.45), K.blush, { opacity: .6 }) + fill(C(x2 + r * 1.5, y + r * 2, r * 1.45), K.blush, { opacity: .6 }) +
+    fill(C(x1, y, r), eye) + fill(C(x2, y, r), eye) +
+    fill(C(x1 + r * .35, y - r * .4, r * .36), '#fff') + fill(C(x2 + r * .35, y - r * .4, r * .36), '#fff') +
+    line(`M${mx - r * 1.5},${my} Q${mx},${my + r * 1.5} ${mx + r * 1.5},${my}`, eye, r * .65);
+}
+// One friend per badge, drawn around 0,0 and about 46 wide. Keyed by the badge ids in data/badges.js.
+const BADGE_FRIENDS = {
+  chef() { // Mixing Whiz: a bowl with a whisk
+    let s = line('M15,-27 L7,-9', '#7a4a22', 3.4);
+    s += E('ellipse', { cx: 4, cy: -6, rx: 4.5, ry: 9, fill: 'none', stroke: '#b9c2cc', 'stroke-width': 1.6, transform: 'rotate(22 4 -6)' });
+    s += E('ellipse', { cx: 4, cy: -6, rx: 1.8, ry: 9, fill: 'none', stroke: '#b9c2cc', 'stroke-width': 1.6, transform: 'rotate(22 4 -6)' });
+    s += fill(EL(0, -3, 21, 4.5), '#fff1cf');
+    s += body(P('M-22,-3 Q-20,20 0,20 Q20,20 22,-3 Q0,4 -22,-3 Z'), K.teal, -6, -5, .2);
+    return s + shine(EL(-13, 4, 2.4, 5, 20), .45) + tinyFace(-6, 6, 6, 2, K.cream);
+  },
+  merger() { // Combo Cook: a pair of cherries
+    let s = line('M-10,-1 Q-8,-14 1,-21', K.leaf, 2.2) + line('M11,-3 Q9,-14 1,-21', K.leaf, 2.2);
+    s += fill(P(leaf(1, -21, -25, 15, 5)), K.leaf);
+    s += body(C(-10, 8, 11), '#d7263d', -5, -5, .2) + body(C(11, 6, 11), '#e23b4c', -5, -5, .2);
+    s += shine(EL(-15, 3, 2.2, 3.5, -30), .55) + shine(EL(6, 1, 2.2, 3.5, -30), .55);
+    return s + tinyFace(-13.5, -6.5, 7, 1.6) + tinyFace(7.5, 14.5, 5, 1.6);
+  },
+  collector() { // Recipe Keeper: a cookbook with a tulip
+    let s = fill(R(-15, -19, 35, 40, 4), '#efe2c6');
+    s += body(R(-19, -21, 34, 42, 5), K.eggplant, -5, -5, .22);
+    s += fill(R(-13, -15, 22, 15, 3), K.cream) + fill(P(sc(TULIP, -2, -7.5, .6)), K.tulip);
+    return s + fill(R(-19, -21, 5, 42, 2), '#47215a') + tinyFace(-7, 5, 7, 2, K.cream);
+  },
+  tycoon() { // Tip Jar: a jar of coins
+    let s = fill(R(-14, -23, 28, 7, 3), '#b5773a');
+    const glass = P('M-14,-16 L14,-16 Q19,-13 19,-5 L19,15 Q19,21 13,21 L-13,21 Q-19,21 -19,15 L-19,-5 Q-19,-13 -14,-16 Z');
+    s += fill(glass, '#cfe8ec');
+    for (const [x, y] of [[-10, 15], [2, 16], [12, 13], [-4, 9], [8, 6]]) s += fill(C(x + .8, y + .8, 5.5), K.goldDark) + fill(C(x, y, 5.5), K.gold);
+    return s + shade(glass, -6, -5, .14) + shine(R(-15, -12, 3, 22, 1.5), .55) + tinyFace(-6, 6, -6, 2);
+  },
+  traveller() { // Food Explorer: a suitcase with stickers
+    let s = line('M-7,-14 L-7,-21 L7,-21 L7,-14', '#7a4a22', 3);
+    s += body(R(-22, -15, 44, 34, 6), '#e98a2f', -6, -5, .18);
+    s += fill(R(-14, -15, 4, 34), '#c46d1c') + fill(R(10, -15, 4, 34), '#c46d1c');
+    return s + fill(C(-17, 12, 3.5), K.tulip) + fill(R(15, -11, 6, 5, 1), K.cream) + tinyFace(-4, 4, 0, 1.8);
+  },
+  arcade() { // Fun Fair: an ice cream cone
+    let s = fill(P('M-12,1 L12,1 L0,25 Z'), '#e0a95a');
+    s += line('M-7,2 L3,19 M0,2 L6,13 M7,2 L-3,19 M0,2 L-6,13', '#c48a3a', 1.2);
+    s += body(P('M-15,1 Q-17,-21 0,-21 Q17,-21 15,1 Q11,5 8,1 Q4,6 0,2 Q-4,6 -8,1 Q-11,5 -15,1 Z'), '#f7a8c4', -6, -5, .18);
+    s += line('M1,-21 Q3,-27 7,-28', K.leaf, 1.6) + fill(C(1, -22, 4.2), '#d7263d') + shine(C(0, -23.5, 1.2), .7);
+    return s + shine(EL(-8, -13, 2, 3.5, -20), .5) + tinyFace(-5, 5, -9, 1.9);
+  },
+  scholar() { // Smart Cookie: a cookie in glasses
+    let s = body(C(0, 0, 21), '#d9a05b', -6, -6, .2);
+    for (const [x, y, r] of [[-12, -10, 2.4], [11, -11, 2], [-14, 6, 2.2], [13, 8, 2.6], [2, 15, 2.2], [-4, -15, 1.6]]) s += fill(C(x, y, r), '#6b3a1f');
+    for (const x of [-7, 7]) s += E('circle', { cx: x, cy: -2, r: 5.6, fill: '#fff', 'fill-opacity': .35, stroke: K.ink, 'stroke-width': 1.6 });
+    return s + line('M-1.4,-2 Q0,-3.4 1.4,-2', K.ink, 1.6) + tinyFace(-7, 7, -2, 2);
+  },
 };
-export function medalSvg(family, tier) {
-  const [light, dark] = METALS[tier];
-  const locked = tier === 0;
-  let s = fill(P('M38,58 L30,95 L41,88 L47,97 L52,62 Z'), locked ? '#d9d2c8' : K.tulip);
-  s += fill(P('M62,58 L70,95 L59,88 L53,97 L48,62 Z'), locked ? '#cfc7bc' : K.eggplant);
-  s += fill(C(50, 44, 31), dark) + fill(C(50, 42, 30), light);
-  s += E('circle', { cx: 50, cy: 42, r: 23, fill: 'none', stroke: dark, 'stroke-width': 2, opacity: .45 });
-  if (!locked) s += shine(P('M27,36 A24,24 0 0,1 45,18 L46,23 A19,19 0 0,0 32,37 Z'), .5);
-  s += E('g', { transform: 'translate(50 42)' }, (GLYPHS[family] || GLYPHS.merger)(dark));
+
+// tier 0: a closed lid with a "?". Tiers 1 to 3: the lid lifted off the friend, with that many golden spoons.
+// The plate rim also changes: cream, then teal, then gold.
+// The lid's lifted position lives in the CSS (.bdg-lid), so the "badge earned" card can animate it opening.
+export function badgeSvg(family, tier) {
+  const rim = ['#d9d0c4', '#e3d6c2', K.teal, K.gold][tier];
+  let s = fill(EL(50, 80, 42, 10), rim) + fill(EL(50, 79, 33, 7), tier ? K.white : '#ece6dc');
+  if (tier) s += E('g', { transform: 'translate(50 56) scale(.95)' }, (BADGE_FRIENDS[family] || BADGE_FRIENDS.chef)());
+  const lid = body(P('M14,78 Q14,30 50,30 Q86,30 86,78 Z'), tier ? '#dde2e8' : '#cfd2d6', -9, -7, .2) +
+    fill(R(10, 75, 80, 6, 3), tier ? '#c3c9d1' : '#babec4') + fill(C(50, 27, 5.5), tier ? '#c3c9d1' : '#b6bac0') +
+    shine(P('M24,64 Q24,44 40,38 L42,42 Q30,48 30,64 Z'), .7);
+  if (!tier) return `<svg viewBox="0 0 100 100" aria-hidden="true">${s + lid}<text x="50" y="66" text-anchor="middle" font-family="Righteous, sans-serif" font-size="20" fill="#9ea3aa">?</text></svg>`;
+  s += E('g', { class: 'bdg-lid' }, lid);
+  for (let i = 0; i < 3; i++) {
+    const x = 35 + i * 17, on = i < tier;
+    s += E('g', { class: on ? 'bdg-spoon' : '', style: `--i:${i}` },
+      E('ellipse', { cx: x - 5, cy: 95, rx: 4.4, ry: 3.1, fill: on ? K.gold : 'none', stroke: on ? K.goldDark : '#cbbfae', 'stroke-width': on ? .8 : 1.2 }) +
+      line(`M${x - .5},95 L${x + 8},95`, on ? K.gold : '#cbbfae', 2));
+  }
   return `<svg viewBox="0 0 100 100" aria-hidden="true">${s}</svg>`;
 }
 
@@ -698,7 +751,7 @@ export const ICONS = {
   pin: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 22s-7-6.6-7-12a7 7 0 0 1 14 0c0 5.4-7 12-7 12zm0-9.2a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6z"/></svg>`,
   house: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 11.2 12 3.5l9 7.7V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>`,
   book: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5.2C5.5 4 8.5 4 11 5.6V20c-2.5-1.4-5.5-1.4-8-.3zm10 .4C15.5 4 18.5 4 21 5.2v14.5c-2.5-1.1-5.5-1.1-8 .3z"/></svg>`,
-  medal: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2h4l1.5 4L14 2h3l-3 7.2A6.5 6.5 0 1 1 9.9 9.2zM12 11a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z"/></svg>`,
+  cloche: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M11 4.5a1 1 0 0 1 2 0v.7A8.5 8.5 0 0 1 20.5 14H3.5A8.5 8.5 0 0 1 11 5.2zM2 15.5h20a1.5 1.5 0 0 1 0 3H2a1.5 1.5 0 0 1 0-3z"/></svg>`,
   arrow: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" d="M5 12h13M13 6l6 6-6 6"/></svg>`,
   plus: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="none" stroke="currentColor" stroke-width="3.4" stroke-linecap="round" d="M12 5v14M5 12h14"/></svg>`,
   check: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="${K.leaf}"/><path d="M6.5 12.5 L10.5 16.5 L17.5 8.5" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></svg>`,

@@ -341,10 +341,16 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .recipe.unknown .recipe-art svg { filter: brightness(0) opacity(.18); }
 .recipe-text { min-width: 0; }
 .list .hers { color: var(--tulip, #e8475f); font-size: .72rem; font-weight: 700; }
-.medals { display: flex; flex: none; }
-.medal { width: 40px; height: 40px; margin-right: -6px; }
-.medal svg { width: 100%; height: 100%; display: block; }
-.badge-text { flex: 1; min-width: 0; margin-left: 6px; }
+.plate { width: 68px; height: 68px; flex: none; }
+.plate svg { width: 100%; height: 100%; display: block; overflow: visible; }
+.badge-text { flex: 1; min-width: 0; }
+/* Badges: a food friend under a silver lid. The lid normally sits lifted to the upper left;
+   on the "badge earned" card it starts closed and lifts off, then the golden spoons pop in. */
+.bdg-lid { transform-box: view-box; transform-origin: 14px 78px; transform: translate(-6px, -30px) rotate(-22deg) scale(.6); }
+.cele-art.reveal .bdg-lid { animation: lidlift 1s .35s cubic-bezier(.3, .7, .4, 1) both; }
+.cele-art.reveal .bdg-spoon { transform-box: fill-box; transform-origin: center; animation: spoonpop .45s calc(1.25s + var(--i) * .2s) both; }
+@keyframes lidlift { from { transform: none; } }
+@keyframes spoonpop { 0% { transform: scale(0); } 70% { transform: scale(1.4); } 100% { transform: scale(1); } }
 .badge.is-soon { opacity: .6; }
 .bar-track { height: 8px; border-radius: 4px; background: #fff; margin-top: 5px; overflow: hidden; }
 .bar-fill { height: 100%; border-radius: 4px; background: var(--leaf); }
@@ -372,7 +378,7 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .cele-tap { font-size: .75rem; color: var(--muted); margin-top: 4px; }
 
 @media (prefers-reduced-motion: reduce) {
-  .guide::after, .wiggle { animation: none; }
+  .guide::after, .wiggle, .cele-art.reveal .bdg-lid, .cele-art.reveal .bdg-spoon { animation: none; }
   .guide::after { opacity: 1; }
 }
 
