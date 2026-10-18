@@ -9,12 +9,12 @@
 // and serve customers what they ask for.
 
 import { CONFIG } from '../data/config.js';
-import { CHAINS, PRODUCERS, ORDER_VALUE, SELL_VALUE } from '../data/items.js';
-import { RECIPES, RECIPE_DISCOVERY_REWARD, DISH_ORDER_CHANCE } from '../data/recipes.js';
+import { CHAINS, PRODUCERS, PRODUCER_UNLOCKS, ORDER_VALUE, SELL_VALUE } from '../data/items.js';
+import { RECIPES, RECIPE_DISCOVERY_REWARD } from '../data/recipes.js';
 import { BADGES, BADGE_REWARD, BADGE_TIER_NAMES } from '../data/badges.js';
 import { UPGRADES } from '../data/restaurant.js';
 import { CUSTOMERS } from '../data/customers.js';
-import { FIRST_ORDERS, ORDER_RAMP, TWO_ITEM_BONUS } from '../data/orders.js';
+import { FIRST_ORDERS, ORDER_RAMP } from '../data/orders.js';
 import { buildSprite, use, ICONS, medalSvg, restaurantSvg } from './art.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
 
@@ -52,14 +52,13 @@ let lastAction = Date.now();
 
 function newGame() {
   const board = Array(CELLS).fill(null);
-  board[idx(2, 3)] = { producer: 'pantry' };
+  board[idx(2, 3)] = { producer: 'crate' };
   board[idx(1, 4)] = { chain: 'bakery', tier: 1 };
-  board[idx(3, 4)] = { chain: 'dairy', tier: 1 };
   S = {
     v: SAVE_VERSION, board, dollars: 0,
     charges: CONFIG.charges.start, chargesAt: Date.now(), freeRefillAt: 0,
     orders: [], orderSeq: 0, served: 0, tutorial: 0,
-    seen: { 'bakery:1': true, 'dairy:1': true }, recipes: {}, badges: {}, upgrades: [],
+    seen: { 'bakery:1': true }, recipes: {}, badges: {}, upgrades: [], producers: ['crate'],
     stats: { produced: 0, merges: 0, mixes: 0, sold: 0, earned: 0, bounces: 0 },
     settings: { vibrate: true },
     created: Date.now(),
@@ -77,6 +76,20 @@ function migrate(s) {
   s.recipes ??= {};
   s.badges ??= {};
   s.upgrades ??= [];
+  // The single pantry became separate starter blocks: the bakery crate, then the dairy fridge.
+  s.board = s.board.map(it => it && it.producer === 'pantry' ? { producer: 'crate' } : it);
+  s.producers ??= s.board.filter(it => it && it.producer).map(it => it.producer);
+  // Orders are now one item, or one named dish.
+  s.orders = s.orders.map(o => {
+    if (o.want) return o;
+    const first = o.items[0];
+    if (first.dish) return orderFor({ dish: first.dish }, o);
+    if (o.items.length === 2) {
+      const r = findRecipe(o.items[0], o.items[1]);
+      if (r) return orderFor({ dish: r.id }, o);
+    }
+    return orderFor({ chain: first.chain, tier: first.tier }, o);
+  });
   if (s.board.length !== CELLS) {
     // The board changed size: keep everything, moving anything that no longer fits.
     const oldCols = s.board.length === 63 ? 7 : COLS;
@@ -137,35 +150,44 @@ function nextChargeIn() {
 const mmss = sec => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
 // ---------- orders ----------
+// Chains she can make right now (from the starter blocks on the board).
+function availableChains() {
+  const set = new Set();
+  for (const p of S.producers) for (const m of PRODUCERS[p].makes) set.add(m.chain);
+  return [...set];
+}
+
+// An order wants one thing: a plain item, or a dish. "items" lists what has to be on the board.
+function orderFor(want, base = {}) {
+  const items = want.dish ? [{ ...recipeOf(want.dish).a }, { ...recipeOf(want.dish).b }] : [{ chain: want.chain, tier: want.tier }];
+  const reward = want.dish ? recipeOf(want.dish).value : ORDER_VALUE[want.tier - 1];
+  return { id: base.id, customer: base.customer, want, items, reward };
+}
+
 function makeOrder() {
-  let items = null;
+  let want;
   if (S.orderSeq < FIRST_ORDERS.length) {
-    items = FIRST_ORDERS[S.orderSeq].map(x => ({ ...x }));
+    want = { ...FIRST_ORDERS[S.orderSeq] };
   } else {
     const step = ORDER_RAMP.find(r => S.served < r.upTo);
-    if (S.served >= 8 && Math.random() < DISH_ORDER_CHANCE) {
-      const ok = RECIPES.filter(r => Math.max(r.a.tier, r.b.tier) <= step.tiers[1]);
-      if (ok.length) items = [{ dish: ok[randInt(0, ok.length - 1)].id }];
-    }
-    if (!items) {
-      const chains = Object.keys(CHAINS);
-      const count = randInt(...step.items);
-      items = [];
-      for (let k = 0; k < count; k++) {
-        const chain = chains[randInt(0, chains.length - 1)];
-        items.push({ chain, tier: Math.min(maxTier(chain), randInt(...step.tiers)) });
-      }
-      if (count === 2 && keyOf(items[0]) === keyOf(items[1])) items[1].tier = Math.max(2, items[1].tier - 1);
+    const chains = availableChains();
+    const fits = r => chains.includes(r.a.chain) && chains.includes(r.b.chain) &&
+      Math.max(r.a.tier, r.b.tier) <= step.tiers[1] && Math.max(r.a.tier, r.b.tier) >= step.tiers[0] - 1;
+    const dishes = RECIPES.filter(fits);
+    if (dishes.length && Math.random() < step.dishChance) {
+      want = { dish: dishes[randInt(0, dishes.length - 1)].id };
+    } else {
+      const chain = chains[randInt(0, chains.length - 1)];
+      want = { chain, tier: Math.min(maxTier(chain), randInt(...step.tiers)) };
     }
   }
-  let reward = items.reduce((t, it) => t + itemValue(it), 0);
-  if (items.length > 1) reward = Math.round(reward * TWO_ITEM_BONUS);
   const busy = new Set(S.orders.map(o => o.customer));
   const free = CUSTOMERS.filter(c => !busy.has(c.id));
   const pool = free.length ? free : CUSTOMERS;
   S.orderSeq++;
-  return { id: S.orderSeq, customer: pool[randInt(0, pool.length - 1)].id, items, reward };
+  return orderFor(want, { id: S.orderSeq, customer: pool[randInt(0, pool.length - 1)].id });
 }
+const orderName = o => o.want.dish ? recipeOf(o.want.dish).name : nameOf(o.want);
 const payFor = o => Math.round(o.reward * (1 + perks().orderBonus));
 
 function boardCounts() {
@@ -173,8 +195,9 @@ function boardCounts() {
   for (const it of S.board) if (it && !it.producer) m.set(keyOf(it), (m.get(keyOf(it)) || 0) + 1);
   return m;
 }
-// For each item an order wants: is it on the board?
+// For each item an order wants: is it on the board? A ready-made dish counts for all of them.
 function orderStatus(order, counts) {
+  if (order.want.dish && counts.get(`dish:${order.want.dish}`)) return order.items.map(() => true);
   const left = new Map(counts);
   return order.items.map(it => {
     const n = left.get(keyOf(it)) || 0;
@@ -271,19 +294,36 @@ function mix(from, to, recipe) {
   S.stats.mixes++;
   sel = to;
   buzz('merge');
-  if (!S.recipes[recipe.id]) {
-    S.recipes[recipe.id] = true;
-    S.dollars += RECIPE_DISCOVERY_REWARD;
-    S.seen[`dish:${recipe.id}`] = true;
-    celebrate({
-      art: use(`art-${recipe.id}`), title: 'New recipe!', name: recipe.name,
-      line: `${nameOf(recipe.a)} + ${nameOf(recipe.b)}. Added to your recipe book.`, reward: RECIPE_DISCOVERY_REWARD,
-    });
-  }
+  learnRecipe(recipe);
   renderAll();
   pop(to);
   checkBadges();
   save();
+}
+
+function learnRecipe(recipe) {
+  if (S.recipes[recipe.id]) return;
+  S.recipes[recipe.id] = true;
+  S.dollars += RECIPE_DISCOVERY_REWARD;
+  S.seen[`dish:${recipe.id}`] = true;
+  celebrate({
+    art: use(`art-${recipe.id}`), title: 'New recipe!', name: recipe.name,
+    line: `${nameOf(recipe.a)} + ${nameOf(recipe.b)}. Added to your recipe book.`, reward: RECIPE_DISCOVERY_REWARD,
+  });
+}
+
+// New starter blocks arrive as she serves more orders.
+function unlockProducers() {
+  for (const u of PRODUCER_UNLOCKS) {
+    if (S.producers.includes(u.producer) || S.served < u.afterServed) continue;
+    const near = producerIndex();
+    const spot = nearestEmpty(near >= 0 ? near : idx(2, 3));
+    if (spot < 0) continue; // no room yet; try again after the next order
+    S.board[spot] = { producer: u.producer };
+    S.producers.push(u.producer);
+    const made = PRODUCERS[u.producer].makes.map(m => CHAINS[m.chain].tiers[m.tier - 1].name).join(' and ');
+    celebrate({ art: use(`art-${u.producer}`), title: 'New starter block!', name: PRODUCERS[u.producer].name, line: `Tap it to get ${made}.` });
+  }
 }
 
 // The first time she makes something, celebrate it.
@@ -300,7 +340,10 @@ function serve(oi) {
   const order = S.orders[oi];
   if (!isReady(order, boardCounts())) return;
   const taken = [];
-  for (const it of order.items) {
+  const dishKey = order.want.dish ? `dish:${order.want.dish}` : null;
+  const readyDish = dishKey ? S.board.findIndex(b => b && keyOf(b) === dishKey) : -1;
+  if (readyDish >= 0) taken.push(readyDish);
+  else for (const it of order.items) {
     let pickI = -1;
     for (let i = 0; i < CELLS; i++) {
       const b = S.board[i];
@@ -312,6 +355,10 @@ function serve(oi) {
     taken.push(pickI);
   }
   const pay = payFor(order);
+  if (order.want.dish) {
+    if (readyDish < 0) S.stats.mixes++; // cooked straight from the ingredients
+    learnRecipe(recipeOf(order.want.dish));
+  }
   flyAway(taken, $(`.order[data-o="${oi}"]`));
   for (const i of taken) S.board[i] = null;
   if (taken.includes(sel)) sel = -1;
@@ -322,6 +369,7 @@ function serve(oi) {
   buzz('serve');
   floatText(`+$${pay}`, $('#money'));
   S.orders[oi] = makeOrder();
+  unlockProducers();
   renderAll();
   const fresh = $(`.order[data-o="${oi}"]`);
   if (fresh && !reduceMotion) fresh.animate([{ transform: 'translateY(-12px) scale(.9)', opacity: 0 }, { transform: 'none', opacity: 1 }], { duration: 380, delay: 150, fill: 'backwards', easing: 'cubic-bezier(.2,.8,.3,1.2)' });
@@ -442,9 +490,9 @@ function findPair() {
 }
 // If a customer wants a dish and both ingredients are on the board, find them.
 function findDishPair() {
-  for (const o of S.orders) for (const it of o.items) {
-    if (!it.dish) continue;
-    const r = recipeOf(it.dish);
+  for (const o of S.orders) {
+    if (!o.want.dish) continue;
+    const r = recipeOf(o.want.dish);
     const ia = S.board.findIndex(b => isChain(b) && sameItem(b, r.a));
     const ib = S.board.findIndex((b, j) => isChain(b) && sameItem(b, r.b) && j !== ia);
     if (ia >= 0 && ib >= 0) return { r, a: ia, b: ib };
@@ -473,9 +521,9 @@ function hint(fromButton) {
     return;
   }
   if (fromButton) {
-    const wantDish = S.orders.flatMap(o => o.items).find(it => it.dish);
+    const wantDish = S.orders.find(o => o.want.dish);
     if (wantDish) {
-      const r = recipeOf(wantDish.dish);
+      const r = recipeOf(wantDish.want.dish);
       toast(`${r.name} is ${nameOf(r.a)} mixed with ${nameOf(r.b)}.`);
       return;
     }
@@ -483,7 +531,7 @@ function hint(fromButton) {
   const p = producerIndex();
   if (S.charges > 0 && nearestEmpty(p) >= 0) {
     wiggle([cellEl(p)]);
-    if (fromButton) toast('Tap the pantry crate for more ingredients.');
+    if (fromButton) toast('Tap a starter block for more ingredients.');
     return;
   }
   if (S.charges <= 0) { if (fromButton) openRefill(); return; }
@@ -506,10 +554,10 @@ function hint(fromButton) {
 
 // ---------- first-time guide: teaches by doing ----------
 const TUTORIAL = [
-  { text: 'Tap the pantry crate to get ingredients.', on: 'produce' },
+  { text: 'Tap the bakery crate to get ingredients.', on: 'produce' },
   { text: 'Drag two matching ingredients together to merge them.', on: 'merge' },
   { text: 'Make what a customer wants, then tap Serve.', on: 'serve' },
-  { text: 'Lovely! Tap any food to see what it turns into.', on: 'merge' },
+  { text: 'Lovely! Tap a food in an order to see how to make it.', on: 'peek' },
 ];
 function advanceTutorial(event) {
   const step = TUTORIAL[S.tutorial];
@@ -533,14 +581,12 @@ function renderTip() {
   document.querySelectorAll('.guide').forEach(el => el.classList.remove('guide'));
   const step = TUTORIAL[S.tutorial];
   let text = step?.text;
-  if (S.tutorial === 1 && !findPair()) text = 'Tap the pantry again until two ingredients match.';
+  if (S.tutorial === 1 && !findPair()) text = 'Tap the crate again until two ingredients match.';
   if (S.tutorial === 2 && !tutorialTarget()) text = 'Keep merging to make what a customer wants.';
   // A one-time tip when the first dish order arrives.
-  if (!step && S.stats.mixes === 0 && S.orders.some(o => o.items.some(it => it.dish))) {
-    const d = findDishPair();
-    text = d ? `Drag the ${nameOf(d.r.a)} onto the ${nameOf(d.r.b)} to mix them!`
-      : 'A customer wants a dish! Tap it in the order to see what goes in it.';
-    if (d) cellEl(d.a)?.classList.add('guide');
+  if (!step && S.stats.mixes === 0 && S.orders.some(o => o.want.dish)) {
+    const o = S.orders.find(x => x.want.dish);
+    text = `${orderName(o)} needs both of its foods on the board. Then tap Serve!`;
   }
   if (!text) { tip.hidden = true; return; }
   tip.textContent = text;
@@ -573,7 +619,7 @@ function renderOrders() {
       <div class="cust">${use(`cust-${o.customer}`, cust.name)}</div>
       <div class="reward">${ICONS.coin}<span>${payFor(o)}</span></div>
       <div class="need">${need}</div>
-      ${ready ? `<button class="serve" data-serve="${oi}">Serve</button>` : `<div class="cust-name">${cust.name}</div>`}
+      ${ready ? `<button class="serve" data-serve="${oi}">Serve</button>` : `<div class="cust-name">${orderName(o)}</div>`}
     </div>`;
   }).join('');
 }
@@ -616,16 +662,21 @@ function renderInfo() {
     let text;
     if (it.dish) {
       const r = recipeOf(it.dish);
-      text = S.recipes[r.id] || sel >= 0 ? `A dish. Made from ${nameOf(r.a)} and ${nameOf(r.b)}.` : `A new dish! Mix ${nameOf(r.a)} with ${nameOf(r.b)}.`;
+      text = `A dish, made from ${nameOf(r.a)} and ${nameOf(r.b)}. Serve it to a customer who wants it.`;
     } else {
       const max = maxTier(it.chain);
-      text = `Level ${it.tier} of ${max}. ` + (it.tier < max ? `Merge 2 to make ${CHAINS[it.chain].tiers[it.tier].name}.` : 'Top of the chain!');
+      if (orderPick) {
+        const maker = Object.values(PRODUCERS).find(p => p.makes.some(m => m.chain === it.chain))?.name || 'a starter block';
+        text = `Level ${it.tier} of ${max}. ` + (it.tier > 1 ? `Make it by merging two ${CHAINS[it.chain].tiers[it.tier - 2].name}.` : `Comes from the ${maker.toLowerCase()}.`);
+      } else {
+        text = `Level ${it.tier} of ${max}. ` + (it.tier < max ? `Merge 2 to make ${CHAINS[it.chain].tiers[it.tier].name}.` : 'Top of the chain!');
+      }
     }
     const sellBtn = sel >= 0 ? `<button class="sell" data-sell="${sel}">Sell $${sellValue(it)}</button>` : '';
     info.innerHTML = `<div class="info-icon fam-${familyOf(it)}">${use(artId(it))}</div>
       <div class="info-text"><b>${nameOf(it)}</b><span>${text}</span></div>${sellBtn}`;
   }
-  renderChainPreview(it);
+  renderChainPreview(orderPick ? it : null);
 }
 
 function renderChainPreview(it) {
@@ -643,7 +694,8 @@ function renderChainPreview(it) {
     title = 'Recipe: mix these two';
     row = chip(r.a, false) + `<div class="join">${ICONS.plus}</div>` + chip(r.b, false) + arrow + chip(it, true);
   } else {
-    title = `${CHAINS[it.chain].name}: merge two to get the next`;
+    const o = S.orders[orderPick.o];
+    title = o.want.dish ? `${orderName(o)} needs ${nameOf(it)}. Merge two to get the next:` : `Merge two to get the next:`;
     row = CHAINS[it.chain].tiers.map((t, n) => chip({ chain: it.chain, tier: n + 1 }, n + 1 === it.tier)).join(arrow);
   }
   pop.innerHTML = `<p class="pop-title">${title}</p><div class="pop-row">${row}</div>`;
@@ -736,10 +788,11 @@ function toast(text, opts = {}) {
     el.append(b);
   }
   el.classList.toggle('celebrate', !!opts.celebrate);
+  el.classList.toggle('has-action', !!opts.action);
   el.hidden = false;
-  if (!reduceMotion) el.animate([{ transform: 'translate(-50%, 10px)', opacity: 0 }, { transform: 'translate(-50%, 0)', opacity: 1 }], { duration: 220, easing: 'ease-out' });
+  if (!reduceMotion) el.animate([{ transform: 'translate(-50%, -6px)', opacity: 0 }, { transform: 'translate(-50%, 0)', opacity: 1 }], { duration: 200, easing: 'ease-out' });
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, opts.action ? 4500 : 2800);
+  toastTimer = setTimeout(() => { el.hidden = true; }, opts.action ? 4500 : 1800);
 }
 
 // ---------- dragging and tapping on the board ----------
@@ -828,6 +881,7 @@ document.addEventListener('click', e => {
     const same = orderPick && orderPick.o === o && orderPick.k === k;
     orderPick = same ? null : { o, k };
     sel = -1;
+    advanceTutorial('peek');
     buzz('tap');
     renderAll();
   }
@@ -1042,6 +1096,7 @@ function boot() {
   $('#settings-btn .nav-icon').innerHTML = ICONS.gear;
   S = loadSave();
   if (S) migrate(S); else { newGame(); writeSave(S); }
+  unlockProducers();
   checkBadges();
   renderAll();
 

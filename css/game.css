@@ -93,7 +93,7 @@ button:focus-visible, summary:focus-visible, .file-btn:focus-within { outline: 3
 .need-item.picked { box-shadow: inset 0 0 0 3px var(--eggplant); }
 .need-item svg { width: 100%; height: 100%; display: block; }
 .need-item .tick { position: absolute; right: -4px; bottom: -4px; width: 18px; height: 18px; }
-.cust-name { grid-column: 1 / -1; text-align: center; font-size: .78rem; font-weight: 700; color: var(--muted); }
+.cust-name { grid-column: 1 / -1; align-self: center; text-align: center; font-size: .74rem; font-weight: 700; line-height: 1.1; color: var(--eggplant); }
 .serve {
   grid-column: 1 / -1; height: 30px; border: 0; border-radius: 10px;
   background: var(--leaf); color: #fff; font-family: var(--display); font-size: 1rem; letter-spacing: .02em;
@@ -108,7 +108,7 @@ button:focus-visible, summary:focus-visible, .file-btn:focus-within { outline: 3
 }
 
 /* ---------- board ---------- */
-.board-wrap { flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; }
+.board-wrap { position: relative; flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; }
 .board {
   --cols: 6;
   --rows: 8;
@@ -219,17 +219,21 @@ body.dragging .chainpop { display: none; }
 
 /* ---------- toast and floating numbers ---------- */
 .toast {
-  position: fixed; left: 50%; bottom: calc(max(8px, env(safe-area-inset-bottom, 0px)) + 72px); transform: translateX(-50%);
-  z-index: 60; width: min(92vw, 420px);
-  display: flex; align-items: center; gap: 10px;
-  background: var(--ink); color: #fff; border-radius: 14px; padding: 10px 12px;
-  font-weight: 700; box-shadow: 0 6px 18px rgba(58, 42, 42, .25);
+  /* A small pill at the top edge of the board. Taps pass straight through it. */
+  position: absolute; left: 50%; top: 4px; transform: translateX(-50%);
+  z-index: 30; width: max-content; max-width: 94%;
+  display: flex; align-items: center; gap: 8px;
+  background: rgba(58, 42, 42, .9); color: #fff; border-radius: 999px; padding: 5px 12px 5px 6px;
+  font-weight: 700; font-size: .82rem; line-height: 1.2; box-shadow: 0 4px 12px rgba(58, 42, 42, .2);
+  pointer-events: none;
 }
-.toast.celebrate { background: var(--eggplant); }
-.toast-icon { width: 40px; height: 40px; flex: none; background: var(--panel); border-radius: 10px; padding: 2px; }
+.toast.has-action { pointer-events: auto; padding-right: 5px; }
+.toast:not(:has(.toast-icon)) { padding-left: 12px; }
+.toast.celebrate { background: rgba(91, 44, 111, .92); }
+.toast-icon { width: 26px; height: 26px; flex: none; background: var(--panel); border-radius: 50%; padding: 1px; }
 .toast-icon svg { width: 100%; height: 100%; display: block; }
 .toast-text { flex: 1; }
-.toast button { border: 0; background: var(--gold); color: var(--ink); border-radius: 10px; padding: 8px 12px; font-weight: 700; min-height: 40px; }
+.toast button { border: 0; background: var(--gold); color: var(--ink); border-radius: 999px; padding: 6px 12px; font-weight: 700; min-height: 32px; }
 .float { position: fixed; z-index: 55; pointer-events: none; font-family: var(--display); font-size: 1.3rem; color: var(--leaf); text-shadow: 0 2px 0 #fff; }
 
 /* ---------- sheets ---------- */

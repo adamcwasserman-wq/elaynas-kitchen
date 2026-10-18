@@ -27,17 +27,23 @@ export const CHAINS = {
   },
 };
 
-// Producers make level 1 items when tapped. Toronto has one: the pantry crate.
+// Producers ("starter blocks") make level 1 items when tapped. Each tap uses one pantry charge.
 // "weight" is how often each item comes out, compared to the others.
 export const PRODUCERS = {
-  pantry: {
-    name: 'Toronto Pantry',
-    makes: [
-      { chain: 'bakery', tier: 1, weight: 55 },
-      { chain: 'dairy', tier: 1, weight: 45 },
-    ],
+  crate: {
+    name: 'Bakery crate',
+    makes: [{ chain: 'bakery', tier: 1, weight: 1 }],
+  },
+  fridge: {
+    name: 'Dairy fridge',
+    makes: [{ chain: 'dairy', tier: 1, weight: 1 }],
   },
 };
+
+// The game starts with the bakery crate. Others arrive as she serves more orders.
+export const PRODUCER_UNLOCKS = [
+  { producer: 'fridge', afterServed: 2 },
+];
 
 // Dollars a customer pays for one item, by level (level 1 is the first number).
 export const ORDER_VALUE = [2, 5, 11, 24, 50, 105];

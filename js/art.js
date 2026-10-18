@@ -44,7 +44,7 @@ const two = (sp, c, dark, d = 1.6) => E('g', { transform: `translate(${d} ${d})`
 // Shadow on the far side of a shape: the shape minus a copy of itself nudged toward the light.
 function shade(sp, dx = -7, dy = -7, op = .17) {
   const id = `sh${uid++}`;
-  const big = { x: -20, y: -20, width: 140, height: 140 };
+  const big = { x: -20, y: -20, width: 440, height: 260 }; // covers item art and the wide restaurant
   return E('mask', { id, maskUnits: 'userSpaceOnUse', ...big },
     E('rect', { ...big, fill: '#000' }) + fill(sp, '#fff') +
     E('g', { transform: `translate(${dx} ${dy})` }, fill(sp, '#000'))) +
@@ -312,6 +312,60 @@ export const ITEM_ART = {
     return s;
   },
 
+  creamofwheat() {
+    let s = ground(50, 89, 38, 5);
+    const bowl = P('M14,52 L86,52 Q84,84 50,86 Q16,84 14,52 Z');
+    s += body(bowl, K.teal, -8, -4, .2);
+    s += fill(EL(50, 52, 36, 9), '#3fa3a8') + fill(EL(50, 52, 31, 7), '#fff1d6');
+    s += fill(P(blob(56, 51, 9, 3.2, 8, .1, 2)), '#a8561e', { opacity: .9 });
+    for (const [x, y] of [[38, 50], [44, 54], [64, 54]]) s += fill(EL(x, y, 3, 2), K.eggplant);
+    s += E('g', { transform: 'rotate(-30 66 40)' }, fill(R(62, 14, 6, 34, 3), '#d5dae3') + fill(EL(65, 48, 7, 4.5), '#d5dae3'));
+    s += fill(P('M20,64 L80,64 L79,68 L21,68 Z'), K.white, { opacity: .7 });
+    return s + E('path', { d: 'M42,40 C37,34 47,28 42,20', fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: .85 });
+  },
+
+  shortbread() {
+    let s = ground(50, 88, 40, 5);
+    s += fill(EL(50, 80, 42, 9), K.white) + fill(EL(50, 79, 34, 6), '#f1e3c6');
+    const piece = (x, y, rot) => E('g', { transform: `rotate(${rot} ${x} ${y})` },
+      body(R(x - 18, y - 11, 36, 22, 3), '#f6d79a', -4, -4, .18) +
+      [[-10, -4], [0, -4], [10, -4], [-10, 4], [0, 4], [10, 4]].map(([dx, dy]) => fill(C(x + dx, y + dy, 1.3), '#c98a3a')).join('') +
+      shine(R(x - 15, y - 9, 18, 2.4, 1.2), .5));
+    return s + piece(34, 66, -10) + piece(66, 64, 12) + piece(50, 46, -4);
+  },
+
+  cheesedanish() {
+    let s = ground(50, 88, 40, 5);
+    s += body(P(sc('M0,-32 L10,-12 L32,-10 L16,6 L22,30 L0,18 L-22,30 L-16,6 L-32,-10 L-10,-12 Z', 50, 52, 1.05)), '#e29a45', -6, -6, .22);
+    s += fill(C(50, 52, 17), '#c97f35') + fill(P(blob(50, 51, 14, 13, 10, .06, 5)), '#fff6dc');
+    s += fill(EL(46, 47, 5, 3, -20), '#fff', { opacity: .8 });
+    s += line('M28,30 Q50,22 72,32', '#fff', 2.2, { opacity: .8 }) + line('M30,72 Q50,64 70,72', '#fff', 2.2, { opacity: .8 });
+    return s;
+  },
+
+  cheesescones() {
+    let s = ground(50, 88, 40, 5);
+    s += fill(EL(50, 80, 42, 9), K.white) + fill(EL(50, 79, 34, 6), '#f1e3c6');
+    const scone = (x, y) =>
+      body(P(sc('M-15,10 L-15,-2 Q-15,-14 0,-14 Q15,-14 15,-2 L15,10 Q0,14 -15,10 Z', x, y, 1)), '#e3a54f', -4, -4, .2) +
+      fill(P(sc('M-12,-8 Q-6,-15 2,-12 Q8,-16 12,-8 Q6,-6 0,-8 Q-6,-5 -12,-8 Z', x, y, 1)), '#ffd45c') +
+      fill(EL(x - 4, y - 9, 3, 1.4), '#fff4a8') + fill(C(x + 6, y + 2, 1.4), K.leaf) + fill(C(x - 7, y + 4, 1.2), K.leaf);
+    return s + scone(32, 66) + scone(68, 66) + scone(50, 46);
+  },
+
+  bagelmelt() {
+    let s = ground(50, 88, 40, 5);
+    const ring = (cx, cy, rx, ry, hx, hy) => ({ t: 'path', a: { d: ellipsePath(cx, cy, rx, ry) + ellipsePath(cx, cy - 2, hx, hy), 'fill-rule': 'evenodd' } });
+    const bottom = ring(50, 72, 37, 15, 10, 4);
+    s += fill(bottom, '#c97a30') + shade(bottom, -6, -8, .22);
+    s += fill(P('M16,64 L84,64 L86,70 Q80,78 74,72 Q70,80 62,73 Q56,82 48,73 Q40,80 34,72 Q28,78 22,71 Q16,74 14,68 Z'), '#ffcf47');
+    const top = ring(50, 50, 35, 15, 9, 4);
+    s += fill(top, '#e29a45') + shade(top, -5, -6, .18);
+    s += shine(P('M22,46 Q32,38 50,37 Q66,38 76,44 Q64,42 50,42 Q36,42 22,46 Z'), .35);
+    for (const [x, y] of [[32, 43], [40, 39], [58, 38], [68, 42], [28, 52], [72, 52]]) s += fill(EL(x, y, 2, 1), K.cream);
+    return s;
+  },
+
   frenchtoast() {
     let s = ground(50, 89, 44, 5);
     s += fill(EL(50, 80, 44, 9.5), K.white) + fill(EL(50, 79, 36, 6.5), '#f1e3c6');
@@ -328,11 +382,12 @@ export const ITEM_ART = {
   },
 };
 
-// ---------- the pantry crate (Toronto's producer) ----------
+// ---------- starter blocks (producers) ----------
 export const PRODUCER_ART = {
-  pantry() {
+  crate() {
     let s = ground(50, 91, 40, 5);
-    s += fill(R(25, 26, 15, 22, 4), '#ffffff') + fill(R(24, 22, 17, 6, 2), K.teal);
+    s += line('M30,46 L26,14', '#b98a36', 3);
+    for (const y of [18, 25, 32]) s += fill(EL(24, y + 2, 3, 5.5, -25), '#efbb52') + fill(EL(30, y, 3, 5.5, 25), '#efbb52');
     s += E('g', { transform: 'rotate(20 50 34)' }, fill(R(44, 14, 11, 38, 5.5), '#de8f3a') +
       line('M46,24 L53,22 M46,32 L53,30 M46,40 L53,38', '#a8611e', 1.6));
     s += line('M68,46 L73,14', '#b98a36', 3);
@@ -343,6 +398,20 @@ export const PRODUCER_ART = {
     s += fill(R(14, 42, 9, 46, 4), '#b5773a') + fill(R(77, 42, 9, 46, 4), '#b5773a');
     s += fill(R(12, 39, 76, 7, 3.5), '#b5773a') + shine(R(16, 40, 30, 2.4, 1.2), .35);
     s += fill(R(36, 51, 28, 17, 4), K.cream) + tulip(50, 59.5, .6, K.tulip);
+    return s;
+  },
+
+  // A little retro fridge in pale blue, with a milk bottle on top.
+  fridge() {
+    let s = ground(50, 93, 32, 5);
+    s += fill(R(56, 6, 14, 20, 4), '#ffffff') + fill(R(55, 3, 16, 5, 2), K.tulip);
+    const box = R(20, 22, 60, 68, 12);
+    s += body(box, '#bfe4ee', -8, -6, .22);
+    s += fill(R(22, 47, 56, 3), '#8cc9d9');
+    s += fill(R(66, 30, 5, 12, 2.5), '#6aa9bb') + fill(R(66, 56, 5, 18, 2.5), '#6aa9bb');
+    s += fill(R(28, 58, 26, 18, 4), K.white) + fill(C(41, 67, 5.5), K.teal);
+    s += fill(R(26, 88, 8, 5, 2), '#6aa9bb') + fill(R(66, 88, 8, 5, 2), '#6aa9bb');
+    s += shine(R(25, 27, 5, 16, 2.5), .55) + shine(R(25, 54, 5, 26, 2.5), .45);
     return s;
   },
 };
@@ -410,15 +479,30 @@ export function medalSvg(family, tier) {
 
 // ---------- Elayna's restaurant, which changes as it is upgraded ----------
 export function restaurantSvg(has) {
+  const wallColour = has.has('paint') ? '#ffd9b8' : '#f3ead8';
   let s = fill(C(336, 34, 26), '#f7c873');
   if (has.has('oven')) {
     s += fill(R(298, 14, 22, 34, 3), '#c9372a') + fill(R(296, 12, 26, 6, 2), '#a92b1d');
     s += fill(C(306, 6, 6), '#fff', { opacity: .75 }) + fill(C(316, 0, 5), '#fff', { opacity: .6 });
   }
+  if (has.has('rooftop')) {
+    for (const [x0, x1] of [[66, 130], [270, 292]]) {
+      s += fill(R(x0, 34, x1 - x0, 10, 3), '#b5773a');
+      for (let x = x0 + 6; x < x1 - 2; x += 10) s += fill(C(x, 32, 6), x % 20 < 10 ? K.leaf : '#5fb35a');
+      for (let x = x0 + 10; x < x1 - 4; x += 20) s += line(`M${x},34 L${x},24`, K.leaf, 1.6) + tulip(x, 21, .45, K.tulip);
+    }
+  }
   s += fill(R(-10, 184, 420, 40), '#e3c79a');
-  const wall = R(70, 56, 260, 130);
-  s += body(wall, '#fff3dc', -16, 0, .14);
+  s += body(R(70, 56, 260, 130), wallColour, -16, 0, .14);
+  if (has.has('paint')) s += fill(R(70, 176, 260, 10), '#e8b48c');
   s += fill(R(58, 44, 284, 20, 4), K.eggplant);
+  if (has.has('bunting')) {
+    s += line('M60,48 Q130,60 200,50 Q270,60 340,48', K.ink, 1.2);
+    for (let i = 0; i < 14; i++) {
+      const x = 66 + i * 20, y = 50 + Math.sin((i / 13) * Math.PI) * 6;
+      s += fill(P(`M${x - 6},${y} L${x + 6},${y} L${x},${y + 11} Z`), i % 2 ? '#fff3dc' : K.tulip);
+    }
+  }
   s += fill(R(136, 8, 128, 40, 10), K.eggplant);
   s += E('text', { x: 200, y: 36, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 23, fill: '#fff3dc' }, "Elayna's");
   if (has.has('awning')) {
@@ -431,12 +515,21 @@ export function restaurantSvg(has) {
   const lit = has.has('oven');
   for (const x of [92, 252]) {
     s += fill(R(x, 112, 76, 56, 4), lit ? '#ffd77a' : '#bfe0e6');
-    if (lit) {
-      s += fill(R(x + 8, 118, 60, 44, 3), '#fff2b8', { opacity: .75 });
+    if (lit) s += fill(R(x + 8, 118, 60, 44, 3), '#fff2b8', { opacity: .75 });
+    if (x === 92 && has.has('display')) {
+      s += fill(R(x + 6, 158, 64, 4, 1), '#b5773a');
+      s += fill(R(x + 12, 146, 18, 12, 2), '#fff1cf') + fill(R(x + 12, 144, 18, 4, 2), '#d7263d');
+      s += fill(EL(x + 40, 152, 9, 6), '#e29a45') + fill(EL(x + 40, 149, 7, 3), '#5a3324');
+      s += fill(R(x + 52, 148, 12, 10, 2), '#f9d6e2') + fill(C(x + 58, 146, 3), K.tulip);
+    } else if (lit) {
       for (const px of [x + 22, x + 54]) {
         s += fill(P(`M${px - 9},168 Q${px - 9},148 ${px},148 Q${px + 9},148 ${px + 9},168 Z`), K.eggplant, { opacity: .28 });
         s += fill(C(px, 140, 6.5), K.eggplant, { opacity: .28 });
       }
+    }
+    if (x === 252 && has.has('neon')) {
+      s += fill(R(x + 12, 118, 52, 18, 9), '#3d2a44');
+      s += E('text', { x: x + 38, y: 132, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 13, fill: '#ff8fb0' }, 'OPEN');
     }
     s += shine(P(`M${x + 8},164 L${x + 30},116 L${x + 40},116 L${x + 18},164 Z`), .4);
     s += line(`M${x + 38},113 L${x + 38},167 M${x + 1},140 L${x + 75},140`, '#fff3dc', 3);
@@ -452,15 +545,24 @@ export function restaurantSvg(has) {
   }
   s += fill(P('M182,186 L182,128 Q182,114 200,114 Q218,114 218,128 L218,186 Z'), K.teal);
   s += fill(C(200, 131, 7), lit ? '#fff2b8' : '#bfe0e6') + fill(C(211, 156, 2.6), K.gold);
+  if (has.has('trees')) {
+    s += fill(R(178, 184, 44, 6, 2), K.tulip);
+    for (const tx of [174, 226]) {
+      s += fill(P(`M${tx - 7},172 L${tx + 7},172 L${tx + 5},186 L${tx - 5},186 Z`), '#c9772b');
+      s += line(`M${tx},172 L${tx},160`, '#7a4b3a', 2) + fill(C(tx, 154, 9), K.leaf) + fill(C(tx - 3, 151, 3), '#7cc46e');
+    }
+  }
   if (has.has('lights')) {
     let wire = 'M74,104';
     for (let i = 0; i < 8; i++) wire += ` Q${80 + i * 32},112 ${106 + i * 32},104`;
     s += line(wire, K.ink, 1.2);
     for (let i = 0; i < 8; i++) s += fill(C(90 + i * 32, 109, 6), '#ffd34d', { opacity: .35 }) + fill(C(90 + i * 32, 109, 2.8), '#ffd34d');
   }
+  if (has.has('bench')) {
+    s += fill(R(8, 160, 52, 6, 2), '#b5773a') + fill(R(8, 170, 52, 5, 2), '#c98a4a');
+    s += fill(R(12, 175, 4, 10), '#7a4b3a') + fill(R(52, 175, 4, 10), '#7a4b3a');
+  }
   if (has.has('patio')) {
-    s += fill(R(22, 146, 32, 40, 3), '#3d3a3a');
-    for (const y of [156, 164, 172]) s += fill(R(28, y, 20, 2.4, 1.2), '#fff', { opacity: .8 });
     s += line('M366,118 L366,184', K.ink, 2.4);
     for (let i = 0; i < 4; i++) {
       const x0 = 338 + i * 14;
