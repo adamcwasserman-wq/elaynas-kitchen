@@ -1,0 +1,56 @@
+// Keeps a copy of the game on the phone so it works with no connection.
+// When you change any game file, bump VERSION so phones pick up the new copy.
+
+const VERSION = 'ek-0.2.0';
+const FILES = [
+  './',
+  'index.html',
+  'manifest.webmanifest',
+  'css/game.css',
+  'js/main.js',
+  'js/art.js',
+  'js/save.js',
+  'data/config.js',
+  'data/items.js',
+  'data/customers.js',
+  'data/orders.js',
+  'data/recipes.js',
+  'data/badges.js',
+  'data/restaurant.js',
+  'icons/icon-192.png',
+  'icons/icon-512.png',
+  'icons/icon-maskable-512.png',
+];
+
+self.addEventListener('install', event => {
+  event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
+});
+
+self.addEventListener('activate', event => {
+  event.waitUntil(
+    caches.keys()
+      .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
+      .then(() => self.clients.claim())
+  );
+});
+
+// Serve from the saved copy first, and refresh that copy in the background when online.
+// Fonts from Google are saved the first time they load.
+self.addEventListener('fetch', event => {
+  const req = event.request;
+  if (req.method !== 'GET') return;
+  const url = new URL(req.url);
+  const isFont = url.hostname === 'fonts.googleapis.com' || url.hostname === 'fonts.gstatic.com';
+  if (url.origin !== location.origin && !isFont) return;
+
+  event.respondWith(
+    caches.open(VERSION).then(async cache => {
+      const cached = await cache.match(req, { ignoreSearch: true });
+      const fresh = fetch(req).then(res => {
+        if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone());
+        return res;
+      }).catch(() => cached);
+      return cached || fresh;
+    })
+  );
+});

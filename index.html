@@ -1,0 +1,135 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Elayna's Kitchen</title>
+<meta name="description" content="A cozy merge and cooking game, made for Elayna.">
+<meta name="theme-color" content="#f9dcb5">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" type="image/png" href="icons/icon-192.png">
+<link rel="apple-touch-icon" href="icons/icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Righteous&display=swap">
+<link rel="stylesheet" href="css/game.css">
+</head>
+<body>
+<div id="app">
+  <header class="top">
+    <button class="brand" id="brand" aria-label="Your restaurant"><span class="brand-name">Elayna's<i class="dot" id="brand-dot" hidden></i></span><span class="city">Toronto</span></button>
+    <div class="pills">
+      <div class="pill money" id="money" aria-label="Dollars"><span class="icon"></span><b id="money-n">0</b></div>
+      <button class="pill charges" id="charges" aria-label="Pantry charges">
+        <span class="icon"></span><span class="charges-text"><b id="charges-n">0</b><small id="charges-t"></small></span>
+      </button>
+    </div>
+  </header>
+
+  <section class="orders" id="orders" aria-label="Customer orders"></section>
+
+  <div class="tip" id="tip" hidden></div>
+
+  <main class="board-wrap">
+    <div class="board" id="board" aria-label="Merge board"></div>
+  </main>
+
+  <div class="foot">
+    <div class="chainpop" id="chainpop" hidden></div>
+    <div class="bar">
+      <div class="info" id="info"></div>
+      <button class="round-btn" id="hint-btn" aria-label="Show me a hint"></button>
+    </div>
+    <nav class="nav">
+      <button class="nav-btn" id="nav-restaurant"><span class="nav-icon"></span><span>Restaurant</span><i class="dot" hidden></i></button>
+      <button class="nav-btn" id="nav-recipes"><span class="nav-icon"></span><span>Recipes</span></button>
+      <button class="nav-btn" id="nav-badges"><span class="nav-icon"></span><span>Badges</span></button>
+      <button class="nav-btn" id="settings-btn"><span class="nav-icon"></span><span>Settings</span></button>
+    </nav>
+  </div>
+</div>
+
+<div class="celebrate" id="celebrate" hidden>
+  <div class="cele-card" role="dialog" aria-live="polite">
+    <p class="cele-title"></p>
+    <div class="cele-art"></div>
+    <p class="cele-name"></p>
+    <p class="cele-line"></p>
+    <p class="cele-reward"></p>
+    <p class="cele-tap">Tap to carry on</p>
+  </div>
+</div>
+
+<div class="sheet" id="restaurant" hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="rest-title">
+    <h2 id="rest-title">Elayna's, Toronto</h2>
+    <div class="rest-art" id="rest-art"></div>
+    <p class="muted small" id="rest-count"></p>
+    <ul class="list" id="rest-list"></ul>
+    <button class="btn ghost" data-close>Close</button>
+  </div>
+</div>
+
+<div class="sheet" id="recipes" hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="recipes-title">
+    <h2 id="recipes-title">Recipe book</h2>
+    <p class="muted small" id="recipe-count"></p>
+    <ul class="list" id="recipe-list"></ul>
+    <button class="btn ghost" data-close>Close</button>
+  </div>
+</div>
+
+<div class="sheet" id="badges" hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="badges-title">
+    <h2 id="badges-title">Badges</h2>
+    <p class="muted small" id="badge-count"></p>
+    <ul class="list" id="badge-list"></ul>
+    <button class="btn ghost" data-close>Close</button>
+  </div>
+</div>
+
+<div class="toast" id="toast" role="status" hidden></div>
+
+<div class="sheet" id="refill" hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="refill-title">
+    <h2 id="refill-title">Pantry charges</h2>
+    <p class="big-count"><b id="rf-charges">0</b> / <span id="rf-max">0</span></p>
+    <p id="rf-timer" class="muted"></p>
+    <button class="btn primary" id="rf-free"></button>
+    <button class="btn" id="rf-buy"></button>
+    <p id="rf-note" class="muted small"></p>
+    <button class="btn ghost" data-close>Close</button>
+  </div>
+</div>
+
+<div class="sheet" id="settings" hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="settings-title">
+    <h2 id="settings-title">Settings</h2>
+    <label class="toggle"><span>Vibration</span><input type="checkbox" id="set-vibrate"></label>
+
+    <h3>Backup</h3>
+    <p class="muted small">The game saves on this phone by itself. A backup keeps your progress safe if the browser is ever cleared.</p>
+    <div class="btn-row">
+      <button class="btn" id="bk-copy">Copy backup code</button>
+      <button class="btn" id="bk-download">Save backup file</button>
+    </div>
+    <details id="restore">
+      <summary>Restore a backup</summary>
+      <textarea id="bk-text" rows="3" placeholder="Paste a backup code here" aria-label="Backup code"></textarea>
+      <div class="btn-row">
+        <button class="btn" id="bk-restore">Restore from code</button>
+        <label class="btn file-btn">Restore from file<input type="file" id="bk-file" accept=".txt,.json,text/plain,application/json"></label>
+      </div>
+    </details>
+
+    <h3>Start over</h3>
+    <button class="btn danger" id="reset">Start a new game</button>
+
+    <p class="muted small version">Elayna's Kitchen · version 0.2, phase 2</p>
+    <button class="btn ghost" data-close>Close</button>
+  </div>
+</div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
