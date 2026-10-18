@@ -266,10 +266,12 @@ export const ITEM_ART = {
       s += fill(P(d), '#a8561e');
     s += fill(P('M42,46 L52,42 L62,46 L52,50 Z'), '#fff4c8') + fill(P('M42,46 L52,50 L52,54 L42,50 Z'), '#f1cf6a') + fill(P('M52,50 L62,46 L62,50 L52,54 Z'), '#e0b237');
     s += shine(EL(36, 49, 6, 1.6, -8), .55);
+    s += fill(EL(70, 47, 8, 4.5, 10), '#ffd84a') + fill(EL(70, 46.5, 6.5, 3.4, 10), '#fff4a8');
+    s += line('M64,46 L76,48 M70,43 L70,51', '#ffd84a', 1);
     return s;
   },
 
-  buttertart() {
+  pecanpie() {
     let s = ground(50, 88, 40, 5);
     const side = P('M12,58 L20,78 Q50,92 80,78 L88,58 Z');
     s += body(side, '#c47a35', -8, 0, .2);
@@ -280,21 +282,10 @@ export const ITEM_ART = {
     s += fill(EL(50, 58, 37, 17), '#e2a04f');
     s += fill(EL(50, 57, 29, 12), '#9c4f17');
     s += fill(EL(50, 56, 25, 9.5), '#b8661f');
-    for (const [x, y] of [[40, 56], [56, 60], [60, 52]]) s += fill(EL(x, y, 3.4, 2.4), '#5a3324');
-    s += shine(EL(40, 52, 9, 2.6, -8), .6);
+    for (const [x, y, rot] of [[38, 55, -20], [50, 50, 10], [62, 55, 30], [44, 61, 0], [57, 62, -15]])
+      s += fill(EL(x, y, 6, 3.2, rot), '#8a4a22') + fill(EL(x - 1, y - 1, 3.5, 1.2, rot), '#a8612e');
+    s += shine(EL(40, 51, 7, 2, -8), .5);
     return s;
-  },
-
-  rugelach() {
-    let s = ground(50, 87, 42, 5);
-    const piece = (cx, cy, rot) => E('g', { transform: `rotate(${rot} ${cx} ${cy})` },
-      fill(EL(cx - 14, cy + 3, 6.5, 5.5), '#b8692a') + fill(EL(cx + 14, cy + 3, 6.5, 5.5), '#b8692a') +
-      body(EL(cx, cy, 15, 10.5), '#e29a45', -4, -4, .2) +
-      line(`M${cx - 8},${cy - 9} Q${cx - 3},${cy} ${cx - 8},${cy + 9}`, '#5a3324', 2.4) +
-      line(`M${cx + 2},${cy - 10} Q${cx + 7},${cy} ${cx + 2},${cy + 10}`, '#5a3324', 2.4) +
-      shine(EL(cx - 4, cy - 6, 5, 1.6), .5) +
-      fill(C(cx - 2, cy - 2, 1.1), '#fff') + fill(C(cx + 6, cy + 3, 1.1), '#fff') + fill(C(cx - 10, cy + 2, 1.1), '#fff'));
-    return s + piece(30, 68, -14) + piece(70, 68, 14) + piece(50, 46, 0);
   },
 
   schmear() {
@@ -312,16 +303,16 @@ export const ITEM_ART = {
     return s;
   },
 
-  creamofwheat() {
+  granola() {
     let s = ground(50, 89, 38, 5);
     const bowl = P('M14,52 L86,52 Q84,84 50,86 Q16,84 14,52 Z');
     s += body(bowl, K.teal, -8, -4, .2);
-    s += fill(EL(50, 52, 36, 9), '#3fa3a8') + fill(EL(50, 52, 31, 7), '#fff1d6');
-    s += fill(P(blob(56, 51, 9, 3.2, 8, .1, 2)), '#a8561e', { opacity: .9 });
-    for (const [x, y] of [[38, 50], [44, 54], [64, 54]]) s += fill(EL(x, y, 3, 2), K.eggplant);
-    s += E('g', { transform: 'rotate(-30 66 40)' }, fill(R(62, 14, 6, 34, 3), '#d5dae3') + fill(EL(65, 48, 7, 4.5), '#d5dae3'));
+    s += fill(EL(50, 52, 36, 9), '#3fa3a8') + fill(EL(50, 52, 31, 7), '#fff8ea');
+    const r = rng(11);
+    for (let i = 0; i < 16; i++) s += fill(C(26 + r() * 48, 45 + r() * 10, 3 + r() * 2.5), r() > .5 ? '#c98a3a' : '#a8692a');
+    for (const [x, y] of [[36, 46], [58, 44], [66, 52], [44, 54]]) s += fill(C(x, y, 3.2), K.tulip) + fill(C(x - 1, y - 1, .9), '#fff', { opacity: .6 });
     s += fill(P('M20,64 L80,64 L79,68 L21,68 Z'), K.white, { opacity: .7 });
-    return s + E('path', { d: 'M42,40 C37,34 47,28 42,20', fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: .85 });
+    return s;
   },
 
   shortbread() {
@@ -330,7 +321,8 @@ export const ITEM_ART = {
     const piece = (x, y, rot) => E('g', { transform: `rotate(${rot} ${x} ${y})` },
       body(R(x - 18, y - 11, 36, 22, 3), '#f6d79a', -4, -4, .18) +
       [[-10, -4], [0, -4], [10, -4], [-10, 4], [0, 4], [10, 4]].map(([dx, dy]) => fill(C(x + dx, y + dy, 1.3), '#c98a3a')).join('') +
-      shine(R(x - 15, y - 9, 18, 2.4, 1.2), .5));
+      shine(R(x - 15, y - 9, 18, 2.4, 1.2), .5) +
+      fill(EL(x + 3, y + 1, 7, 4), '#8a4a22') + line(`M${x - 3},${y + 1} L${x + 9},${y + 1}`, '#5a3324', 1.2));
     return s + piece(34, 66, -10) + piece(66, 64, 12) + piece(50, 46, -4);
   },
 
@@ -343,7 +335,7 @@ export const ITEM_ART = {
     return s;
   },
 
-  cheesescones() {
+  biscuits() {
     let s = ground(50, 88, 40, 5);
     s += fill(EL(50, 80, 42, 9), K.white) + fill(EL(50, 79, 34, 6), '#f1e3c6');
     const scone = (x, y) =>
@@ -366,12 +358,109 @@ export const ITEM_ART = {
     return s;
   },
 
+  muffins() {
+    let s = ground(50, 89, 40, 5);
+    const muffin = (x, y, s1) => {
+      const liner = P(sc('M-15,0 L15,0 L11,20 L-11,20 Z', x, y, s1));
+      let m = fill(liner, K.tulip) + shade(liner, -4, 0, .2);
+      for (let i = -3; i <= 3; i++) m += line(`M${x + i * 4 * s1},${y + 1} L${x + i * 3 * s1},${y + 19 * s1}`, '#c7354b', 1.2);
+      const top = P(sc('M-18,2 Q-20,-16 0,-18 Q20,-16 18,2 Q0,6 -18,2 Z', x, y, s1));
+      m += body(top, '#e8a64e', -4, -4, .2) + shine(EL(x - 6 * s1, y - 10 * s1, 5 * s1, 2.4 * s1, -20), .5);
+      for (const [dx, dy] of [[-8, -6], [4, -11], [9, -3], [-2, -2]]) m += fill(C(x + dx * s1, y + dy * s1, 2 * s1), '#fffaf0');
+      for (const [dx, dy] of [[-4, -9], [7, -8], [-10, -1]]) m += fill(R(x + dx * s1, y + dy * s1, 3 * s1, 1.2 * s1, .6), K.leaf);
+      return m;
+    };
+    return s + muffin(64, 54, .9) + muffin(36, 62, 1);
+  },
+
+  kugel() {
+    let s = ground(50, 88, 42, 5);
+    const dish = R(10, 40, 80, 46, 12);
+    s += body(dish, '#ffffff', -6, -6, .2);
+    s += fill(R(16, 44, 68, 36, 8), '#f2c272');
+    for (let i = 0; i < 5; i++) s += line(`M20,${50 + i * 6} Q30,${46 + i * 6} 40,${50 + i * 6} T60,${50 + i * 6} T80,${50 + i * 6}`, '#e0a84f', 2);
+    for (const [x, y] of [[28, 50], [52, 56], [70, 48], [40, 70], [64, 70]]) s += fill(EL(x, y, 5, 3), '#c97f35', { opacity: .7 });
+    const r = rng(5);
+    for (let i = 0; i < 14; i++) s += fill(C(20 + r() * 60, 46 + r() * 30, .9), '#7a4b3a');
+    s += fill(R(4, 52, 8, 10, 4), '#ffffff') + fill(R(88, 52, 8, 10, 4), '#ffffff');
+    return s + shine(R(16, 44, 30, 3, 1.5), .4);
+  },
+
+  cheesebread() {
+    let s = ground(50, 88, 40, 5);
+    const loaf = P('M14,76 L14,56 Q14,30 50,30 Q86,30 86,56 L86,76 Q50,84 14,76 Z');
+    s += body(loaf, '#d9913f', -7, -7, .22);
+    for (const x of [32, 50, 68]) {
+      s += fill(P(`M${x - 8},${40} L${x + 6},${36} L${x + 8},${46} L${x - 6},${50} Z`), '#f6d79a');
+      s += fill(P(`M${x - 6},${46} Q${x - 4},${56} ${x - 1},${54} Q${x + 1},${60} ${x + 4},${50} L${x + 7},${44} Z`), '#ffcf47');
+    }
+    s += shine(EL(30, 38, 9, 3, -15), .4);
+    return s;
+  },
+
+  maccheese() {
+    let s = ground(50, 89, 38, 5);
+    const bowl = P('M12,50 L88,50 Q86,86 50,88 Q14,86 12,50 Z');
+    s += body(bowl, K.tulip, -8, -4, .2);
+    s += fill(EL(50, 50, 38, 10), '#c7354b') + fill(EL(50, 50, 33, 8), '#ffd45c');
+    const r = rng(8);
+    for (let i = 0; i < 14; i++) {
+      const x = 24 + r() * 52, y = 42 + r() * 12, a = r() * 6.28;
+      s += line(`M${x},${y} q${(Math.cos(a) * 5).toFixed(1)},${(Math.sin(a) * 5 - 4).toFixed(1)} ${(Math.cos(a) * 9).toFixed(1)},${(Math.sin(a) * 4).toFixed(1)}`, '#f7b733', 3.6);
+    }
+    for (let i = 0; i < 10; i++) s += fill(C(26 + r() * 48, 44 + r() * 10, 1.2), '#c97f35');
+    return s + fill(P('M18,62 L82,62 L81,66 L19,66 Z'), K.white, { opacity: .5 });
+  },
+
+  grilledcheese() {
+    let s = ground(50, 88, 42, 5);
+    s += fill(EL(50, 80, 42, 9), K.white) + fill(EL(50, 79, 34, 6), '#f1e3c6');
+    const half = (pts, rot, cx, cy) => E('g', { transform: `rotate(${rot} ${cx} ${cy})` },
+      fill(P(pts), '#b8692a') + fill(P(pts), '#e8a64e', { transform: 'translate(0 -5)' }) +
+      fill(P(sc('M-14,2 L14,2 L12,7 Q8,11 6,6 Q2,12 -2,6 Q-6,11 -9,6 Z', cx, cy + 2, 1)), '#ffcf47'));
+    s += half('M22,74 L22,46 L62,74 Z', -6, 38, 64) + half('M40,70 L78,44 L78,70 Z', 4, 62, 60);
+    s += shine(EL(30, 50, 3, 7, 10), .3) + shine(EL(70, 52, 3, 7, -10), .3);
+    return s;
+  },
+
+  spongecake() {
+    let s = ground(50, 89, 42, 5);
+    s += fill(EL(50, 82, 42, 9), K.white) + fill(EL(50, 81, 34, 6), '#f1e3c6');
+    const side = P('M16,44 L16,74 A34,10 0 0,0 84,74 L84,44 Z');
+    s += body(side, '#fbe3a2', -8, 0, .18);
+    s += fill(EL(50, 44, 34, 10), '#e8b45c');
+    s += fill(EL(50, 44, 30, 8), '#f2c46e');
+    s += fill(EL(50, 44, 8, 3), '#d9a04a');
+    const r = rng(4);
+    for (let i = 0; i < 20; i++) s += fill(C(22 + r() * 56, 38 + r() * 12, 1), '#fff', { opacity: .9 });
+    for (const [x, y] of [[26, 58], [40, 64], [60, 60], [74, 66], [50, 70]]) s += fill(C(x, y, 1.6), '#e8c47a');
+    return s + shine(R(20, 48, 4, 20, 2), .35);
+  },
+
+  chococheesecake() {
+    let s = ground(50, 89, 42, 5);
+    s += fill(EL(50, 82, 41, 9), K.white) + fill(EL(50, 81, 33, 6), '#f1e3c6');
+    const side = P('M20,50 L20,74 A30,9 0 0,0 80,74 L80,50 Z');
+    s += body(side, '#8a5a40', -8, 0, .16);
+    s += fill(P('M20,69 L20,74 A30,9 0 0,0 80,74 L80,69 A30,9 0 0,1 20,69 Z'), '#3d2318');
+    s += fill(EL(50, 50, 30, 9), '#4a2a1c');
+    for (const d of ['M28,53 Q27,62 31,62 Q34,62 33,55 Z', 'M46,57 Q45,65 49,65 Q52,65 51,57 Z', 'M66,55 Q66,61 69,61 Q72,61 71,53 Z'])
+      s += fill(P(d), '#4a2a1c');
+    for (const [x, y] of [[42, 45], [58, 44]]) {
+      s += fill(P(sc('M0,-6 C6,-6 8,0 0,8 C-8,0 -6,-6 0,-6 Z', x, y, 1)), K.tulip);
+      s += fill(EL(x, y - 6.5, 4, 1.6), K.leaf);
+    }
+    for (const [x, y] of [[32, 49], [66, 50], [50, 53]]) s += fill(EL(x, y, 3, 1, 20), '#fff4e0');
+    return s + shine(EL(36, 48, 6, 1.6, -10), .3);
+  },
+
   frenchtoast() {
     let s = ground(50, 89, 44, 5);
     s += fill(EL(50, 80, 44, 9.5), K.white) + fill(EL(50, 79, 36, 6.5), '#f1e3c6');
     const SLICE = 'M-20,18 L-20,-8 Q-24,-22 -10,-22 Q0,-30 10,-22 Q24,-22 20,-8 L20,18 Z';
     const slice = (x, y, rot) => E('g', { transform: `rotate(${rot} ${x} ${y})` },
       body(P(sc(SLICE, x, y, 1)), '#b8692a', -4, -4, .2) + fill(P(sc(SLICE, x, y + 1, .8)), '#f2c272') +
+      fill(R(x - 20, y + 4, 40, 6, 2), '#fffaf0') +
       shine(EL(x - 6, y - 10, 6, 2.4, -10), .45));
     s += slice(36, 58, -14) + slice(64, 56, 12);
     const r = rng(3);
@@ -478,100 +567,100 @@ export function medalSvg(family, tier) {
 }
 
 // ---------- Elayna's restaurant, which changes as it is upgraded ----------
-export function restaurantSvg(has) {
-  const wallColour = has.has('paint') ? '#ffd9b8' : '#f3ead8';
-  let s = fill(C(336, 34, 26), '#f7c873');
-  if (has.has('oven')) {
-    s += fill(R(298, 14, 22, 34, 3), '#c9372a') + fill(R(296, 12, 26, 6, 2), '#a92b1d');
-    s += fill(C(306, 6, 6), '#fff', { opacity: .75 }) + fill(C(316, 0, 5), '#fff', { opacity: .6 });
-  }
-  if (has.has('rooftop')) {
+// opts.paint / opts.awning: the colours she picked. opts.colour: 0 to 1, how much colour the
+// original building has (it fills in as she upgrades). opts.focus: an upgrade to outline in purple.
+export function restaurantSvg(has, opts = {}) {
+  const wallColour = has.has('paint') ? (opts.paint || '#ffd9b8') : '#f3ead8';
+  const awn = opts.awning || K.eggplant;
+  const grey = Math.max(0, 1 - (opts.colour ?? 1));
+  const glow = 'filter:drop-shadow(0 0 1.5px #5b2c6f) drop-shadow(0 0 1.5px #5b2c6f) drop-shadow(0 0 6px #b57fd0)';
+  const part = (id, inner) => {
+    if (!inner) return '';
+    if (id === 'base') return grey ? `<g style="filter:grayscale(${grey.toFixed(2)})">${inner}</g>` : inner;
+    return opts.focus === id ? `<g style="${glow}">${inner}</g>` : `<g>${inner}</g>`;
+  };
+  const when = (id, fn) => has.has(id) ? part(id, fn()) : '';
+  const lit = has.has('oven');
+  let s = part('base', fill(C(336, 34, 26), '#f7c873'));
+  s += when('oven', () => fill(R(298, 14, 22, 34, 3), '#c9372a') + fill(R(296, 12, 26, 6, 2), '#a92b1d') +
+    fill(C(306, 6, 6), '#fff', { opacity: .75 }) + fill(C(316, 0, 5), '#fff', { opacity: .6 }));
+  s += when('rooftop', () => {
+    let r = '';
     for (const [x0, x1] of [[66, 130], [270, 292]]) {
-      s += fill(R(x0, 34, x1 - x0, 10, 3), '#b5773a');
-      for (let x = x0 + 6; x < x1 - 2; x += 10) s += fill(C(x, 32, 6), x % 20 < 10 ? K.leaf : '#5fb35a');
-      for (let x = x0 + 10; x < x1 - 4; x += 20) s += line(`M${x},34 L${x},24`, K.leaf, 1.6) + tulip(x, 21, .45, K.tulip);
+      r += fill(R(x0, 34, x1 - x0, 10, 3), '#b5773a');
+      for (let x = x0 + 6; x < x1 - 2; x += 10) r += fill(C(x, 32, 6), x % 20 < 10 ? K.leaf : '#5fb35a');
+      for (let x = x0 + 10; x < x1 - 4; x += 20) r += line(`M${x},34 L${x},24`, K.leaf, 1.6) + tulip(x, 21, .45, K.tulip);
     }
-  }
-  s += fill(R(-10, 184, 420, 40), '#e3c79a');
-  s += body(R(70, 56, 260, 130), wallColour, -16, 0, .14);
-  if (has.has('paint')) s += fill(R(70, 176, 260, 10), '#e8b48c');
-  s += fill(R(58, 44, 284, 20, 4), K.eggplant);
-  if (has.has('bunting')) {
-    s += line('M60,48 Q130,60 200,50 Q270,60 340,48', K.ink, 1.2);
+    return r;
+  });
+  s += part('base', fill(R(-10, 184, 420, 40), '#e3c79a'));
+  s += has.has('paint') ? part('paint', body(R(70, 56, 260, 130), wallColour, -16, 0, .14) + fill(R(70, 176, 260, 10), '#000', { opacity: .08 }))
+    : part('base', body(R(70, 56, 260, 130), wallColour, -16, 0, .14));
+  s += part('base', fill(R(58, 44, 284, 20, 4), K.eggplant));
+  s += when('bunting', () => {
+    let b = line('M60,48 Q130,60 200,50 Q270,60 340,48', K.ink, 1.2);
     for (let i = 0; i < 14; i++) {
       const x = 66 + i * 20, y = 50 + Math.sin((i / 13) * Math.PI) * 6;
-      s += fill(P(`M${x - 6},${y} L${x + 6},${y} L${x},${y + 11} Z`), i % 2 ? '#fff3dc' : K.tulip);
+      b += fill(P(`M${x - 6},${y} L${x + 6},${y} L${x},${y + 11} Z`), i % 2 ? '#fff3dc' : K.tulip);
     }
-  }
-  s += fill(R(136, 8, 128, 40, 10), K.eggplant);
-  s += E('text', { x: 200, y: 36, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 23, fill: '#fff3dc' }, "Elayna's");
-  if (has.has('awning')) {
+    return b;
+  });
+  s += part('base', fill(R(136, 8, 128, 40, 10), K.eggplant) +
+    E('text', { x: 200, y: 36, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 23, fill: '#fff3dc' }, "Elayna's"));
+  s += when('awning', () => {
+    let a = '';
     for (let i = 0; i < 10; i++) {
       const x = 80 + i * 24;
-      s += fill(P(`M${x},70 L${x + 24},70 L${x + 24},94 Q${x + 12},108 ${x},94 Z`), i % 2 ? '#fff3dc' : K.eggplant);
+      a += fill(P(`M${x},70 L${x + 24},70 L${x + 24},94 Q${x + 12},108 ${x},94 Z`), i % 2 ? '#fff3dc' : awn);
     }
-    s += fill(R(76, 66, 248, 8, 3), K.eggplant) + fill(R(70, 100, 260, 7), K.shadow, { opacity: .14 });
-  }
-  const lit = has.has('oven');
+    return a + fill(R(76, 66, 248, 8, 3), awn) + fill(R(70, 100, 260, 7), K.shadow, { opacity: .14 });
+  });
   for (const x of [92, 252]) {
-    s += fill(R(x, 112, 76, 56, 4), lit ? '#ffd77a' : '#bfe0e6');
-    if (lit) s += fill(R(x + 8, 118, 60, 44, 3), '#fff2b8', { opacity: .75 });
-    if (x === 92 && has.has('display')) {
-      s += fill(R(x + 6, 158, 64, 4, 1), '#b5773a');
-      s += fill(R(x + 12, 146, 18, 12, 2), '#fff1cf') + fill(R(x + 12, 144, 18, 4, 2), '#d7263d');
-      s += fill(EL(x + 40, 152, 9, 6), '#e29a45') + fill(EL(x + 40, 149, 7, 3), '#5a3324');
-      s += fill(R(x + 52, 148, 12, 10, 2), '#f9d6e2') + fill(C(x + 58, 146, 3), K.tulip);
-    } else if (lit) {
+    let w = fill(R(x, 112, 76, 56, 4), lit ? '#ffd77a' : '#bfe0e6');
+    if (lit) w += fill(R(x + 8, 118, 60, 44, 3), '#fff2b8', { opacity: .75 });
+    if (lit && !(x === 92 && has.has('display'))) {
       for (const px of [x + 22, x + 54]) {
-        s += fill(P(`M${px - 9},168 Q${px - 9},148 ${px},148 Q${px + 9},148 ${px + 9},168 Z`), K.eggplant, { opacity: .28 });
-        s += fill(C(px, 140, 6.5), K.eggplant, { opacity: .28 });
+        w += fill(P(`M${px - 9},168 Q${px - 9},148 ${px},148 Q${px + 9},148 ${px + 9},168 Z`), K.eggplant, { opacity: .28 });
+        w += fill(C(px, 140, 6.5), K.eggplant, { opacity: .28 });
       }
     }
-    if (x === 252 && has.has('neon')) {
-      s += fill(R(x + 12, 118, 52, 18, 9), '#3d2a44');
-      s += E('text', { x: x + 38, y: 132, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 13, fill: '#ff8fb0' }, 'OPEN');
-    }
-    s += shine(P(`M${x + 8},164 L${x + 30},116 L${x + 40},116 L${x + 18},164 Z`), .4);
-    s += line(`M${x + 38},113 L${x + 38},167 M${x + 1},140 L${x + 75},140`, '#fff3dc', 3);
+    s += part('base', w);
+    if (x === 92) s += when('display', () => fill(R(x + 6, 158, 64, 4, 1), '#b5773a') +
+      fill(R(x + 12, 146, 18, 12, 2), '#fff1cf') + fill(R(x + 12, 144, 18, 4, 2), '#d7263d') +
+      fill(EL(x + 40, 152, 9, 6), '#e29a45') + fill(EL(x + 40, 149, 7, 3), '#5a3324') +
+      fill(R(x + 52, 148, 12, 10, 2), '#f9d6e2') + fill(C(x + 58, 146, 3), K.tulip));
+    if (x === 252) s += when('neon', () => fill(R(x + 12, 118, 52, 18, 9), '#3d2a44') +
+      E('text', { x: x + 38, y: 132, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 13, fill: '#ff8fb0' }, 'OPEN'));
+    s += part('base', shine(P(`M${x + 8},164 L${x + 30},116 L${x + 40},116 L${x + 18},164 Z`), .4) +
+      line(`M${x + 38},113 L${x + 38},167 M${x + 1},140 L${x + 75},140`, '#fff3dc', 3));
     if (has.has('tulips')) {
-      s += fill(R(x - 4, 166, 84, 14, 3), K.teal);
-      for (let j = 0; j < 5; j++) {
+      s += part('tulips', fill(R(x - 4, 166, 84, 14, 3), K.teal) + [0, 1, 2, 3, 4].map(j => {
         const tx = x + 8 + j * 15;
-        s += line(`M${tx},162 L${tx},170`, K.leaf, 2.2) + tulip(tx, 155, .72, j % 2 ? '#8b55a6' : K.tulip);
-      }
+        return line(`M${tx},162 L${tx},170`, K.leaf, 2.2) + tulip(tx, 155, .72, j % 2 ? '#8b55a6' : K.tulip);
+      }).join(''));
     } else {
-      s += fill(R(x - 4, 166, 84, 5, 2), '#e3c79a');
+      s += part('base', fill(R(x - 4, 166, 84, 5, 2), '#e3c79a'));
     }
   }
-  s += fill(P('M182,186 L182,128 Q182,114 200,114 Q218,114 218,128 L218,186 Z'), K.teal);
-  s += fill(C(200, 131, 7), lit ? '#fff2b8' : '#bfe0e6') + fill(C(211, 156, 2.6), K.gold);
-  if (has.has('trees')) {
-    s += fill(R(178, 184, 44, 6, 2), K.tulip);
-    for (const tx of [174, 226]) {
-      s += fill(P(`M${tx - 7},172 L${tx + 7},172 L${tx + 5},186 L${tx - 5},186 Z`), '#c9772b');
-      s += line(`M${tx},172 L${tx},160`, '#7a4b3a', 2) + fill(C(tx, 154, 9), K.leaf) + fill(C(tx - 3, 151, 3), '#7cc46e');
-    }
-  }
-  if (has.has('lights')) {
+  s += part('base', fill(P('M182,186 L182,128 Q182,114 200,114 Q218,114 218,128 L218,186 Z'), K.teal) +
+    fill(C(200, 131, 7), lit ? '#fff2b8' : '#bfe0e6') + fill(C(211, 156, 2.6), K.gold));
+  s += when('trees', () => fill(R(178, 184, 44, 6, 2), K.tulip) + [174, 226].map(tx =>
+    fill(P(`M${tx - 7},172 L${tx + 7},172 L${tx + 5},186 L${tx - 5},186 Z`), '#c9772b') +
+    line(`M${tx},172 L${tx},160`, '#7a4b3a', 2) + fill(C(tx, 154, 9), K.leaf) + fill(C(tx - 3, 151, 3), '#7cc46e')).join(''));
+  s += when('lights', () => {
     let wire = 'M74,104';
     for (let i = 0; i < 8; i++) wire += ` Q${80 + i * 32},112 ${106 + i * 32},104`;
-    s += line(wire, K.ink, 1.2);
-    for (let i = 0; i < 8; i++) s += fill(C(90 + i * 32, 109, 6), '#ffd34d', { opacity: .35 }) + fill(C(90 + i * 32, 109, 2.8), '#ffd34d');
-  }
-  if (has.has('bench')) {
-    s += fill(R(8, 160, 52, 6, 2), '#b5773a') + fill(R(8, 170, 52, 5, 2), '#c98a4a');
-    s += fill(R(12, 175, 4, 10), '#7a4b3a') + fill(R(52, 175, 4, 10), '#7a4b3a');
-  }
-  if (has.has('patio')) {
-    s += line('M366,118 L366,184', K.ink, 2.4);
-    for (let i = 0; i < 4; i++) {
-      const x0 = 338 + i * 14;
-      s += fill(P(`M366,100 L${x0},124 L${x0 + 14},124 Z`), i % 2 ? '#fff3dc' : K.tulip);
-    }
-    s += fill(EL(366, 160, 20, 4.5), K.white) + line('M366,160 L366,184', K.ink, 2);
-    s += fill(R(340, 160, 8, 24, 2), K.teal) + fill(R(384, 160, 8, 24, 2), K.teal);
-  }
-  return `<svg viewBox="0 0 400 200" role="img" aria-label="Elayna's restaurant">${s}</svg>`;
+    let l = line(wire, K.ink, 1.2);
+    for (let i = 0; i < 8; i++) l += fill(C(90 + i * 32, 109, 6), '#ffd34d', { opacity: .35 }) + fill(C(90 + i * 32, 109, 2.8), '#ffd34d');
+    return l;
+  });
+  s += when('bench', () => fill(R(8, 160, 52, 6, 2), '#b5773a') + fill(R(8, 170, 52, 5, 2), '#c98a4a') +
+    fill(R(12, 175, 4, 10), '#7a4b3a') + fill(R(52, 175, 4, 10), '#7a4b3a'));
+  s += when('patio', () => line('M366,118 L366,184', K.ink, 2.4) +
+    [0, 1, 2, 3].map(i => fill(P(`M366,100 L${338 + i * 14},124 L${352 + i * 14},124 Z`), i % 2 ? '#fff3dc' : K.tulip)).join('') +
+    fill(EL(366, 160, 20, 4.5), K.white) + line('M366,160 L366,184', K.ink, 2) +
+    fill(R(340, 160, 8, 24, 2), K.teal) + fill(R(384, 160, 8, 24, 2), K.teal));
+  return `<svg viewBox="0 -4 400 204" role="img" aria-label="Elayna's restaurant">${s}</svg>`;
 }
 
 // ---------- small interface icons (24 x 24) ----------
@@ -580,6 +669,7 @@ export const ICONS = {
   bolt: `<svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="11" fill="${K.eggplant}"/><path d="M13.5 4 L7 13.5 L11.5 13.5 L10.5 20 L17 10.5 L12.5 10.5 Z" fill="#ffd34d"/></svg>`,
   gear: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M10.3 2h3.4l.5 2.6 1.9.8 2.2-1.5 2.4 2.4-1.5 2.2.8 1.9 2.6.5v3.4l-2.6.5-.8 1.9 1.5 2.2-2.4 2.4-2.2-1.5-1.9.8-.5 2.6h-3.4l-.5-2.6-1.9-.8-2.2 1.5-2.4-2.4 1.5-2.2-.8-1.9L2 13.7v-3.4l2.6-.5.8-1.9-1.5-2.2 2.4-2.4 2.2 1.5 1.9-.8zM12 8.5a3.5 3.5 0 1 0 0 7 3.5 3.5 0 0 0 0-7z"/></svg>`,
   bulb: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 2a7 7 0 0 0-4 12.7V17a1 1 0 0 0 1 1h6a1 1 0 0 0 1-1v-2.3A7 7 0 0 0 12 2zm-3 18h6v1a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1z"/></svg>`,
+  pin: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M12 22s-7-6.6-7-12a7 7 0 0 1 14 0c0 5.4-7 12-7 12zm0-9.2a2.8 2.8 0 1 0 0-5.6 2.8 2.8 0 0 0 0 5.6z"/></svg>`,
   house: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 11.2 12 3.5l9 7.7V20a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>`,
   book: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M3 5.2C5.5 4 8.5 4 11 5.6V20c-2.5-1.4-5.5-1.4-8-.3zm10 .4C15.5 4 18.5 4 21 5.2v14.5c-2.5-1.1-5.5-1.1-8 .3z"/></svg>`,
   medal: `<svg viewBox="0 0 24 24" aria-hidden="true"><path fill="currentColor" d="M7 2h4l1.5 4L14 2h3l-3 7.2A6.5 6.5 0 1 1 9.9 9.2zM12 11a4.5 4.5 0 1 0 0 9 4.5 4.5 0 0 0 0-9z"/></svg>`,
@@ -602,4 +692,4 @@ export function buildSprite() {
 
 // The drawings leave a little air around the edge; this crops it so food fills its square.
 export const use = (id, label = '') =>
-  `<svg viewBox="5 5 90 90"${label ? ` role="img" aria-label="${label}"` : ' aria-hidden="true"'}><use href="#${id}"/></svg>`;
+  `<svg viewBox="7 7 86 86"${label ? ` role="img" aria-label="${label}"` : ' aria-hidden="true"'}><use href="#${id}"/></svg>`;

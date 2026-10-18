@@ -6,7 +6,7 @@
 export const BADGES = [
   { id: 'chef', name: 'Chef', unit: 'dishes made', one: 'dish made', stat: 'mixes', tiers: [1, 10, 40] },
   { id: 'merger', name: 'Merger', unit: 'merges', one: 'merge', stat: 'merges', tiers: [10, 75, 300] },
-  { id: 'collector', name: 'Collector', unit: 'recipes found', one: 'recipe found', stat: 'recipes', tiers: [1, 3, 5] },
+  { id: 'collector', name: 'Collector', unit: 'recipes found', one: 'recipe found', stat: 'recipes', tiers: [1, 6, 16] },
   { id: 'tycoon', name: 'Tycoon', unit: 'dollars earned', one: 'dollar earned', stat: 'earned', tiers: [100, 1000, 5000] },
   { id: 'traveller', name: 'Traveller', unit: 'cities opened', soon: true },
   { id: 'arcade', name: 'Arcade', unit: 'mini game wins', soon: true },

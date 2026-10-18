@@ -17,7 +17,15 @@
 <body>
 <div id="app">
   <header class="top">
-    <button class="brand" id="brand" aria-label="Your restaurant"><span class="brand-name">Elayna's<i class="dot" id="brand-dot" hidden></i></span><span class="city">Toronto</span></button>
+    <button class="brand" id="brand" aria-label="Your restaurant and next upgrade">
+      <span class="brand-pin" id="brand-pin"></span>
+      <span class="brand-text">
+        <span class="brand-city" id="brand-city">Toronto</span>
+        <span class="brand-next" id="brand-next"></span>
+        <span class="brand-bar"><i id="brand-fill"></i></span>
+      </span>
+      <i class="dot" id="brand-dot" hidden></i>
+    </button>
     <div class="pills">
       <div class="pill money" id="money" aria-label="Dollars"><span class="icon"></span><b id="money-n">0</b></div>
       <button class="pill charges" id="charges" aria-label="Pantry charges">
@@ -36,14 +44,14 @@
   </main>
 
   <div class="foot">
-    <div class="chainpop" id="chainpop" hidden></div>
-    <div class="bar">
-      <div class="info" id="info"></div>
-      <button class="round-btn" id="hint-btn" aria-label="Show me a hint"></button>
+    <div class="float-stack">
+      <div class="chainpop" id="chainpop" hidden></div>
+      <div class="info" id="info" hidden></div>
     </div>
     <nav class="nav">
       <button class="nav-btn" id="nav-restaurant"><span class="nav-icon"></span><span>Restaurant</span><i class="dot" hidden></i></button>
       <button class="nav-btn" id="nav-recipes"><span class="nav-icon"></span><span>Recipes</span></button>
+      <button class="nav-btn hint" id="hint-btn"><span class="nav-icon"></span><span>Hint</span></button>
       <button class="nav-btn" id="nav-badges"><span class="nav-icon"></span><span>Badges</span></button>
       <button class="nav-btn" id="settings-btn"><span class="nav-icon"></span><span>Settings</span></button>
     </nav>
@@ -63,8 +71,11 @@
 
 <div class="sheet" id="restaurant" hidden>
   <div class="sheet-card" role="dialog" aria-labelledby="rest-title">
-    <h2 id="rest-title">Elayna's, Toronto</h2>
-    <div class="rest-art" id="rest-art"></div>
+    <div class="rest-photo">
+      <h2 id="rest-title">Elayna's, Toronto</h2>
+      <div class="rest-art" id="rest-art"></div>
+      <p class="muted small" id="rest-caption"></p>
+    </div>
     <p class="muted small" id="rest-count"></p>
     <ul class="list" id="rest-list"></ul>
     <button class="btn ghost" data-close>Close</button>
@@ -105,6 +116,7 @@
   <div class="sheet-card" role="dialog" aria-labelledby="settings-title">
     <h2 id="settings-title">Settings</h2>
     <label class="toggle"><span>Vibration</span><input type="checkbox" id="set-vibrate"></label>
+    <label class="toggle"><span>Nudge me when I'm idle</span><input type="checkbox" id="set-nudge"></label>
 
     <h3>Backup</h3>
     <p class="muted small">The game saves on this phone by itself. A backup keeps your progress safe if the browser is ever cleared.</p>
@@ -124,7 +136,7 @@
     <h3>Start over</h3>
     <button class="btn danger" id="reset">Start a new game</button>
 
-    <p class="muted small version">Elayna's Kitchen · version 0.3</p>
+    <p class="muted small version">Elayna's Kitchen · version 0.5</p>
     <button class="btn ghost" data-close>Close</button>
   </div>
 </div>

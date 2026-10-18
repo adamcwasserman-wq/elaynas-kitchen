@@ -1,7 +1,7 @@
 // Keeps a copy of the game on the phone so it works with no connection.
 // When you change any game file, bump VERSION so phones pick up the new copy.
 
-const VERSION = 'ek-0.3.0';
+const VERSION = 'ek-0.5.0';
 const FILES = [
   './',
   'index.html',
@@ -23,7 +23,10 @@ const FILES = [
 ];
 
 self.addEventListener('install', event => {
-  event.waitUntil(caches.open(VERSION).then(cache => cache.addAll(FILES)).then(() => self.skipWaiting()));
+  // "reload" skips the browser's own short-term copy, so the new version really is new.
+  event.waitUntil(caches.open(VERSION)
+    .then(cache => cache.addAll(FILES.map(f => new Request(f, { cache: 'reload' }))))
+    .then(() => self.skipWaiting()));
 });
 
 self.addEventListener('activate', event => {

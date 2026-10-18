@@ -10,9 +10,9 @@
 
 import { CONFIG } from '../data/config.js';
 import { CHAINS, PRODUCERS, PRODUCER_UNLOCKS, ORDER_VALUE, SELL_VALUE } from '../data/items.js';
-import { RECIPES, RECIPE_DISCOVERY_REWARD } from '../data/recipes.js';
+import { RECIPES, RENAMED_DISHES, RECIPE_DISCOVERY_REWARD } from '../data/recipes.js';
 import { BADGES, BADGE_REWARD, BADGE_TIER_NAMES } from '../data/badges.js';
-import { UPGRADES } from '../data/restaurant.js';
+import { UPGRADES, CITY, CHOICES } from '../data/restaurant.js';
 import { CUSTOMERS } from '../data/customers.js';
 import { FIRST_ORDERS, ORDER_RAMP } from '../data/orders.js';
 import { buildSprite, use, ICONS, medalSvg, restaurantSvg } from './art.js';
@@ -79,6 +79,17 @@ function migrate(s) {
   // The single pantry became separate starter blocks: the bakery crate, then the dairy fridge.
   s.board = s.board.map(it => it && it.producer === 'pantry' ? { producer: 'crate' } : it);
   s.producers ??= s.board.filter(it => it && it.producer).map(it => it.producer);
+  // Some dishes became Elayna's own recipes under new names.
+  const renamed = id => RENAMED_DISHES[id] || id;
+  s.board = s.board.map(it => it && it.dish ? { dish: renamed(it.dish) } : it);
+  for (const [old, now] of Object.entries(RENAMED_DISHES)) {
+    if (s.recipes[old]) { delete s.recipes[old]; s.recipes[now] = true; }
+    if (s.seen[`dish:${old}`]) { delete s.seen[`dish:${old}`]; s.seen[`dish:${now}`] = true; }
+  }
+  for (const o of s.orders) {
+    if (o.want?.dish) o.want.dish = renamed(o.want.dish);
+    for (const it of o.items) if (it.dish) it.dish = renamed(it.dish);
+  }
   // Orders are now one item, or one named dish.
   s.orders = s.orders.map(o => {
     if (o.want) return o;
@@ -242,7 +253,7 @@ function produce(i) {
   S.board[spot] = { chain: pick.chain, tier };
   S.stats.produced++;
   buzz('tap');
-  discover(S.board[spot]);
+  discover(S.board[spot], spot);
   renderAll();
   fly(i, spot, true);
   advanceTutorial('produce');
@@ -265,8 +276,7 @@ function dropOn(from, to) {
     S.stats.merges++;
     sel = to;
     buzz('merge');
-    const isNew = discover(S.board[to]);
-    if (!isNew && S.board[to].tier === maxTier(a.chain)) toast(`${nameOf(S.board[to])}! That's the top of the ${CHAINS[a.chain].name} chain.`);
+    discover(S.board[to], to);
     renderAll();
     pop(to);
     advanceTutorial('merge');
@@ -308,7 +318,7 @@ function learnRecipe(recipe) {
   S.seen[`dish:${recipe.id}`] = true;
   celebrate({
     art: use(`art-${recipe.id}`), title: 'New recipe!', name: recipe.name,
-    line: `${nameOf(recipe.a)} + ${nameOf(recipe.b)}. Added to your recipe book.`, reward: RECIPE_DISCOVERY_REWARD,
+    line: `${recipe.hers ? 'One of your own recipes! ' : ''}${nameOf(recipe.a)} + ${nameOf(recipe.b)}.`, reward: RECIPE_DISCOVERY_REWARD,
   });
 }
 
@@ -326,14 +336,18 @@ function unlockProducers() {
   }
 }
 
-// The first time she makes something, celebrate it.
-function discover(it) {
+// The first time she makes something, a little "New!" tag sits on that square for a moment.
+// (No pop-up: nothing covers the board.)
+let mark = null;
+function discover(it, i) {
   const k = keyOf(it);
-  if (S.seen[k]) return false;
+  const top = isChain(it) && it.tier === maxTier(it.chain);
+  if (S.seen[k] && !top) return false;
+  const isNew = !S.seen[k];
   S.seen[k] = true;
-  const top = it.tier === maxTier(it.chain);
-  toast(`New: ${nameOf(it)}!${top ? ' Top of the chain.' : ''}`, { icon: artId(it), celebrate: true });
-  return true;
+  mark = { i, text: isNew ? 'New!' : 'Top!' };
+  setTimeout(() => { if (mark?.i === i) { mark = null; render(); } }, 2200);
+  return isNew;
 }
 
 function serve(oi) {
@@ -415,10 +429,26 @@ function buyUpgrade(id) {
   S.dollars -= u.cost;
   S.upgrades.push(u.id);
   buzz('serve');
-  closeSheets();
-  celebrate({ art: restaurantSvg(new Set(S.upgrades)), wide: true, title: 'Restaurant upgrade!', name: u.name, line: u.perk });
-  renderAll();
+  // Stay on the restaurant, with the new part outlined in purple.
+  restFocus = u.id;
+  renderRestaurant();
+  celebrate({ art: restaurantPhoto(u.id), wide: true, title: 'Restaurant upgrade!', name: u.name,
+    line: u.choice ? `${u.perk} Pick a colour below.` : u.perk });
+  renderHeader();
+  render();
   save();
+}
+
+// The restaurant picture: the original building starts black and white and fills with
+// colour as she upgrades; "focus" outlines one upgrade in purple (a preview if not bought yet).
+const choiceColour = key => (CHOICES[key].find(c => c.colour === S.choices?.[key]) || CHOICES[key][0]).colour;
+function restaurantPhoto(focus = null) {
+  const has = new Set(S.upgrades);
+  if (focus) has.add(focus);
+  return restaurantSvg(has, {
+    paint: choiceColour('paint'), awning: choiceColour('awning'),
+    colour: .25 + .75 * S.upgrades.length / UPGRADES.length, focus,
+  });
 }
 
 // ---------- badges ----------
@@ -585,8 +615,7 @@ function renderTip() {
   if (S.tutorial === 2 && !tutorialTarget()) text = 'Keep merging to make what a customer wants.';
   // A one-time tip when the first dish order arrives.
   if (!step && S.stats.mixes === 0 && S.orders.some(o => o.want.dish)) {
-    const o = S.orders.find(x => x.want.dish);
-    text = `${orderName(o)} needs both of its foods on the board. Then tap Serve!`;
+    text = 'Dishes need both of their foods on the board. Then tap Serve!';
   }
   if (!text) { tip.hidden = true; return; }
   tip.textContent = text;
@@ -600,6 +629,10 @@ function renderHeader() {
   $('#charges-n').textContent = S.charges;
   $('#charges-t').textContent = S.charges < perks().chargesMax ? `+1 in ${mmss(nextChargeIn())}` : 'Full';
   const can = upgradeAffordable();
+  const next = nextUpgrade();
+  $('#brand-city').textContent = `${CITY.restaurant}, ${CITY.name}`;
+  $('#brand-next').textContent = !next ? 'Every upgrade done!' : can ? `Ready to buy: ${next.name}!` : `Next: ${next.name}, $${next.cost.toLocaleString()}`;
+  $('#brand-fill').style.width = `${next ? Math.min(100, Math.round(S.dollars / next.cost * 100)) : 100}%`;
   $('#brand-dot').hidden = !can;
   $('#nav-restaurant .dot').hidden = !can;
 }
@@ -639,6 +672,7 @@ function render() {
     if (it.producer && S.charges <= 0) cls.push('empty');
     return `<div class="cell fam-${familyOf(it)}${selCls}" data-i="${i}"><div class="${cls.join(' ')}">${use(artId(it), nameOf(it))}</div>` +
       `${isChain(it) ? `<span class="lv">${it.tier}</span>` : ''}` +
+      `${mark && mark.i === i ? `<span class="new-tag">${mark.text}</span>` : ''}` +
       `${!it.producer && wanted.has(keyOf(it)) ? `<span class="tick">${ICONS.check}</span>` : ''}</div>`;
   }).join('');
 }
@@ -652,8 +686,9 @@ function picked() {
 function renderInfo() {
   const info = $('#info');
   const it = picked();
+  info.hidden = !it;
   if (!it) {
-    info.innerHTML = `<p class="info-idle">${upgradeAffordable() ? 'You can afford a restaurant upgrade!' : 'Merge matching food to fill orders.'}</p>`;
+    info.innerHTML = '';
   } else if (it.producer) {
     const names = PRODUCERS[it.producer].makes.map(m => CHAINS[m.chain].tiers[m.tier - 1].name).join(' or ');
     info.innerHTML = `<div class="info-icon">${use(artId(it))}</div>
@@ -911,10 +946,14 @@ function closeSheets() {
 document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if (e.target === s) closeSheets(); }));
 
 // The restaurant
-function openRestaurant() {
-  $('#rest-art').innerHTML = restaurantSvg(new Set(S.upgrades));
-  $('#rest-count').textContent = `${S.upgrades.length} of ${UPGRADES.length} upgrades`;
+let restFocus = null;
+function renderRestaurant() {
   const next = nextUpgrade();
+  $('#rest-art').innerHTML = restaurantPhoto(restFocus);
+  const fu = UPGRADES.find(u => u.id === restFocus);
+  $('#rest-caption').textContent = !fu ? 'Tap an upgrade to see where it goes.'
+    : S.upgrades.includes(fu.id) ? `${fu.name}, outlined in purple.` : `Preview: ${fu.name}, outlined in purple.`;
+  $('#rest-count').textContent = `${S.upgrades.length} of ${UPGRADES.length} upgrades`;
   $('#rest-list').innerHTML = UPGRADES.map(u => {
     const done = S.upgrades.includes(u.id), isNext = u === next;
     let right;
@@ -922,10 +961,35 @@ function openRestaurant() {
     else if (isNext) right = `<button class="btn primary upg-buy" data-upg="${u.id}"${S.dollars < u.cost ? ' disabled' : ''}>$${u.cost}</button>`;
     else right = `<span class="upg-cost">$${u.cost}</span>`;
     const short = isNext && S.dollars < u.cost ? `<em>$${(u.cost - S.dollars).toLocaleString()} more to go</em>` : '';
-    return `<li class="upg${done ? ' done' : isNext ? ' next' : ' later'}"><div class="upg-text"><b>${u.name}</b><span>${u.perk}</span>${short}</div>${right}</li>`;
+    const swatches = done && u.choice ? `<div class="swatches">${CHOICES[u.choice].map(c =>
+      `<button class="swatch${choiceColour(u.choice) === c.colour ? ' on' : ''}" data-choice="${u.choice}" data-colour="${c.colour}" style="background:${c.colour}" aria-label="${c.name}"></button>`).join('')}</div>` : '';
+    return `<li class="upg${done ? ' done' : isNext ? ' next' : ' later'}${restFocus === u.id ? ' focused' : ''}" data-focus="${u.id}">` +
+      `<div class="upg-text"><b>${u.name}</b><span>${u.perk}</span>${short}${swatches}</div>${right}</li>`;
   }).join('');
+}
+function openRestaurant() {
+  restFocus = null;
+  renderRestaurant();
   openSheet('#restaurant');
 }
+$('#rest-list').addEventListener('click', e => {
+  const sw = e.target.closest('.swatch');
+  if (sw) {
+    S.choices ??= {};
+    S.choices[sw.dataset.choice] = sw.dataset.colour;
+    restFocus = sw.dataset.choice;
+    buzz('tap');
+    renderRestaurant();
+    save();
+    return;
+  }
+  if (e.target.closest('button')) return;
+  const li = e.target.closest('li[data-focus]');
+  if (!li) return;
+  restFocus = restFocus === li.dataset.focus ? null : li.dataset.focus;
+  buzz('tap');
+  renderRestaurant();
+}); 
 
 // The recipe book
 function openRecipes() {
@@ -934,7 +998,7 @@ function openRecipes() {
   $('#recipe-list').innerHTML = RECIPES.map(r => {
     const known = !!S.recipes[r.id];
     return `<li class="recipe${known ? '' : ' unknown'}"><div class="recipe-art fam-dish">${use(`art-${r.id}`)}</div>` +
-      `<div class="recipe-text"><b>${known ? r.name : 'Not found yet'}</b>` +
+      `<div class="recipe-text"><b>${known ? r.name : 'Not found yet'}</b>${r.hers ? '<span class="hers">From your recipe box</span>' : ''}` +
       `<span>${known ? `${nameOf(r.a)} + ${nameOf(r.b)}` : 'Mix two different foods to find it.'}</span></div></li>`;
   }).join('');
   openSheet('#recipes');
@@ -1009,6 +1073,7 @@ $('#rf-free').addEventListener('click', () => {
 // Settings and backups
 function openSettings() {
   $('#set-vibrate').checked = S.settings.vibrate;
+  $('#set-nudge').checked = !!S.settings.nudge;
   $('#bk-text').value = '';
   openSheet('#settings');
 }
@@ -1017,6 +1082,7 @@ $('#set-vibrate').addEventListener('change', e => {
   if (S.settings.vibrate) buzz('merge');
   save();
 });
+$('#set-nudge').addEventListener('change', e => { S.settings.nudge = e.target.checked; save(); });
 $('#bk-copy').addEventListener('click', async () => {
   const code = toCode(S);
   try {
@@ -1088,8 +1154,9 @@ function boot() {
   $('#board').style.setProperty('--cols', COLS);
   $('#board').style.setProperty('--rows', ROWS);
   $('#money .icon').innerHTML = ICONS.coin;
+  $('#brand-pin').innerHTML = ICONS.pin;
   $('#charges .icon').innerHTML = ICONS.bolt;
-  $('#hint-btn').innerHTML = ICONS.bulb;
+  $('#hint-btn .nav-icon').innerHTML = ICONS.bulb;
   $('#nav-restaurant .nav-icon').innerHTML = ICONS.house;
   $('#nav-recipes .nav-icon').innerHTML = ICONS.book;
   $('#nav-badges .nav-icon').innerHTML = ICONS.medal;
@@ -1105,7 +1172,7 @@ function boot() {
     if (!$('#refill').hidden) renderRefill();
     const idle = Date.now() - lastAction > CONFIG.hintIdleSeconds * 1000;
     const busy = drag || !$('#celebrate').hidden || document.querySelectorAll('.sheet:not([hidden])').length > 0;
-    if (idle && S.tutorial >= TUTORIAL.length - 1 && !busy) {
+    if (idle && S.settings.nudge && S.tutorial >= TUTORIAL.length - 1 && !busy) {
       lastAction = Date.now() + 8000;
       hint(false);
     }
@@ -1119,7 +1186,14 @@ function boot() {
   // Lets the game work offline and be added to the home screen. Fails quietly where unsupported.
   // (Skipped on this computer's local test server so edits show up right away.)
   if ('serviceWorker' in navigator && location.protocol === 'https:') {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    // When a new version finishes downloading, save and switch to it straight away.
+    const hadOne = !!navigator.serviceWorker.controller;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (!hadOne) return;
+      writeSave(S);
+      location.reload();
+    });
+    navigator.serviceWorker.register('sw.js', { updateViaCache: 'none' }).then(reg => reg.update()).catch(() => {});
   }
 }
 
