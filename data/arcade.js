@@ -45,6 +45,7 @@ export const MATCHING = {
   dollarsPerPair: 3,
   ticketsPerPair: 1,
   allPairsFoods: 2,        // finding every pair also drops this many level 2 foods on the board
+  fullBoardDollars: 5,     // ...and pays this many dollars for each one that doesn't fit
 };
 
 // The prize counter. Prices are in tickets.

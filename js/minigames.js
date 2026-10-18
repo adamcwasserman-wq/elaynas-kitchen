@@ -5,6 +5,13 @@ import { use } from './art.js';
 
 const easeOut = t => 1 - Math.pow(1 - t, 3);
 
+// A fair shuffle (every order equally likely).
+function shuffle(list) {
+  const a = [...list];
+  for (let i = a.length - 1; i > 0; i--) { const j = Math.floor(Math.random() * (i + 1)); [a[i], a[j]] = [a[j], a[i]]; }
+  return a;
+}
+
 // ---------- Skee ball: swipe up to roll a ball into the rings ----------
 export function playSkeeBall(stage, mode, cfg, hooks) {
   stage.innerHTML = `<canvas class="skee" aria-label="Skee ball lane"></canvas><p class="game-hint" id="skee-hint">Swipe up to roll the ball</p>`;
@@ -30,7 +37,7 @@ export function playSkeeBall(stage, mode, cfg, hooks) {
   const radiusAt = y => (W * 0.026) + (W * 0.03) * Math.max(0, Math.min(1, (y - top) / (bottom - top)));
   const laneHalf = y => halfTop + (halfBottom - halfTop) * Math.max(0, Math.min(1, (y - top) / (bottom - top)));
 
-  let ballNo = 0, score = 0, ball = { x: cx, y: startY }, anim = null, done = false, swipe = null, popText = null;
+  let ballNo = 0, score = 0, ball = { x: cx, y: startY }, anim = null, done = false, stopped = false, swipe = null, popText = null;
   hooks.status(`Ball 1 of ${cfg.balls} · Score 0`);
 
   function scoreAt(x, y) {
@@ -101,7 +108,7 @@ export function playSkeeBall(stage, mode, cfg, hooks) {
     ballNo++;
     hooks.status(`Ball ${Math.min(ballNo + 1, cfg.balls)} of ${cfg.balls} · Score ${score}`);
     if (ballNo >= cfg.balls) {
-      setTimeout(() => { done = true; hooks.finish({ score }); }, 900);
+      setTimeout(() => { done = true; if (!stopped) hooks.finish({ score }); }, 900);
     } else {
       setTimeout(() => { ball = { x: cx, y: startY }; }, 450);
     }
@@ -149,18 +156,18 @@ export function playSkeeBall(stage, mode, cfg, hooks) {
   });
 
   let raf = requestAnimationFrame(draw);
-  return () => { done = true; cancelAnimationFrame(raf); };
+  return () => { done = true; stopped = true; cancelAnimationFrame(raf); };
 }
 
 // ---------- Matching: flip two cards to find pairs ----------
 export function playMatching(stage, mode, cfg, hooks, artIds) {
-  const pool = [...artIds].sort(() => Math.random() - .5).slice(0, cfg.pairs);
-  const deck = [...pool, ...pool].sort(() => Math.random() - .5);
+  const pool = shuffle(artIds).slice(0, cfg.pairs);
+  const deck = shuffle([...pool, ...pool]);
   stage.innerHTML = `<div class="match-timer"><i id="match-bar"></i></div>
     <div class="match-grid">${deck.map((id, n) => `<button class="card" data-n="${n}" aria-label="Card">
       <span class="card-back"><svg viewBox="-14 -14 28 28" aria-hidden="true"><path d="M-10,-6 L-5,-1 L0,-10 L5,-1 L10,-6 C10,6 6,10 0,10 C-6,10 -10,6 -10,-6 Z" fill="#fff" opacity=".55"/></svg></span><span class="card-front">${use(id)}</span></button>`).join('')}</div>`;
   const cards = [...stage.querySelectorAll('.card')];
-  let open = [], found = 0, lock = false, done = false;
+  let open = [], found = 0, lock = false, done = false, stopped = false;
   const t0 = performance.now(), total = mode.seconds * 1000;
   hooks.status(`Pairs found 0 of ${cfg.pairs}`);
 
@@ -174,7 +181,7 @@ export function playMatching(stage, mode, cfg, hooks, artIds) {
     if (done) return;
     done = true;
     clearInterval(timer);
-    setTimeout(() => hooks.finish({ found, all: found === cfg.pairs }), 500);
+    setTimeout(() => { if (!stopped) hooks.finish({ found, all: found === cfg.pairs }); }, 500);
   }
 
   stage.querySelector('.match-grid').addEventListener('click', e => {
@@ -198,5 +205,5 @@ export function playMatching(stage, mode, cfg, hooks, artIds) {
     }
   });
 
-  return () => { done = true; clearInterval(timer); };
+  return () => { done = true; stopped = true; clearInterval(timer); };
 }

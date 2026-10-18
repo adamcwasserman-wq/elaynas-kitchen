@@ -417,8 +417,10 @@ function serve(oi) {
 
 const skipCost = o => Math.max(2, Math.ceil(payFor(o) / GEMS.skipOrderPer));
 function skipOrder(oi) {
-  const o = S.orders[oi], cost = skipCost(o);
-  if (!o || S.gems < cost) return;
+  const o = S.orders[oi];
+  if (!o) return;
+  const cost = skipCost(o);
+  if (S.gems < cost) return;
   S.gems -= cost;
   const pay = payFor(o);
   S.dollars += pay;
@@ -430,6 +432,7 @@ function skipOrder(oi) {
   floatText(`+$${pay}`, $('#money'));
   S.orders[oi] = makeOrder();
   unlockProducers();
+  advanceTutorial('serve');
   renderAll();
   checkBadges();
   save();
@@ -615,7 +618,7 @@ function hint(fromButton) {
   const score = it => (it.dish ? 7 : it.tier) + (wanted.has(keyOf(it)) ? 10 : 0);
   let low = -1;
   S.board.forEach((it, i) => {
-    if (!it || it.producer) return;
+    if (!it || it.producer || it.wild) return; // only things that can be sold
     if (low < 0 || score(it) < score(S.board[low])) low = i;
   });
   if (low >= 0) {
@@ -1225,9 +1228,9 @@ function placeFoods(tier, count) {
     S.board[spot] = { chain, tier: Math.min(tier, maxTier(chain)) };
     placed++;
   }
-  if (placed < count) toast(`${count - placed} foods didn't fit on the board.`);
-  return placed;
+  return placed; // callers decide what to do about any that didn't fit
 }
+const freeCells = () => S.board.filter(x => !x).length;
 function placeWild() {
   const spot = nearestEmpty(producerIndex());
   if (spot < 0) return false;
@@ -1253,7 +1256,7 @@ function boot() {
   $('#nav-today .nav-icon').innerHTML = ICONS.sun;
   arcade = createArcade({
     getS: () => S, save, renderAll, celebrate, toast, buzz, openSheet, closeSheets,
-    placeFoods, placeWild, artPool, checkBadges,
+    placeFoods, placeWild, freeCells, artPool, checkBadges,
   });
   $('#brand-pin').innerHTML = ICONS.pin;
   $('#charges .icon').innerHTML = ICONS.bolt;

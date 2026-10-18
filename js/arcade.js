@@ -19,7 +19,7 @@ function shuffled(list, seed) {
 }
 
 export function createArcade(api) {
-  // api: getS, save, renderAll, celebrate, toast, buzz, openSheet, closeSheets, placeFoods, placeWild, artPool, checkBadges
+  // api: getS, save, renderAll, celebrate, toast, buzz, openSheet, closeSheets, placeFoods, placeWild, freeCells, artPool, checkBadges
   const S = () => api.getS();
   let stopGame = null;
   let current = null; // the game being played: { kind, modeKey }
@@ -32,7 +32,7 @@ export function createArcade(api) {
   const playsLeft = kind => Math.max(0, DAILY.freePlays - daily().plays[kind]);
   const somethingNew = () => { const d = daily(); return !d.gift || !d.trivia || playsLeft('skee') > 0 || playsLeft('match') > 0; };
 
-  function give(g, what) {
+  function give(g) {
     const s = S();
     if (g.dollars) { s.dollars += g.dollars; s.stats.earned += g.dollars; }
     if (g.gems) s.gems += g.gems;
@@ -42,7 +42,6 @@ export function createArcade(api) {
     if (g.decor && !s.decor.includes(g.decor)) s.decor.push(g.decor);
     if (g.foods) api.placeFoods(g.foods.tier, g.foods.count);
     api.save();
-    return what;
   }
 
   // ---------- the Today panel ----------
@@ -100,7 +99,7 @@ export function createArcade(api) {
     d.gift = true;
     give({ dollars: DAILY.gift.dollars, gems: DAILY.gift.gems, wildcards: DAILY.gift.wildcards });
     render();
-    api.celebrate({ art: `<div class="cele-emoji">${ICONS.gift}</div>`, title: 'Your daily gift!', name: 'See you tomorrow', line: `Plus a wild card. Drop it on any food to copy it.`, reward: DAILY.gift.dollars, gems: DAILY.gift.gems });
+    api.celebrate({ art: `<div class="cele-emoji">${ICONS.gift}</div>`, title: 'Your daily gift!', name: 'See you tomorrow', line: `Plus a wild card: tap "Use one" under Wild cards to put it on your board.`, reward: DAILY.gift.dollars, gems: DAILY.gift.gems });
     api.renderAll();
   }
 
@@ -167,6 +166,11 @@ export function createArcade(api) {
     if (!b) return;
     const s = S(), p = PRIZES.find(x => x.id === b.dataset.prize);
     if (!p || s.tickets < p.cost) return;
+    // Don't take tickets for foods that won't fit.
+    if (p.give.foods && api.freeCells() < p.give.foods.count) {
+      api.toast(`Make room for ${p.give.foods.count} foods on your board first.`);
+      return;
+    }
     s.tickets -= p.cost;
     give(p.give);
     api.buzz('serve');
@@ -178,12 +182,13 @@ export function createArcade(api) {
   // ---------- playing a mini game ----------
   function startGame(kind) {
     const s = S(), d = daily();
-    if (playsLeft(kind) > 0) d.plays[kind]++;
-    else if (s.gems >= DAILY.extraPlayGems) s.gems -= DAILY.extraPlayGems;
+    let paid;
+    if (playsLeft(kind) > 0) { d.plays[kind]++; paid = 'free'; }
+    else if (s.gems >= DAILY.extraPlayGems) { s.gems -= DAILY.extraPlayGems; paid = 'gem'; }
     else return;
     const cfg = kind === 'skee' ? SKEEBALL : MATCHING;
     const modeKey = s.settings[`${kind}Mode`] || 'relaxed';
-    current = { kind, modeKey };
+    current = { kind, modeKey, paid, finished: false };
     api.closeSheets();
     api.save();
     const overlay = $('#game');
@@ -195,16 +200,16 @@ export function createArcade(api) {
       status: t => { $('#game-status').textContent = t; },
       finish: r => finishGame(r),
     };
-    requestAnimationFrame(() => {
-      stopGame = kind === 'skee'
-        ? playSkeeBall(stage, cfg.modes[modeKey], cfg, hooks)
-        : playMatching(stage, cfg.modes[modeKey], cfg, hooks, api.artPool());
-    });
+    // Start right away (the overlay is already showing, so the stage has its size).
+    stopGame = kind === 'skee'
+      ? playSkeeBall(stage, cfg.modes[modeKey], cfg, hooks)
+      : playMatching(stage, cfg.modes[modeKey], cfg, hooks, api.artPool());
   }
 
   function finishGame(r) {
     const s = S();
     const { kind, modeKey } = current;
+    current.finished = true;
     let reward, title, line, win = false;
     if (kind === 'skee') {
       const m = SKEEBALL.modes[modeKey];
@@ -216,9 +221,14 @@ export function createArcade(api) {
       const m = MATCHING.modes[modeKey];
       win = r.all;
       reward = { dollars: r.found * MATCHING.dollarsPerPair * m.rewardTimes, tickets: r.found * MATCHING.ticketsPerPair * m.rewardTimes };
-      if (win) api.placeFoods(2, MATCHING.allPairsFoods);
+      let line2 = `${MATCHING.allPairsFoods} bonus foods are on your board.`;
+      if (win) {
+        // Foods that don't fit are paid out as dollars instead, so nothing is lost.
+        const missed = MATCHING.allPairsFoods - api.placeFoods(2, MATCHING.allPairsFoods);
+        if (missed) { reward.dollars += missed * MATCHING.fullBoardDollars; line2 = `Your board was full, so you got $${missed * MATCHING.fullBoardDollars} instead of ${missed} bonus foods.`; }
+      }
       title = r.all ? 'All pairs found!' : `${r.found} pairs found`;
-      line = r.all ? `${MATCHING.allPairsFoods} bonus foods are on your board.` : 'You keep everything you found.';
+      line = r.all ? line2 : 'You keep everything you found.';
     }
     if (win) s.stats.arcadeWins++;
     give(reward);
@@ -237,6 +247,14 @@ export function createArcade(api) {
   function leaveGame() {
     stopGame?.();
     stopGame = null;
+    // Leaving before the end gives the play (or the gem) back.
+    if (current && !current.finished) {
+      const s = S();
+      if (current.paid === 'free') daily().plays[current.kind] = Math.max(0, daily().plays[current.kind] - 1);
+      else if (current.paid === 'gem') s.gems += DAILY.extraPlayGems;
+      current.finished = true;
+      api.save();
+    }
     $('#game').hidden = true;
     $('#game-stage').innerHTML = '';
     api.renderAll();
