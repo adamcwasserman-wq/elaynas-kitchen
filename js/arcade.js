@@ -64,7 +64,7 @@ export function createArcade(api) {
       <li class="today-card${d.trivia ? ' done' : ' glow'}"><div class="today-text"><b>Daily food trivia</b>
         <span>${d.trivia ? `Answered${s.triviaStreak > 1 ? `. ${s.triviaStreak} days in a row!` : '.'} A new question tomorrow.` : 'One question a day. Win dollars and a gem.'}</span></div>
         ${d.trivia ? `<span class="upg-done">${ICONS.check}</span>` : '<button class="btn primary" data-today="trivia">Play</button>'}</li>
-      ${gameCard('skee', 'Skee ball', 'Swipe up to roll five balls. Win tickets.', SKEEBALL)}
+      ${gameCard('skee', 'Skee ball', 'Grab a ball, flick it up the hill and into the rings. Win tickets.', SKEEBALL)}
       ${gameCard('match', 'Food match', 'Flip cards to find the pairs. Win dollars and tickets.', MATCHING)}
       <li class="today-card"><div class="today-text"><b>Prize counter</b><span>You have ${s.tickets} tickets.</span></div>
         <button class="btn" data-today="prizes">Open</button></li>

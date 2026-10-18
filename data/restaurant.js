@@ -1,5 +1,11 @@
 // Where Elayna is cooking right now. More cities and restaurants come later.
-export const CITY = { name: 'Toronto', restaurant: "Elayna's" };
+// Winning a restaurant: every order earns stars. Reaching each goal gives the restaurant
+// another star rating (up to three) and some gems. Three stars wins the city.
+export const CITY = {
+  name: 'Toronto', restaurant: "Elayna's",
+  starGoals: [40, 100, 180],
+  starRewards: [{ gems: 3, dollars: 50 }, { gems: 5, dollars: 150 }, { gems: 15, dollars: 400 }],
+};
 
 // Some upgrades let her pick a colour. The first option is the one she starts with.
 export const CHOICES = {
@@ -18,7 +24,7 @@ export const CHOICES = {
   ],
 };
 
-// Upgrades for Elayna's restaurant in Toronto. They are bought in this order.
+// Upgrades for Elayna's restaurant in Toronto. She can buy them in any order she likes.
 // Each one adds something you can see on the restaurant and makes play a little better.
 //
 // Effects:

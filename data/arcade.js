@@ -23,7 +23,8 @@ export const TRIVIA_REWARD = {
   wrong: { dollars: 5 },   // a small "thanks for playing"
 };
 
-// Skee ball: swipe up to roll. "ringScale" makes the rings bigger (easier) or smaller.
+// Skee ball: grab a ball from the chute and flick it up the hill. The last ball is golden (double points).
+// "ringScale" makes the rings bigger (easier) or smaller.
 // "assist" gently pulls rolls toward the middle. Tickets = score / 10, times "tickets".
 export const SKEEBALL = {
   balls: 5,

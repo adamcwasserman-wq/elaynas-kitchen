@@ -24,6 +24,9 @@ export const RECIPES = [
   { id: 'chococheesecake', name: "Marie's chocolate cheesecake", hers: true, a: { chain: 'bakery', tier: 6 }, b: { chain: 'dairy', tier: 6 }, value: 450 },
 ];
 
+// "Simple" recipes use foods up to level 3; "advanced" ones need a level 4 food or higher.
+export const recipeLevel = r => Math.max(r.a.tier, r.b.tier) >= 4 ? 'advanced' : 'simple';
+
 // Older saves used some dish names that have since become Elayna's own recipes.
 export const RENAMED_DISHES = {
   creamofwheat: 'granola',

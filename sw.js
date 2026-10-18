@@ -1,7 +1,7 @@
 // Keeps a copy of the game on the phone so it works with no connection.
 // When you change any game file, bump VERSION so phones pick up the new copy.
 
-const VERSION = 'ek-0.6.2';
+const VERSION = 'ek-0.7.0';
 const FILES = [
   './',
   'index.html',
