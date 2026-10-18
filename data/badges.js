@@ -9,11 +9,11 @@ export const BADGES = [
   { id: 'collector', name: 'Collector', unit: 'recipes found', one: 'recipe found', stat: 'recipes', tiers: [1, 6, 16] },
   { id: 'tycoon', name: 'Tycoon', unit: 'dollars earned', one: 'dollar earned', stat: 'earned', tiers: [100, 1000, 5000] },
   { id: 'traveller', name: 'Traveller', unit: 'cities opened', soon: true },
-  { id: 'arcade', name: 'Arcade', unit: 'mini game wins', soon: true },
-  { id: 'scholar', name: 'Scholar', unit: 'trivia answers', soon: true },
+  { id: 'arcade', name: 'Arcade', unit: 'mini game wins', one: 'mini game win', stat: 'arcadeWins', tiers: [1, 10, 40] },
+  { id: 'scholar', name: 'Scholar', unit: 'trivia answers right', one: 'trivia answer right', stat: 'triviaRight', tiers: [1, 7, 30] },
 ];
 
 export const BADGE_TIER_NAMES = ['Bronze', 'Silver', 'Gold'];
 
-// Dollars for earning bronze, silver and gold.
+// Dollars for earning bronze, silver and gold. (Badges also give gems: see data/arcade.js.)
 export const BADGE_REWARD = [20, 75, 250];

@@ -28,6 +28,7 @@
     </button>
     <div class="pills">
       <div class="pill money" id="money" aria-label="Dollars"><span class="icon"></span><b id="money-n">0</b></div>
+      <button class="pill gems" id="gems" aria-label="Gems"><span class="icon"></span><b id="gems-n">0</b></button>
       <button class="pill charges" id="charges" aria-label="Pantry charges">
         <span class="icon"></span><span class="charges-text"><b id="charges-n">0</b><small id="charges-t"></small></span>
       </button>
@@ -51,6 +52,7 @@
     <nav class="nav">
       <button class="nav-btn" id="nav-restaurant"><span class="nav-icon"></span><span>Restaurant</span><i class="dot" hidden></i></button>
       <button class="nav-btn" id="nav-recipes"><span class="nav-icon"></span><span>Recipes</span></button>
+      <button class="nav-btn today" id="nav-today"><span class="nav-icon"></span><span>Today</span><i class="dot" hidden></i></button>
       <button class="nav-btn hint" id="hint-btn"><span class="nav-icon"></span><span>Hint</span></button>
       <button class="nav-btn" id="nav-badges"><span class="nav-icon"></span><span>Badges</span></button>
       <button class="nav-btn" id="settings-btn"><span class="nav-icon"></span><span>Settings</span></button>
@@ -67,6 +69,43 @@
     <p class="cele-reward"></p>
     <p class="cele-tap">Tap to carry on</p>
   </div>
+</div>
+
+<div class="sheet" id="today" hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="today-title">
+    <h2 id="today-title">Today</h2>
+    <p class="muted small">Fresh every day. Missing a day never costs you anything.</p>
+    <ul class="list" id="today-list"></ul>
+    <button class="btn ghost" data-close>Close</button>
+  </div>
+</div>
+
+<div class="sheet" id="trivia" hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="trivia-title">
+    <h2 id="trivia-title">Daily food trivia</h2>
+    <p class="trivia-q" id="trivia-q"></p>
+    <div class="trivia-opts" id="trivia-opts"></div>
+    <div class="trivia-result" id="trivia-result" hidden></div>
+    <button class="btn ghost" data-close>Close</button>
+  </div>
+</div>
+
+<div class="sheet" id="prizes" hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="prizes-title">
+    <h2 id="prizes-title">Prize counter</h2>
+    <p class="muted small" id="prize-count"></p>
+    <ul class="list" id="prize-list"></ul>
+    <button class="btn ghost" data-close>Close</button>
+  </div>
+</div>
+
+<div class="game" id="game" hidden>
+  <div class="game-top">
+    <button class="btn ghost" id="game-leave">Leave</button>
+    <b id="game-title"></b>
+    <span id="game-status"></span>
+  </div>
+  <div class="game-stage" id="game-stage"></div>
 </div>
 
 <div class="sheet" id="restaurant" hidden>
@@ -107,6 +146,7 @@
     <p id="rf-timer" class="muted"></p>
     <button class="btn primary" id="rf-free"></button>
     <button class="btn" id="rf-buy"></button>
+    <button class="btn" id="rf-gems"></button>
     <p id="rf-note" class="muted small"></p>
     <button class="btn ghost" data-close>Close</button>
   </div>
@@ -136,7 +176,7 @@
     <h3>Start over</h3>
     <button class="btn danger" id="reset">Start a new game</button>
 
-    <p class="muted small version">Elayna's Kitchen · version 0.5</p>
+    <p class="muted small version">Elayna's Kitchen · version 0.6, phase 3</p>
     <button class="btn ghost" data-close>Close</button>
   </div>
 </div>

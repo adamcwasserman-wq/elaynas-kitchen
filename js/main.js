@@ -17,6 +17,8 @@ import { CUSTOMERS } from '../data/customers.js';
 import { FIRST_ORDERS, ORDER_RAMP } from '../data/orders.js';
 import { buildSprite, use, ICONS, medalSvg, restaurantSvg } from './art.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
+import { createArcade } from './arcade.js';
+import { GEMS } from '../data/arcade.js';
 
 const COLS = CONFIG.board.cols;
 const ROWS = CONFIG.board.rows;
@@ -31,10 +33,10 @@ const randInt = (a, b) => a + Math.floor(Math.random() * (b - a + 1));
 const recipeOf = id => RECIPES.find(r => r.id === id);
 const isChain = it => !!it && !!it.chain;
 const tierInfo = it => CHAINS[it.chain].tiers[it.tier - 1];
-const artId = it => it.producer ? `art-${it.producer}` : it.dish ? `art-${it.dish}` : `art-${tierInfo(it).id}`;
-const nameOf = it => it.producer ? PRODUCERS[it.producer].name : it.dish ? recipeOf(it.dish).name : tierInfo(it).name;
-const keyOf = it => it.producer ? it.producer : it.dish ? `dish:${it.dish}` : `${it.chain}:${it.tier}`;
-const familyOf = it => it.producer ? 'producer' : it.dish ? 'dish' : it.chain;
+const artId = it => it.producer ? `art-${it.producer}` : it.wild ? 'art-wild' : it.dish ? `art-${it.dish}` : `art-${tierInfo(it).id}`;
+const nameOf = it => it.producer ? PRODUCERS[it.producer].name : it.wild ? 'Wild card' : it.dish ? recipeOf(it.dish).name : tierInfo(it).name;
+const keyOf = it => it.producer ? it.producer : it.wild ? 'wild' : it.dish ? `dish:${it.dish}` : `${it.chain}:${it.tier}`;
+const familyOf = it => it.producer ? 'producer' : it.wild ? 'wild' : it.dish ? 'dish' : it.chain;
 const maxTier = chain => CHAINS[chain].tiers.length;
 const sameItem = (a, b) => a.chain === b.chain && a.tier === b.tier;
 const canMerge = (a, b) => isChain(a) && isChain(b) && sameItem(a, b) && a.tier < maxTier(a.chain);
@@ -59,7 +61,8 @@ function newGame() {
     charges: CONFIG.charges.start, chargesAt: Date.now(), freeRefillAt: 0,
     orders: [], orderSeq: 0, served: 0, tutorial: 0,
     seen: { 'bakery:1': true }, recipes: {}, badges: {}, upgrades: [], producers: ['crate'],
-    stats: { produced: 0, merges: 0, mixes: 0, sold: 0, earned: 0, bounces: 0 },
+    stats: { produced: 0, merges: 0, mixes: 0, sold: 0, earned: 0, bounces: 0, arcadeWins: 0, triviaRight: 0 },
+    gems: 0, tickets: 0, wildcards: 0, decor: [], triviaIndex: 0, triviaStreak: 0, triviaLastRight: null,
     settings: { vibrate: true },
     created: Date.now(),
   };
@@ -70,7 +73,12 @@ function newGame() {
 function migrate(s) {
   s.settings ??= { vibrate: true };
   s.stats ??= {};
-  for (const k of ['produced', 'merges', 'mixes', 'sold', 'bounces']) s.stats[k] ??= 0;
+  for (const k of ['produced', 'merges', 'mixes', 'sold', 'bounces', 'arcadeWins', 'triviaRight']) s.stats[k] ??= 0;
+  if (s.gems === undefined) {
+    // Gems arrived in phase 3: pay out gems for badges she already has.
+    s.gems = Object.values(s.badges || {}).reduce((t, lv) => t + GEMS.badge.slice(0, lv).reduce((a, b) => a + b, 0), 0);
+  }
+  s.tickets ??= 0; s.wildcards ??= 0; s.decor ??= []; s.triviaIndex ??= 0; s.triviaStreak ??= 0; s.triviaLastRight ??= null;
   s.stats.earned ??= s.dollars;
   s.seen ??= {};
   s.recipes ??= {};
@@ -270,6 +278,20 @@ function dropOn(from, to) {
     save();
     return;
   }
+  // A wild card turns into a copy of the food it touches.
+  if ((a.wild || b.wild) && !(a.wild && b.wild)) {
+    const food = a.wild ? b : a, wildAt = a.wild ? from : to;
+    if (!food.producer) {
+      S.board[wildAt] = { ...food };
+      sel = wildAt;
+      buzz('merge');
+      renderAll();
+      pop(wildAt);
+      toast(`Wild card became ${nameOf(food)}!`);
+      save();
+      return;
+    }
+  }
   if (canMerge(a, b)) {
     S.board[to] = { chain: a.chain, tier: a.tier + 1 };
     S.board[from] = null;
@@ -393,9 +415,29 @@ function serve(oi) {
   save();
 }
 
+const skipCost = o => Math.max(2, Math.ceil(payFor(o) / GEMS.skipOrderPer));
+function skipOrder(oi) {
+  const o = S.orders[oi], cost = skipCost(o);
+  if (!o || S.gems < cost) return;
+  S.gems -= cost;
+  const pay = payFor(o);
+  S.dollars += pay;
+  S.stats.earned += pay;
+  S.served++;
+  if (o.want.dish) learnRecipe(recipeOf(o.want.dish));
+  orderPick = null;
+  buzz('serve');
+  floatText(`+$${pay}`, $('#money'));
+  S.orders[oi] = makeOrder();
+  unlockProducers();
+  renderAll();
+  checkBadges();
+  save();
+}
+
 function sell(i) {
   const it = S.board[i];
-  if (!it || it.producer) return;
+  if (!it || it.producer || it.wild) return;
   const value = sellValue(it);
   S.board[i] = null;
   S.dollars += value;
@@ -447,7 +489,7 @@ function restaurantPhoto(focus = null) {
   if (focus) has.add(focus);
   return restaurantSvg(has, {
     paint: choiceColour('paint'), awning: choiceColour('awning'),
-    colour: .25 + .75 * S.upgrades.length / UPGRADES.length, focus,
+    colour: .25 + .75 * S.upgrades.length / UPGRADES.length, focus, decor: S.decor,
   });
 }
 
@@ -462,9 +504,10 @@ function checkBadges() {
     const now = b.tiers.filter(t => statFor(b) >= t).length;
     for (let lv = had + 1; lv <= now; lv++) {
       S.dollars += BADGE_REWARD[lv - 1];
+      S.gems += GEMS.badge[lv - 1];
       celebrate({
         art: medalSvg(b.id, lv), title: 'Badge earned!', name: `${b.name}: ${BADGE_TIER_NAMES[lv - 1]}`,
-        line: `${b.tiers[lv - 1].toLocaleString()} ${b.tiers[lv - 1] === 1 ? b.one : b.unit}`, reward: BADGE_REWARD[lv - 1],
+        line: `${b.tiers[lv - 1].toLocaleString()} ${b.tiers[lv - 1] === 1 ? b.one : b.unit}`, reward: BADGE_REWARD[lv - 1], gems: GEMS.badge[lv - 1],
       });
     }
     if (now > had) S.badges[b.id] = now;
@@ -487,8 +530,9 @@ function showCelebration() {
   el.querySelector('.cele-name').textContent = c.name;
   el.querySelector('.cele-line').textContent = c.line;
   const reward = el.querySelector('.cele-reward');
-  reward.hidden = !c.reward;
-  reward.innerHTML = c.reward ? `${ICONS.coin}<span>+${c.reward}</span>` : '';
+  reward.hidden = !(c.reward || c.gems || c.tickets);
+  reward.innerHTML = (c.reward ? `${ICONS.coin}<span>+${c.reward}</span>` : '') +
+    (c.gems ? `${ICONS.gem}<span>+${c.gems}</span>` : '') + (c.tickets ? `${ICONS.ticket}<span>+${c.tickets}</span>` : '');
   el.hidden = false;
   buzz('serve');
   if (!reduceMotion) el.querySelector('.cele-card').animate([{ transform: 'scale(.6)', opacity: 0 }, { transform: 'scale(1.04)', opacity: 1, offset: .7 }, { transform: 'scale(1)' }], { duration: 420, easing: 'ease-out' });
@@ -627,10 +671,12 @@ function renderTip() {
 function renderHeader() {
   $('#money-n').textContent = S.dollars.toLocaleString();
   $('#charges-n').textContent = S.charges;
+  $('#gems-n').textContent = S.gems;
+  if (arcade) $('#nav-today .dot').hidden = !arcade.somethingNew();
   $('#charges-t').textContent = S.charges < perks().chargesMax ? `+1 in ${mmss(nextChargeIn())}` : 'Full';
   const can = upgradeAffordable();
   const next = nextUpgrade();
-  $('#brand-city').textContent = `${CITY.restaurant}, ${CITY.name}`;
+  $('#brand-city').textContent = CITY.name;
   $('#brand-next').textContent = !next ? 'Every upgrade done!' : can ? `Ready to buy: ${next.name}!` : `Next: ${next.name}, $${next.cost.toLocaleString()}`;
   $('#brand-fill').style.width = `${next ? Math.min(100, Math.round(S.dollars / next.cost * 100)) : 100}%`;
   $('#brand-dot').hidden = !can;
@@ -689,6 +735,9 @@ function renderInfo() {
   info.hidden = !it;
   if (!it) {
     info.innerHTML = '';
+  } else if (it.wild) {
+    info.innerHTML = `<div class="info-icon fam-wild">${use(artId(it))}</div>
+      <div class="info-text"><b>Wild card</b><span>Drop it on any food, or drop a food on it, to make a copy.</span></div>`;
   } else if (it.producer) {
     const names = PRODUCERS[it.producer].makes.map(m => CHAINS[m.chain].tiers[m.tier - 1].name).join(' or ');
     info.innerHTML = `<div class="info-icon">${use(artId(it))}</div>
@@ -707,7 +756,9 @@ function renderInfo() {
         text = `Level ${it.tier} of ${max}. ` + (it.tier < max ? `Merge 2 to make ${CHAINS[it.chain].tiers[it.tier].name}.` : 'Top of the chain!');
       }
     }
-    const sellBtn = sel >= 0 ? `<button class="sell" data-sell="${sel}">Sell $${sellValue(it)}</button>` : '';
+    const o = orderPick ? S.orders[orderPick.o] : null;
+    const sellBtn = sel >= 0 ? `<button class="sell" data-sell="${sel}">Sell $${sellValue(it)}</button>`
+      : o ? `<button class="sell gem-skip" data-skip="${orderPick.o}"${S.gems < skipCost(o) ? ' disabled' : ''}>Finish now<br>${ICONS.gem}${skipCost(o)}</button>` : '';
     info.innerHTML = `<div class="info-icon fam-${familyOf(it)}">${use(artId(it))}</div>
       <div class="info-text"><b>${nameOf(it)}</b><span>${text}</span></div>${sellBtn}`;
   }
@@ -921,6 +972,8 @@ document.addEventListener('click', e => {
     renderAll();
   }
   else if (t.dataset.sell !== undefined) sell(+t.dataset.sell);
+  else if (t.dataset.skip !== undefined) skipOrder(+t.dataset.skip);
+  else if (t.id === 'nav-today' || t.id === 'gems') arcade.open();
   else if (t.dataset.upg !== undefined) buyUpgrade(t.dataset.upg);
   else if (t.id === 'hint-btn') hint(true);
   else if (t.id === 'charges') openRefill();
@@ -1039,6 +1092,9 @@ function renderRefill() {
   const buy = $('#rf-buy');
   buy.textContent = `Buy ${r.buyAmount} charges for $${r.buyPrice}`;
   buy.disabled = S.dollars < r.buyPrice;
+  const gb = $('#rf-gems');
+  gb.innerHTML = `Refill ${GEMS.refill.charges} charges for ${GEMS.refill.gems} ${ICONS.gem}`;
+  gb.disabled = S.gems < GEMS.refill.gems;
   const free = $('#rf-free');
   free.textContent = `Free top-up: +${r.freeAmount}`;
   free.hidden = !freeRefillAvailable();
@@ -1048,6 +1104,16 @@ function renderRefill() {
     `Next free top-up in ${wait} min.`;
 }
 function openRefill() { renderRefill(); openSheet('#refill'); }
+$('#rf-gems').addEventListener('click', () => {
+  if (S.gems < GEMS.refill.gems) return;
+  S.gems -= GEMS.refill.gems;
+  S.charges += GEMS.refill.charges;
+  buzz('serve');
+  closeSheets();
+  toast(`+${GEMS.refill.charges} pantry charges.`);
+  renderAll();
+  save();
+});
 $('#rf-buy').addEventListener('click', () => {
   const r = CONFIG.refill;
   if (S.dollars < r.buyPrice) return;
@@ -1148,12 +1214,47 @@ twoTap($('#reset'), 'Tap again to erase everything', () => {
   toast('A fresh start. Have fun!');
 });
 
+// ---------- the Today hub (gift, trivia, mini games, prizes) ----------
+function placeFoods(tier, count) {
+  const chains = availableChains();
+  let placed = 0;
+  for (let n = 0; n < count; n++) {
+    const spot = nearestEmpty(producerIndex());
+    if (spot < 0) break;
+    const chain = chains[n % chains.length];
+    S.board[spot] = { chain, tier: Math.min(tier, maxTier(chain)) };
+    placed++;
+  }
+  if (placed < count) toast(`${count - placed} foods didn't fit on the board.`);
+  return placed;
+}
+function placeWild() {
+  const spot = nearestEmpty(producerIndex());
+  if (spot < 0) return false;
+  S.board[spot] = { wild: true };
+  return true;
+}
+function artPool() {
+  const ids = [];
+  for (const c of Object.keys(CHAINS)) CHAINS[c].tiers.forEach((t, n) => { if (S.seen[`${c}:${n + 1}`]) ids.push(`art-${t.id}`); });
+  for (const r of RECIPES) if (S.recipes[r.id]) ids.push(`art-${r.id}`);
+  for (const c of Object.keys(CHAINS)) for (const t of CHAINS[c].tiers) if (ids.length < 8 && !ids.includes(`art-${t.id}`)) ids.push(`art-${t.id}`);
+  return ids;
+}
+let arcade = null;
+
 // ---------- start up ----------
 function boot() {
   buildSprite();
   $('#board').style.setProperty('--cols', COLS);
   $('#board').style.setProperty('--rows', ROWS);
   $('#money .icon').innerHTML = ICONS.coin;
+  $('#gems .icon').innerHTML = ICONS.gem;
+  $('#nav-today .nav-icon').innerHTML = ICONS.sun;
+  arcade = createArcade({
+    getS: () => S, save, renderAll, celebrate, toast, buzz, openSheet, closeSheets,
+    placeFoods, placeWild, artPool, checkBadges,
+  });
   $('#brand-pin').innerHTML = ICONS.pin;
   $('#charges .icon').innerHTML = ICONS.bolt;
   $('#hint-btn .nav-icon').innerHTML = ICONS.bulb;
@@ -1171,7 +1272,7 @@ function boot() {
     if (tickCharges()) { renderAll(); save(); } else renderHeader();
     if (!$('#refill').hidden) renderRefill();
     const idle = Date.now() - lastAction > CONFIG.hintIdleSeconds * 1000;
-    const busy = drag || !$('#celebrate').hidden || document.querySelectorAll('.sheet:not([hidden])').length > 0;
+    const busy = drag || !$('#celebrate').hidden || !$('#game').hidden || document.querySelectorAll('.sheet:not([hidden])').length > 0;
     if (idle && S.settings.nudge && S.tutorial >= TUTORIAL.length - 1 && !busy) {
       lastAction = Date.now() + 8000;
       hint(false);
