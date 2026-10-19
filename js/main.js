@@ -647,10 +647,11 @@ function migrate(s) {
   s.cityData ??= {};
   s.missions ??= {};
   // Customers now ask for two things at most: trim any bigger orders already waiting (pay and stars shrink to match).
+  const allowed = Math.max(MAX_WANTS, MOODS.find(m => m.id === s.settings?.mood)?.wantsMax || 0);
   for (const d of [s, ...Object.values(s.cityData)]) for (const o of d.orders || []) {
-    if (!o.wants || o.wants.length <= MAX_WANTS) continue;
-    o.reward = Math.round(o.reward * MAX_WANTS / o.wants.length);
-    o.wants = o.wants.slice(0, MAX_WANTS);
+    if (!o.wants || o.wants.length <= allowed) continue;
+    o.reward = Math.round(o.reward * allowed / o.wants.length);
+    o.wants = o.wants.slice(0, allowed);
   }
   // Stars now grow with how big the foods are: re-count the orders already waiting.
   for (const d of [s, ...Object.values(s.cityData)]) for (const o of d.orders || []) if (o.wants?.length && !o.likes) o.stars = o.wants.reduce((t, w) => t + wantStars(w), 0);
@@ -761,7 +762,8 @@ const cityStars = () => S.cityStars || 0;
 function currentStage() {
   const st = ORDER_STAGES.find(x => cityStars() < x.untilStars) || ORDER_STAGES[ORDER_STAGES.length - 1], m = mood();
   const shift = m.tierShift || 0, lo = Math.max(1, st.plainTiers[0] + shift), hi = Math.max(lo, st.plainTiers[1] + shift);
-  const most = Math.min(MAX_WANTS, m.wantsMax || MAX_WANTS, st.wants[1]);
+  // Big orders (past 100 stars) can go up to the mood's limit; earlier stages keep their own.
+  const cap = m.wantsMax || MAX_WANTS, most = st.wants[1] >= MAX_WANTS ? cap : Math.min(cap, st.wants[1]);
   const least = Math.min(most, Math.max(st.wants[0], m.wantsMin || 0));
   return { ...st, plainTiers: [lo, hi], wants: [least, most], customers: Math.min(st.customers, m.customersMax || st.customers) };
 }

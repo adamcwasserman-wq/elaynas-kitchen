@@ -26,7 +26,8 @@ export const ORDER_STAGES = [
   { name: 'Big orders', untilStars: Infinity, customers: 3, plainTiers: [3, 5], dishChance: 0.6, dishLevels: ['simple', 'advanced'], wants: [1, 2], fastSeconds: 300 },
 ];
 
-// No customer ever asks for more than this many things (VIPs included). More got too hard to juggle.
+// No customer asks for more than this many things (VIPs included). More got too hard to juggle,
+// except in the Dinner rush mood past 100 stars (see wantsMax in data/moods.js).
 export const MAX_WANTS = 2;
 
 // Stars each thing in an order earns. Bigger foods take more work, so they earn more:
