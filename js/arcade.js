@@ -4,6 +4,8 @@
 import { DAILY, TRIVIA_REWARD, SKEEBALL, MATCHING, PRIZES } from '../data/arcade.js';
 import { TRIVIA } from '../data/trivia.js';
 import { playSkeeBall, playMatching } from './minigames.js';
+import { MINIGOLF, HOLES } from '../data/minigolf.js';
+import { playGolfHole, drawHolePreview } from './minigolf.js';
 import { ICONS } from './art.js';
 
 const pad = n => String(n).padStart(2, '0');
@@ -26,11 +28,24 @@ export function createArcade(api) {
 
   function daily() {
     const s = S();
-    if (!s.daily || s.daily.day !== dayKey()) s.daily = { day: dayKey(), gift: false, trivia: null, plays: { skee: 0, match: 0 } };
+    if (!s.daily || s.daily.day !== dayKey()) s.daily = { day: dayKey(), gift: false, trivia: null, plays: { skee: 0, match: 0, golf: 0 } };
+    s.daily.plays.golf ??= 0;
     return s.daily;
   }
-  const playsLeft = kind => Math.max(0, DAILY.freePlays - daily().plays[kind]);
-  const somethingNew = () => { const d = daily(); return !d.gift || !d.trivia || playsLeft('skee') > 0 || playsLeft('match') > 0; };
+  const freePlays = kind => kind === 'golf' ? MINIGOLF.freeHoles : DAILY.freePlays;
+  const playsLeft = kind => Math.max(0, freePlays(kind) - daily().plays[kind]);
+  const somethingNew = () => { const d = daily(); return !d.gift || !d.trivia || playsLeft('skee') > 0 || playsLeft('match') > 0 || playsLeft('golf') > 0; };
+
+  // Mini golf progress: her best score on each hole.
+  const golf = () => (S().golf ??= { best: {} });
+  // Stars: under par (or a hole in one) 3, par 2, up to par + 2 one, more none.
+  function starsFor(hole, strokes) {
+    if (strokes == null) return 0;
+    const diff = strokes - hole.par;
+    return strokes === 1 || diff < 0 ? 3 : diff === 0 ? 2 : diff <= 2 ? 1 : 0;
+  }
+  const holeOpen = i => i === 0 || starsFor(HOLES[i - 1], golf().best[HOLES[i - 1].id]) >= MINIGOLF.unlockStars;
+  const starText = n => '\u2605'.repeat(n) + '\u2606'.repeat(3 - n);
 
   function give(g) {
     const s = S();
@@ -56,6 +71,16 @@ export function createArcade(api) {
         <div class="modes">${modes}</div></div>
         <button class="btn primary" data-play="${kind}"${left === 0 && s.gems < DAILY.extraPlayGems ? ' disabled' : ''}>${play}</button></li>`;
     };
+    const golfCard = () => {
+      const left = playsLeft('golf'), modeKey = s.settings.golfMode || 'relaxed';
+      const opened = HOLES.filter((h, i) => holeOpen(i)).length;
+      const modes = Object.entries(MINIGOLF.modes).map(([k, m]) =>
+        `<button class="mode${k === modeKey ? ' on' : ''}" data-mode="golf:${k}">${m.name}</button>`).join('');
+      return `<li class="today-card"><div class="today-text"><b>Mini golf</b>
+        <span>A sunny Florida course with a restaurant on every hole. Get par to open the next one. ${opened} of ${HOLES.length} holes open.</span>
+        <div class="modes">${modes}</div></div>
+        <button class="btn primary" data-play="golf">${left > 0 ? `Play (${left} free)` : 'Play'}</button></li>`;
+    };
     $('#today-list').innerHTML = `
       <li class="today-card${d.gift ? ' done' : ' glow'}"><div class="today-text"><b>Daily gift</b>
         <span>${d.gift ? 'Opened. A new gift tomorrow!' : `$${DAILY.gift.dollars}, ${DAILY.gift.gems} gem and a wild card.`}</span></div>
@@ -65,6 +90,7 @@ export function createArcade(api) {
         ${d.trivia ? `<span class="upg-done">${ICONS.check}</span>` : '<button class="btn primary" data-today="trivia">Play</button>'}</li>
       ${gameCard('skee', 'Skee ball', 'Grab a ball, flick it up the hill and into the rings. Win gems.', SKEEBALL)}
       ${gameCard('match', 'Food match', 'Flip cards to find the pairs. Win dollars and gems.', MATCHING)}
+      ${golfCard()}
       <li class="today-card"><div class="today-text"><b>Gem shop</b><span>Wild cards, foods and decorations. You have ${s.gems} gems.</span></div>
         <button class="btn" data-today="prizes">Open</button></li>
       <li class="today-card"><div class="today-text"><b>Wild cards: ${s.wildcards}</b><span>Drop one on any food to make a copy.</span></div>
@@ -180,6 +206,7 @@ export function createArcade(api) {
 
   // ---------- playing a mini game ----------
   function startGame(kind) {
+    if (kind === 'golf') { api.closeSheets(); openCourse(); return; }
     const s = S(), d = daily();
     let paid;
     if (playsLeft(kind) > 0) { d.plays[kind]++; paid = 'free'; }
@@ -206,6 +233,7 @@ export function createArcade(api) {
   }
 
   function finishGame(r) {
+    if (current.kind === 'golf') { finishGolf(r); return; }
     const s = S();
     const { kind, modeKey } = current;
     current.finished = true;
@@ -243,10 +271,10 @@ export function createArcade(api) {
     api.renderAll();
   }
 
-  function leaveGame() {
+  // Stop whatever is playing. Leaving before the end gives the play (or the gem) back.
+  function stopCurrent() {
     stopGame?.();
     stopGame = null;
-    // Leaving before the end gives the play (or the gem) back.
     if (current && !current.finished) {
       const s = S();
       if (current.paid === 'free') daily().plays[current.kind] = Math.max(0, daily().plays[current.kind] - 1);
@@ -254,12 +282,101 @@ export function createArcade(api) {
       current.finished = true;
       api.save();
     }
+  }
+
+  function leaveGame() {
+    stopCurrent();
     $('#game').hidden = true;
     $('#game-stage').innerHTML = '';
     api.renderAll();
   }
+
+  // ---------- mini golf ----------
+  const golfHooks = {
+    buzz: (...a) => api.buzz(...a),
+    status: t => { $('#game-status').textContent = t; },
+    finish: r => finishGame(r),
+  };
+
+  // The course map: every hole, its stars, and which ones are still locked.
+  function openCourse(msg = '') {
+    stopCurrent();
+    current = { kind: 'golf', screen: 'course', finished: true };
+    const s = S(), g = golf(), left = playsLeft('golf');
+    const modeKey = s.settings.golfMode || 'relaxed';
+    const total = HOLES.reduce((t, h) => t + starsFor(h, g.best[h.id]), 0);
+    $('#game').hidden = false;
+    $('#game-title').textContent = 'Mini golf';
+    $('#game-status').textContent = `\u2605 ${total} of ${HOLES.length * 3}`;
+    const stage = $('#game-stage');
+    stage.innerHTML = `<div class="golf-course">
+      <p class="golf-note">${left > 0 ? `${left} free ${left === 1 ? 'hole' : 'holes'} left today` : `Free holes are used up today. One more costs ${DAILY.extraPlayGems} gem.`} · ${MINIGOLF.modes[modeKey].name}</p>
+      <p class="golf-msg" id="golf-msg"${msg ? '' : ' hidden'}>${msg}</p>
+      <div class="golf-grid">${HOLES.map((h, i) => {
+        const open = holeOpen(i), best = g.best[h.id];
+        return `<button class="golf-tile${open ? '' : ' locked'}" data-hole="${i}" aria-label="Hole ${i + 1}, ${h.name}${open ? '' : ', locked'}">
+          <canvas aria-hidden="true"></canvas><span class="golf-num">${i + 1}</span>
+          <b>${h.name}</b>
+          ${open ? `<span class="golf-stars">${starText(starsFor(h, best))}</span><small>Par ${h.par}${best ? ` · best ${best}` : ''}</small>`
+                 : `<span class="golf-lock">Get par on hole ${i} to open</span>`}
+        </button>`;
+      }).join('')}</div></div>`;
+    stage.querySelectorAll('.golf-tile canvas').forEach((c, i) => drawHolePreview(c, HOLES[i]));
+  }
+
+  function startHole(i) {
+    const s = S(), d = daily();
+    const showMsg = t => { const el = $('#golf-msg'); if (el) { el.textContent = t; el.hidden = false; } else openCourse(t); };
+    if (!holeOpen(i)) { api.buzz('nope'); showMsg(`Hole ${i + 1} is locked. Get par on hole ${i} (${HOLES[i - 1].name}) to open it.`); return; }
+    let paid;
+    if (playsLeft('golf') > 0) { d.plays.golf++; paid = 'free'; }
+    else if (s.gems >= DAILY.extraPlayGems) { s.gems -= DAILY.extraPlayGems; paid = 'gem'; }
+    else { api.buzz('nope'); showMsg('No free holes left today, and no gems. Come back tomorrow for more!'); return; }
+    const modeKey = s.settings.golfMode || 'relaxed';
+    current = { kind: 'golf', screen: 'hole', hole: i, modeKey, paid, finished: false };
+    api.save();
+    $('#game-title').textContent = `Hole ${i + 1}`;
+    stopGame = playGolfHole($('#game-stage'), HOLES[i], MINIGOLF.modes[modeKey], golfHooks);
+  }
+
+  function finishGolf(r) {
+    const s = S(), g = golf(), i = current.hole, hole = HOLES[i], m = MINIGOLF.modes[current.modeKey];
+    current.finished = true;
+    stopGame = null;
+    const stars = starsFor(hole, r.strokes);
+    const last = i === HOLES.length - 1;
+    const wasOpen = last || holeOpen(i + 1);
+    const best = g.best[hole.id];
+    if (r.strokes != null && (best == null || r.strokes < best)) g.best[hole.id] = r.strokes;
+    const opened = !wasOpen && holeOpen(i + 1);
+    const reward = { dollars: MINIGOLF.dollars[stars], gems: MINIGOLF.gems[stars] * m.gemsTimes + (r.holeInOne ? MINIGOLF.holeInOneGems : 0) };
+    if (stars >= MINIGOLF.unlockStars) s.stats.arcadeWins++;
+    give(reward);
+    api.checkBadges();
+    const title = r.strokes == null ? 'Out of shots' : r.holeInOne ? 'Hole in one!' : `${r.strokes} shots`;
+    let line;
+    if (opened) line = `New hole open: ${HOLES[i + 1].name}!`;
+    else if (stars >= MINIGOLF.unlockStars) line = last ? 'You beat the whole course!' : 'Great putting!';
+    else line = last ? `Get par (${hole.par} shots) to beat the whole course!` : `Get par (${hole.par} shots) to open the next hole.`;
+    const next = !last && holeOpen(i + 1);
+    const left = playsLeft('golf');
+    $('#game-stage').innerHTML = `<div class="game-result">
+      <p class="cele-title">${title}</p><p class="golf-big-stars">${starText(stars)}</p><p class="cele-line">${line}</p>
+      <p class="cele-reward">${reward.dollars ? `${ICONS.coin}<span>+${reward.dollars}</span>` : ''}
+        ${reward.gems ? `${ICONS.gem}<span>+${reward.gems}</span>` : ''}</p>
+      <div class="btn-row"><button class="btn" data-hole="${i}">Try again</button>
+        ${next ? `<button class="btn primary" data-hole="${i + 1}">Next hole</button>` : ''}</div>
+      <button class="btn ghost" id="golf-course">See the course</button>
+      <p class="muted small">${left > 0 ? `${left} free ${left === 1 ? 'hole' : 'holes'} left today` : `Each hole costs ${DAILY.extraPlayGems} gem now`}</p></div>`;
+    api.renderAll();
+  }
+
   $('#game').addEventListener('click', e => {
-    if (e.target.closest('#game-leave') || e.target.closest('#game-done')) leaveGame();
+    const hole = e.target.closest('[data-hole]');
+    if (hole) { stopCurrent(); startHole(+hole.dataset.hole); }
+    else if (e.target.closest('#golf-course')) openCourse();
+    else if (e.target.closest('#game-leave') && current?.kind === 'golf' && current.screen === 'hole') openCourse();
+    else if (e.target.closest('#game-leave') || e.target.closest('#game-done')) leaveGame();
     else if (e.target.closest('#game-again')) { const k = current.kind; leaveGame(); startGame(k); }
   });
 
