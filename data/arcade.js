@@ -25,14 +25,16 @@ export const TRIVIA_REWARD = {
 
 // Skee ball: grab a ball from the chute and flick it up the hill. The last ball is golden (double points).
 // "ringScale" makes the rings bigger (easier) or smaller.
-// "assist" gently pulls rolls toward the middle. Tickets = score / 10, times "tickets".
+// "assist" gently pulls rolls toward the middle.
+// Gems: one for every "pointsPerGem" points, times "gemsTimes". A very high score adds one more.
 export const SKEEBALL = {
   balls: 5,
   modes: {
-    relaxed: { name: 'Relaxed', ringScale: 1.2, assist: 0.3, tickets: 1, winScore: 150 },
-    challenge: { name: 'Challenge', ringScale: 0.9, assist: 0, tickets: 2, winScore: 130 },
+    relaxed: { name: 'Relaxed', ringScale: 1.2, assist: 0.3, gemsTimes: 1, winScore: 150 },
+    challenge: { name: 'Challenge', ringScale: 0.9, assist: 0, gemsTimes: 2, winScore: 130 },
   },
-  gemScore: 200,           // a score this high also wins a gem
+  pointsPerGem: 50,
+  gemScore: 200,           // a score this high also wins a bonus gem
 };
 
 // Matching: flip two cards, find the pairs before the soft timer runs out.
@@ -44,19 +46,20 @@ export const MATCHING = {
     challenge: { name: 'Challenge', seconds: 45, rewardTimes: 2 },
   },
   dollarsPerPair: 3,
-  ticketsPerPair: 1,
+  pairsPerGem: 4,          // one gem for every 4 pairs found (times "rewardTimes")
   allPairsFoods: 2,        // finding every pair also drops this many level 2 foods on the board
   fullBoardDollars: 5,     // ...and pays this many dollars for each one that doesn't fit
 };
 
-// The prize counter. Prices are in tickets.
+// The gem shop. Prices are in gems.
 export const PRIZES = [
-  { id: 'food4', name: 'A level 4 food for your board', cost: 20, give: { foods: { tier: 4, count: 1 } } },
-  { id: 'gem1', name: '1 gem', cost: 30, give: { gems: 1 } },
-  { id: 'wild', name: 'Wild card', cost: 40, give: { wildcards: 1 } },
-  { id: 'basket', name: 'Food basket: 3 level 3 foods', cost: 50, give: { foods: { tier: 3, count: 3 } } },
-  { id: 'gem5', name: '5 gems', cost: 130, give: { gems: 5 } },
-  { id: 'cat', name: 'Window cat for the restaurant', cost: 120, give: { decor: 'cat' } },
-  { id: 'hanging', name: 'Hanging flower baskets', cost: 160, give: { decor: 'hanging' } },
-  { id: 'bike', name: 'Bicycle with a tulip basket', cost: 200, give: { decor: 'bike' } },
+  { id: 'food4', name: 'A level 4 food for your board', cost: 2, give: { foods: { tier: 4, count: 1 } } },
+  { id: 'wild', name: 'Wild card', cost: 2, give: { wildcards: 1 } },
+  { id: 'basket', name: 'Food basket: 3 level 3 foods', cost: 3, give: { foods: { tier: 3, count: 3 } } },
+  { id: 'cat', name: 'Window cat for the restaurant', cost: 6, give: { decor: 'cat' } },
+  { id: 'hanging', name: 'Hanging flower baskets', cost: 8, give: { decor: 'hanging' } },
+  { id: 'bike', name: 'Bicycle with a tulip basket', cost: 10, give: { decor: 'bike' } },
 ];
+
+// Older saves had tickets: they turn into gems at this rate (rounded up).
+export const TICKETS_PER_GEM = 25;

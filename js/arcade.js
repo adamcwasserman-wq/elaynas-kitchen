@@ -36,7 +36,6 @@ export function createArcade(api) {
     const s = S();
     if (g.dollars) { s.dollars += g.dollars; s.stats.earned += g.dollars; }
     if (g.gems) s.gems += g.gems;
-    if (g.tickets) s.tickets += g.tickets;
     if (g.charges) s.charges += g.charges;
     if (g.wildcards) s.wildcards += g.wildcards;
     if (g.decor && !s.decor.includes(g.decor)) s.decor.push(g.decor);
@@ -64,9 +63,9 @@ export function createArcade(api) {
       <li class="today-card${d.trivia ? ' done' : ' glow'}"><div class="today-text"><b>Daily food trivia</b>
         <span>${d.trivia ? `Answered${s.triviaStreak > 1 ? `. ${s.triviaStreak} days in a row!` : '.'} A new question tomorrow.` : 'One question a day. Win dollars and a gem.'}</span></div>
         ${d.trivia ? `<span class="upg-done">${ICONS.check}</span>` : '<button class="btn primary" data-today="trivia">Play</button>'}</li>
-      ${gameCard('skee', 'Skee ball', 'Grab a ball, flick it up the hill and into the rings. Win tickets.', SKEEBALL)}
-      ${gameCard('match', 'Food match', 'Flip cards to find the pairs. Win dollars and tickets.', MATCHING)}
-      <li class="today-card"><div class="today-text"><b>Prize counter</b><span>You have ${s.tickets} tickets.</span></div>
+      ${gameCard('skee', 'Skee ball', 'Grab a ball, flick it up the hill and into the rings. Win gems.', SKEEBALL)}
+      ${gameCard('match', 'Food match', 'Flip cards to find the pairs. Win dollars and gems.', MATCHING)}
+      <li class="today-card"><div class="today-text"><b>Gem shop</b><span>Wild cards, foods and decorations. You have ${s.gems} gems.</span></div>
         <button class="btn" data-today="prizes">Open</button></li>
       <li class="today-card"><div class="today-text"><b>Wild cards: ${s.wildcards}</b><span>Drop one on any food to make a copy.</span></div>
         <button class="btn" data-today="wild"${s.wildcards ? '' : ' disabled'}>Use one</button></li>`;
@@ -152,12 +151,12 @@ export function createArcade(api) {
   // ---------- prize counter ----------
   function openPrizes() {
     const s = S();
-    $('#prize-count').textContent = `You have ${s.tickets} tickets.`;
+    $('#prize-count').textContent = `You have ${s.gems} gems.`;
     $('#prize-list').innerHTML = PRIZES.map(p => {
       const owned = p.give.decor && s.decor.includes(p.give.decor);
       return `<li class="today-card${owned ? ' done' : ''}"><div class="today-text"><b>${p.name}</b>
-        <span>${owned ? 'On your restaurant!' : `${p.cost} tickets`}</span></div>
-        ${owned ? `<span class="upg-done">${ICONS.check}</span>` : `<button class="btn primary" data-prize="${p.id}"${s.tickets < p.cost ? ' disabled' : ''}>Get</button>`}</li>`;
+        <span>${owned ? 'On your restaurant!' : `${p.cost} gems`}</span></div>
+        ${owned ? `<span class="upg-done">${ICONS.check}</span>` : `<button class="btn primary" data-prize="${p.id}"${s.gems < p.cost ? ' disabled' : ''}>Get</button>`}</li>`;
     }).join('');
     api.openSheet('#prizes');
   }
@@ -165,13 +164,13 @@ export function createArcade(api) {
     const b = e.target.closest('[data-prize]');
     if (!b) return;
     const s = S(), p = PRIZES.find(x => x.id === b.dataset.prize);
-    if (!p || s.tickets < p.cost) return;
-    // Don't take tickets for foods that won't fit.
+    if (!p || s.gems < p.cost) return;
+    // Don't take gems for foods that won't fit.
     if (p.give.foods && api.freeCells() < p.give.foods.count) {
       api.toast(`Make room for ${p.give.foods.count} foods on your board first.`);
       return;
     }
-    s.tickets -= p.cost;
+    s.gems -= p.cost;
     give(p.give);
     api.buzz('serve');
     api.toast(p.give.decor ? `${p.name} added. Have a look in the restaurant!` : `${p.name}: yours!`);
@@ -214,13 +213,13 @@ export function createArcade(api) {
     if (kind === 'skee') {
       const m = SKEEBALL.modes[modeKey];
       win = r.score >= m.winScore;
-      reward = { tickets: Math.floor(r.score / 10) * m.tickets, gems: r.score >= SKEEBALL.gemScore ? 1 : 0 };
+      reward = { gems: Math.floor(r.score / SKEEBALL.pointsPerGem) * m.gemsTimes + (r.score >= SKEEBALL.gemScore ? 1 : 0) };
       title = `${r.score} points!`;
-      line = win ? 'A winning roll!' : 'Nice rolling. Every point earns tickets.';
+      line = win ? 'A winning roll!' : `Nice rolling. Every ${SKEEBALL.pointsPerGem} points earns a gem.`;
     } else {
       const m = MATCHING.modes[modeKey];
       win = r.all;
-      reward = { dollars: r.found * MATCHING.dollarsPerPair * m.rewardTimes, tickets: r.found * MATCHING.ticketsPerPair * m.rewardTimes };
+      reward = { dollars: r.found * MATCHING.dollarsPerPair * m.rewardTimes, gems: Math.floor(r.found / MATCHING.pairsPerGem) * m.rewardTimes };
       let line2 = `${MATCHING.allPairsFoods} bonus foods are on your board.`;
       if (win) {
         // Foods that don't fit are paid out as dollars instead, so nothing is lost.
@@ -236,7 +235,7 @@ export function createArcade(api) {
     $('#game-stage').innerHTML = `<div class="game-result">
       <p class="cele-title">${title}</p><p class="cele-line">${line}</p>
       <p class="cele-reward">${reward.dollars ? `${ICONS.coin}<span>+${reward.dollars}</span>` : ''}
-        ${reward.tickets ? `${ICONS.ticket}<span>+${reward.tickets}</span>` : ''}${reward.gems ? `${ICONS.gem}<span>+${reward.gems}</span>` : ''}</p>
+        ${reward.gems ? `${ICONS.gem}<span>+${reward.gems}</span>` : ''}</p>
       <div class="btn-row"><button class="btn" id="game-again">Play again</button><button class="btn primary" id="game-done">Done</button></div></div>`;
     const left = playsLeft(kind);
     $('#game-again').textContent = left > 0 ? `Play again (${left} free)` : `Again for ${DAILY.extraPlayGems} gem`;

@@ -18,7 +18,7 @@ import { FIRST_ORDERS, ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS } f
 import { buildSprite, use, ICONS, badgeSvg, restaurantSvg } from './art.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
 import { createArcade } from './arcade.js';
-import { GEMS } from '../data/arcade.js';
+import { GEMS, TICKETS_PER_GEM } from '../data/arcade.js';
 
 const COLS = CONFIG.board.cols;
 const ROWS = CONFIG.board.rows;
@@ -62,7 +62,7 @@ function newGame() {
     orders: [], orderSeq: 0, served: 0, tutorial: 0,
     seen: { 'bakery:1': true }, recipes: {}, badges: {}, upgrades: [], producers: ['crate'],
     stats: { produced: 0, merges: 0, mixes: 0, sold: 0, earned: 0, bounces: 0, arcadeWins: 0, triviaRight: 0 },
-    gems: 0, tickets: 0, wildcards: 0, decor: [], triviaIndex: 0, triviaStreak: 0, triviaLastRight: null,
+    gems: 0, wildcards: 0, decor: [], triviaIndex: 0, triviaStreak: 0, triviaLastRight: null,
     cityStars: 0, starLevel: 0,
     settings: { vibrate: true },
     created: Date.now(),
@@ -79,7 +79,10 @@ function migrate(s) {
     // Gems arrived in phase 3: pay out gems for badges she already has.
     s.gems = Object.values(s.badges || {}).reduce((t, lv) => t + GEMS.badge.slice(0, lv).reduce((a, b) => a + b, 0), 0);
   }
-  s.tickets ??= 0; s.wildcards ??= 0; s.decor ??= []; s.triviaIndex ??= 0; s.triviaStreak ??= 0; s.triviaLastRight ??= null;
+  // Tickets were replaced by gems: turn any she had into gems.
+  if (s.tickets) { s.gems += Math.ceil(s.tickets / TICKETS_PER_GEM); }
+  delete s.tickets;
+  s.wildcards ??= 0; s.decor ??= []; s.triviaIndex ??= 0; s.triviaStreak ??= 0; s.triviaLastRight ??= null;
   s.stats.earned ??= s.dollars;
   s.seen ??= {};
   s.recipes ??= {};
@@ -625,9 +628,9 @@ function showCelebration() {
   el.querySelector('.cele-name').textContent = c.name;
   el.querySelector('.cele-line').textContent = c.line;
   const reward = el.querySelector('.cele-reward');
-  reward.hidden = !(c.reward || c.gems || c.tickets);
+  reward.hidden = !(c.reward || c.gems);
   reward.innerHTML = (c.reward ? `${ICONS.coin}<span>+${c.reward}</span>` : '') +
-    (c.gems ? `${ICONS.gem}<span>+${c.gems}</span>` : '') + (c.tickets ? `${ICONS.ticket}<span>+${c.tickets}</span>` : '');
+    (c.gems ? `${ICONS.gem}<span>+${c.gems}</span>` : '');
   el.hidden = false;
   buzz('serve');
   if (!reduceMotion) el.querySelector('.cele-card').animate([{ transform: 'scale(.6)', opacity: 0 }, { transform: 'scale(1.04)', opacity: 1, offset: .7 }, { transform: 'scale(1)' }], { duration: 420, easing: 'ease-out' });
