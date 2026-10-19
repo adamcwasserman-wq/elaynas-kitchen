@@ -27,8 +27,8 @@
       <i class="dot" id="brand-dot" hidden></i>
     </button>
     <div class="pills">
-      <div class="pill money" id="money" aria-label="Dollars"><span class="icon"></span><b id="money-n">0</b></div>
-      <button class="pill gems" id="gems" aria-label="Gems"><span class="icon"></span><b id="gems-n">0</b></button>
+      <div class="pill money" id="money" aria-label="Tips in this restaurant's tip jar"><span class="icon"></span><span class="pill-num"><b id="money-n">0</b><small>tips</small></span></div>
+      <button class="pill gems" id="gems" aria-label="Gem shop"><span class="icon"></span><span class="pill-num"><b id="gems-n">0</b><small>gems</small></span><i class="dot" hidden></i></button>
       <button class="pill charges" id="charges" aria-label="Pantry charges">
         <span class="icon"></span><span class="charges-text"><b id="charges-n">0</b><small id="charges-t"></small></span>
       </button>
@@ -94,6 +94,10 @@
 <div class="sheet" id="prizes" hidden>
   <div class="sheet-card" role="dialog" aria-labelledby="prizes-title">
     <h2 id="prizes-title">Gem shop</h2>
+    <h3>Missions</h3>
+    <p class="muted small" id="mission-count"></p>
+    <ul class="list" id="mission-list"></ul>
+    <h3>Spend your gems</h3>
     <p class="muted small" id="prize-count"></p>
     <ul class="list" id="prize-list"></ul>
     <h3>Gem abilities</h3>
@@ -118,6 +122,7 @@
       <div class="rest-art hood-art" id="hood-art"></div>
       <p class="muted small" id="hood-caption"></p>
     </div>
+    <div class="buzz-card fund-card" id="hood-fund"></div>
     <div class="buzz-card" id="hood-buzz"></div>
     <h3>Your restaurants</h3>
     <ul class="list" id="hood-shops"></ul>
@@ -199,7 +204,7 @@
     <h3>Start over</h3>
     <button class="btn danger" id="reset">Start a new game</button>
 
-    <p class="muted small version">Elayna's Kitchen · version 0.9</p>
+    <p class="muted small version">Elayna's Kitchen · version 0.10</p>
     <button class="btn ghost" data-close>Close</button>
   </div>
 </div>

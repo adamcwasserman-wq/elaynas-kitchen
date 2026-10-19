@@ -5,7 +5,16 @@
 
 export const HOOD = { defaultName: 'Tulip Row', nameMax: 22 };
 
-// Bought in any order, with dollars. Each improvement has three stages, from basic to amazing:
+// BIA dollars: the neighbourhood's own money, separate from each restaurant's tips.
+// Visitors spend money on the street, and it piles up for her to collect on the neighbourhood screen:
+//   orderShare      every customer served (in any restaurant) adds this share of what they paid
+//   basePerHour     visitors spend this much an hour, even on a quiet street
+//   perBuzzPerHour  plus this much an hour for each point of buzz
+//   maxHours        the hourly part stops piling up after this many hours away (customers still add)
+//   dotAt           the neighbourhood button shows a dot once this much is waiting
+export const BIA = { orderShare: 0.3, basePerHour: 30, perBuzzPerHour: 0.5, maxHours: 8, dotAt: 25 };
+
+// Bought in any order, with BIA dollars (see BIA below). Each improvement has three stages, from basic to amazing:
 // build stage 1 first, then upgrade. Every stage shows up on the street and adds buzz.
 // "choice" lets her pick a style once it's built.
 export const IMPROVEMENTS = [
@@ -88,14 +97,15 @@ export const HOOD_CHOICES = {
 // Buzz from her restaurants, in every city.
 export const RESTAURANT_BUZZ = { perStar: 40, perUpgrade: 6 };
 
-// Neighbourhood levels. "bonus": customers in all restaurants pay this much more. "gems": the reward for reaching it.
+// Neighbourhood levels. "bonus": customers in all restaurants pay this much more.
+// "gems" and "bia": the reward for reaching it (BIA dollars go straight into the neighbourhood fund).
 export const BUZZ_LEVELS = [
-  { at: 0, name: 'Quiet street', bonus: 0, gems: 0 },
-  { at: 100, name: 'Friendly block', bonus: 0.05, gems: 2 },
-  { at: 350, name: 'Local favourite', bonus: 0.10, gems: 3 },
-  { at: 900, name: 'Busy food street', bonus: 0.15, gems: 5 },
-  { at: 1800, name: 'Destination', bonus: 0.20, gems: 8 },
-  { at: 3200, name: 'Famous food district', bonus: 0.25, gems: 15 },
+  { at: 0, name: 'Quiet street', bonus: 0, gems: 0, bia: 0 },
+  { at: 100, name: 'Friendly block', bonus: 0.05, gems: 2, bia: 100 },
+  { at: 350, name: 'Local favourite', bonus: 0.10, gems: 3, bia: 250 },
+  { at: 900, name: 'Busy food street', bonus: 0.15, gems: 5, bia: 500 },
+  { at: 1800, name: 'Destination', bonus: 0.20, gems: 8, bia: 1000 },
+  { at: 3200, name: 'Famous food district', bonus: 0.25, gems: 15, bia: 2000 },
 ];
 
 // Visitors a day for each point of buzz (just for show).

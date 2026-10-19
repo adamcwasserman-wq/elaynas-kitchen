@@ -86,10 +86,10 @@ export function createArcade(api) {
         <span>${d.gift ? 'Opened. A new gift tomorrow!' : `$${DAILY.gift.dollars}, ${DAILY.gift.gems} gem and a wild card.`}</span></div>
         ${d.gift ? `<span class="upg-done">${ICONS.check}</span>` : '<button class="btn primary" data-today="gift">Open</button>'}</li>
       <li class="today-card${d.trivia ? ' done' : ' glow'}"><div class="today-text"><b>Daily food trivia</b>
-        <span>${d.trivia ? `Answered${s.triviaStreak > 1 ? `. ${s.triviaStreak} days in a row!` : '.'} A new question tomorrow.` : 'One question a day. Win dollars and a gem.'}</span></div>
+        <span>${d.trivia ? `Answered${s.triviaStreak > 1 ? `. ${s.triviaStreak} days in a row!` : '.'} A new question tomorrow.` : 'One question a day. Win tips and a gem.'}</span></div>
         ${d.trivia ? `<span class="upg-done">${ICONS.check}</span>` : '<button class="btn primary" data-today="trivia">Play</button>'}</li>
       ${gameCard('skee', 'Skee ball', 'Grab a ball, flick it up the hill and into the rings. Win gems.', SKEEBALL)}
-      ${gameCard('match', 'Food match', 'Flip cards to find the pairs. Win dollars and gems.', MATCHING)}
+      ${gameCard('match', 'Food match', 'Flip cards to find the pairs. Win tips and gems.', MATCHING)}
       ${golfCard()}
       <li class="today-card"><div class="today-text"><b>Gem shop</b><span>Wild cards, foods and decorations. You have ${s.gems} gems.</span></div>
         <button class="btn" data-today="prizes">Open</button></li>
@@ -380,5 +380,5 @@ export function createArcade(api) {
     else if (e.target.closest('#game-again')) { const k = current.kind; leaveGame(); startGame(k); }
   });
 
-  return { open, somethingNew, dayKey };
+  return { open, openPrizes, somethingNew, dayKey };
 }

@@ -18,7 +18,8 @@ import { CUSTOMERS } from '../data/customers.js';
 import { VIPS, VIP_RULES } from '../data/vips.js';
 import { ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS, COMPLAINTS } from '../data/orders.js';
 import { buildSprite, use, ICONS, badgeSvg, restaurantSvg, neighbourhoodSvg } from './art.js';
-import { HOOD, IMPROVEMENTS, AMENITIES, EVENTS, HOOD_CHOICES, RESTAURANT_BUZZ, BUZZ_LEVELS, VISITORS_PER_BUZZ } from '../data/neighbourhood.js';
+import { HOOD, BIA, IMPROVEMENTS, AMENITIES, EVENTS, HOOD_CHOICES, RESTAURANT_BUZZ, BUZZ_LEVELS, VISITORS_PER_BUZZ } from '../data/neighbourhood.js';
+import { MISSIONS } from '../data/missions.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
 import { createArcade } from './arcade.js';
 import { GEMS, TICKETS_PER_GEM } from '../data/arcade.js';
@@ -56,8 +57,9 @@ let lastSale = null;   // for "Undo" after selling
 let lastAction = Date.now();
 
 // ---------- cities ----------
-// Each city keeps these for itself; everything else (dollars, gems, badges, recipes) is shared.
-const CITY_KEYS = ['board', 'orders', 'orderSeq', 'served', 'producers', 'upLv', 'choices', 'decor', 'cityStars', 'starLevel', 'complaints'];
+// Each city keeps these for itself; everything else (gems, BIA dollars, badges, recipes) is shared.
+// "dollars" is the restaurant's own tip jar: tips earned in one restaurant only buy upgrades there.
+const CITY_KEYS = ['board', 'orders', 'orderSeq', 'served', 'dollars', 'producers', 'upLv', 'choices', 'decor', 'cityStars', 'starLevel', 'complaints'];
 const cityOf = id => CITIES.find(c => c.id === id) || CITIES[0];
 const city = () => cityOf(S?.city);
 
@@ -68,7 +70,7 @@ function newCityState(id) {
   c.starts.forEach((p, n) => { board[idx(2 + n, 3)] = { producer: p }; });
   const first = PRODUCERS[c.starts[0]].makes[0];
   board[idx(1, 4)] = { chain: first.chain, tier: 1 };
-  return { board, orders: [], orderSeq: 0, served: 0, producers: [...c.starts], upLv: {}, choices: {}, decor: [], cityStars: 0, starLevel: 0, complaints: 0 };
+  return { board, orders: [], orderSeq: 0, served: 0, dollars: 0, producers: [...c.starts], upLv: {}, choices: {}, decor: [], cityStars: 0, starLevel: 0, complaints: 0 };
 }
 
 function travel(id) {
@@ -88,7 +90,7 @@ function travel(id) {
     const makes = PRODUCERS[c.starts[0]];
     celebrate({ art: restaurantPhoto(), wide: true, title: `Welcome to ${c.name}!`, name: c.restaurant,
       line: `Tap the ${makes.name.toLowerCase()} to start cooking. New foods, new recipes, new customers.` });
-  } else toast(`Back at ${c.name}!`);
+  } else toast(`Back at ${c.name}! $${S.dollars.toLocaleString()} in the tip jar.`);
   buzz('serve');
   save();
 }
@@ -117,6 +119,30 @@ const hoodLevelFor = b => BUZZ_LEVELS.reduce((l, x, i) => (b >= x.at ? i : l), 0
 const hoodBonus = () => BUZZ_LEVELS[S.hood.level]?.bonus || 0;
 const activeEvent = () => (S.hood.event ? EVENTS.find(e => e.id === S.hood.event.id) : null);
 const eventBonus = () => activeEvent()?.bonus || 0;
+// ---------- BIA dollars: the neighbourhood's own money ----------
+// Visitors spend money on the street; it waits in S.hood.pot until she collects it into S.hood.bia.
+const biaPerHour = () => BIA.basePerHour + hoodBuzz() * BIA.perBuzzPerHour;
+function accrueBia() {
+  const now = Date.now(), hrs = (now - (S.hood.potAt || now)) / 3600000;
+  S.hood.potAt = now;
+  const cap = biaPerHour() * BIA.maxHours;
+  if (S.hood.pot < cap) S.hood.pot = Math.min(cap, S.hood.pot + biaPerHour() * hrs);
+}
+const potReady = () => Math.floor(S.hood.pot);
+function visitorsSpend(pay) { S.hood.pot += Math.max(1, Math.round(pay * BIA.orderShare)); }
+function collectBia() {
+  accrueBia();
+  const n = potReady();
+  if (!n) return;
+  S.hood.bia += n;
+  S.hood.pot -= n;
+  buzz('serve');
+  toast(`+$${n.toLocaleString()} for the ${S.hood.name} fund!`);
+  renderHood(); renderHeader(); save();
+}
+// Is there something new for her on the neighbourhood screen?
+const hoodNews = () => potReady() >= BIA.dotAt || IMPROVEMENTS.some(x => x.stages[stageOf(x.id)] && S.hood.bia >= x.stages[stageOf(x.id)].cost);
+
 const hoodChoice = key => HOOD_CHOICES[key].find(c => c.colour === S.hood.choices[key]) || HOOD_CHOICES[key][0];
 
 function hoodScene(focus = null, event = null) {
@@ -138,10 +164,11 @@ function checkHood() {
   while (S.hood.level < target) {
     const L = BUZZ_LEVELS[++S.hood.level];
     S.gems += L.gems;
+    S.hood.bia += L.bia || 0;
     const opens = [...AMENITIES, ...EVENTS].filter(x => x.needs === S.hood.level).map(x => x.name);
     celebrate({
       art: hoodScene(), wide: true, title: `${S.hood.name} is a ${L.name}!`, name: `Customers pay ${Math.round(L.bonus * 100)}% more everywhere`,
-      line: opens.length ? `Now you can build or host: ${opens.join(', ')}.` : 'People come from all over to visit.', gems: L.gems,
+      line: `${L.bia ? `+$${L.bia.toLocaleString()} for the neighbourhood fund. ` : ''}${opens.length ? `Now you can build or host: ${opens.join(', ')}.` : 'People come from all over to visit.'}`, gems: L.gems,
     });
   }
 }
@@ -150,7 +177,7 @@ let hoodFocus = null;
 // An improvement row: three pips for its stages, and a button for the next one.
 function improveRow(x) {
   const n = stageOf(x.id), next = x.stages[n], top = !next;
-  const can = !top && S.dollars >= next.cost;
+  const can = !top && S.hood.bia >= next.cost;
   const pips = `<span class="pips">${x.stages.map((_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
   const right = top ? `<span class="upg-done">${ICONS.check}</span>`
     : `<button class="btn primary upg-buy" data-hood-build="${x.id}"${can ? '' : ' disabled'}>${n ? 'Upgrade' : 'Build'}<br>$${next.cost.toLocaleString()}</button>`;
@@ -163,7 +190,7 @@ function improveRow(x) {
 }
 function hoodRow(x) {
   const built = S.hood.built.includes(x.id), locked = x.needs && S.hood.level < x.needs;
-  const can = !built && !locked && S.dollars >= x.cost;
+  const can = !built && !locked && S.hood.bia >= x.cost;
   const right = built ? `<span class="upg-done">${ICONS.check}</span>`
     : locked ? '<span class="upg-cost">Locked</span>'
     : `<button class="btn primary upg-buy" data-hood-build="${x.id}"${can ? '' : ' disabled'}>$${x.cost.toLocaleString()}</button>`;
@@ -175,6 +202,11 @@ function hoodRow(x) {
 }
 
 function renderHood() {
+  accrueBia();
+  const pot = potReady();
+  $('#hood-fund').innerHTML = `<div class="fund-text"><b>$${S.hood.bia.toLocaleString()}</b><span>${S.hood.name} fund (BIA dollars)</span>` +
+    `<span class="muted small">Visitors spend about $${Math.round(biaPerHour()).toLocaleString()} an hour here, plus a share of every customer you serve.</span></div>` +
+    (pot ? `<button class="btn primary" data-collect>Collect<br>$${pot.toLocaleString()}</button>` : '<span class="upg-cost">Nothing to collect yet</span>');
   const b = hoodBuzz(), L = BUZZ_LEVELS[S.hood.level], next = BUZZ_LEVELS[S.hood.level + 1];
   $('#hood-name').value = S.hood.name;
   $('#hood-art').innerHTML = hoodScene(hoodFocus, S.hood.event?.id || null);
@@ -202,7 +234,7 @@ function renderHood() {
   $('#hood-amen').innerHTML = AMENITIES.map(x => hoodRow(x)).join('');
   $('#hood-events').innerHTML = EVENTS.map(e => {
     const locked = S.hood.level < e.needs, on = S.hood.event?.id === e.id, busy = !!S.hood.event;
-    const can = !locked && !busy && S.dollars >= e.cost;
+    const can = !locked && !busy && S.hood.bia >= e.cost;
     const right = on ? '<span class="map-here">On now!</span>' : locked ? '<span class="upg-cost">Locked</span>'
       : `<button class="btn primary upg-buy" data-hood-event="${e.id}"${can ? '' : ' disabled'}>$${e.cost.toLocaleString()}</button>`;
     const perk = `The next ${e.orders} customers pay ${Math.round(e.bonus * 100)}% more${e.stars ? ` and give ${e.stars} extra star${e.stars > 1 ? 's' : ''}` : ''}.`;
@@ -216,8 +248,8 @@ function buildHood(id) {
   const imp = IMPROVEMENTS.find(i => i.id === id);
   if (imp) {
     const n = stageOf(id), st = imp.stages[n];
-    if (!st || S.dollars < st.cost) return;
-    S.dollars -= st.cost;
+    if (!st || S.hood.bia < st.cost) return;
+    S.hood.bia -= st.cost;
     S.hood.stages[id] = n + 1;
     hoodFocus = null;
     buzz('serve');
@@ -228,8 +260,8 @@ function buildHood(id) {
     return;
   }
   const x = AMENITIES.find(i => i.id === id);
-  if (!x || S.hood.built.includes(id) || (x.needs && S.hood.level < x.needs) || S.dollars < x.cost) return;
-  S.dollars -= x.cost;
+  if (!x || S.hood.built.includes(id) || (x.needs && S.hood.level < x.needs) || S.hood.bia < x.cost) return;
+  S.hood.bia -= x.cost;
   S.hood.built.push(id);
   hoodFocus = id;
   buzz('serve');
@@ -242,8 +274,8 @@ function buildHood(id) {
 
 function hostEvent(id) {
   const e = EVENTS.find(x => x.id === id);
-  if (!e || S.hood.event || S.hood.level < e.needs || S.dollars < e.cost) return;
-  S.dollars -= e.cost;
+  if (!e || S.hood.event || S.hood.level < e.needs || S.hood.bia < e.cost) return;
+  S.hood.bia -= e.cost;
   S.hood.event = { id, left: e.orders };
   const first = !S.hood.hosted[id];
   S.hood.hosted[id] = (S.hood.hosted[id] || 0) + 1;
@@ -284,6 +316,7 @@ $('#hood').addEventListener('click', e => {
     buzz('tap'); renderHood(); save(); return;
   }
   const b = e.target.closest('button');
+  if (b?.dataset.collect !== undefined) { collectBia(); return; }
   if (b?.dataset.hoodBuild) { buildHood(b.dataset.hoodBuild); return; }
   if (b?.dataset.hoodEvent) { hostEvent(b.dataset.hoodEvent); return; }
   if (b) return;
@@ -302,15 +335,15 @@ function openNextCity() {
   if (!next || S.openCities.includes(next.id)) return;
   S.openCities.push(next.id);
   celebrate({ art: hoodScene(), wide: true, title: `${next.name} opens on ${S.hood.name}!`, name: `A new ${next.cuisine.toLowerCase()} restaurant`,
-    line: `Tap your restaurant's name at the top to see your neighbourhood, then walk over. Your progress here is kept.` });
+    line: `Tap your restaurant's name at the top to see your neighbourhood, then walk over. Each restaurant keeps its own tip jar.` });
   checkBadges();
   checkHood();
 }
 
 function newGame() {
   S = {
-    v: SAVE_VERSION, dollars: 0, city: 'toronto', openCities: ['toronto'], cityData: {},
-    hood: { name: HOOD.defaultName, built: [], stages: {}, choices: {}, level: 0, event: null, hosted: {} },
+    v: SAVE_VERSION, city: 'toronto', openCities: ['toronto'], cityData: {}, missions: {},
+    hood: { name: HOOD.defaultName, built: [], stages: {}, choices: {}, level: 0, event: null, hosted: {}, bia: 0, pot: 0, potAt: Date.now() },
     charges: CONFIG.charges.start, chargesAt: Date.now(), freeRefillAt: 0,
     tutorial: 0,
     seen: { 'bakery:1': true }, recipes: {}, badges: {},
@@ -378,6 +411,15 @@ function migrate(s) {
     s.hood.built = s.hood.built.filter(id => !IMPROVEMENTS.some(x => x.id === id));
   }
   s.cityData ??= {};
+  s.missions ??= {};
+  // Money split in two: each restaurant has its own tip jar, and the neighbourhood has BIA dollars.
+  // Half of what she had goes to the fund; the rest stays in the tip jar where she is.
+  if (s.hood.bia === undefined) {
+    s.hood.bia = Math.floor((s.dollars || 0) / 2);
+    s.dollars = (s.dollars || 0) - s.hood.bia;
+    s.hood.pot = 0; s.hood.potAt = Date.now();
+    for (const d of Object.values(s.cityData)) d.dollars ??= 0;
+  }
   // Restaurant upgrades gained levels: anything she already bought becomes level 1.
   for (const d of [s, ...Object.values(s.cityData)]) {
     if (d.upLv) continue;
@@ -948,8 +990,9 @@ function serve(oi) {
   S.dollars += pay;
   S.stats.earned += pay;
   S.served++;
+  visitorsSpend(pay);
   buzz('serve');
-  floatText(`+$${pay}${tip ? ' with tip' : ''}`, $('#money'));
+  floatText(`+$${pay}${tip ? ' with speed tip' : ''}`, $('#money'));
   addStars(stars, speedy, luckyStar);
   if (v) vipThanks(order, v);
   upgradeGifts(p);
@@ -1033,6 +1076,7 @@ function skipOrder(oi) {
   S.dollars += pay;
   S.stats.earned += pay;
   S.served++;
+  visitorsSpend(pay);
   for (const w of o.wants) if (w.dish) learnRecipe(recipeOf(w.dish));
   addStars(o.stars + eventTurn(), false);
   orderPick = null;
@@ -1111,6 +1155,51 @@ function restaurantPhoto(focus = null) {
     colour: .25 + .75 * Object.keys(S.upLv).length / UPGRADES.length, focus, decor: S.decor,
   });
 }
+
+// ---------- missions: one-time goals that pay gems ----------
+const allCities = () => S.openCities.map(id => (id === S.city ? S : S.cityData[id])).filter(Boolean);
+const sumCities = f => allCities().reduce((t, d) => t + f(d), 0);
+function missionStat(stat) {
+  switch (stat) {
+    case 'served': return sumCities(d => d.served || 0);
+    case 'recipes': return Object.keys(S.recipes).length;
+    case 'stars': return sumCities(d => d.starLevel || 0);
+    case 'hoodLevels': return Object.values(S.hood.stages).reduce((t, n) => t + n, 0) + S.hood.built.length;
+    case 'upgradeLevels': return sumCities(d => Object.values(d.upLv || {}).reduce((t, n) => t + n, 0));
+    case 'maxedUpgrades': return sumCities(d => Object.values(d.upLv || {}).filter(n => n >= 3).length);
+    case 'maxedImprovements': return Object.values(S.hood.stages).filter(n => n >= 3).length;
+    case 'events': return Object.keys(S.hood.hosted).length;
+    case 'restaurants': return S.openCities.length;
+    case 'buzzLevel': return S.hood.level;
+    default: return S.stats[stat] || 0;
+  }
+}
+const missionDone = m => missionStat(m.stat) >= m.n;
+const missionReady = () => MISSIONS.some(m => !S.missions[m.id] && missionDone(m));
+function renderMissions() {
+  // Finished ones she hasn't claimed come first, then the next few to work on.
+  const open = MISSIONS.filter(m => !S.missions[m.id]);
+  const shown = [...open.filter(missionDone), ...open.filter(m => !missionDone(m)).slice(0, 4)];
+  const claimed = MISSIONS.length - open.length;
+  $('#mission-count').textContent = `${claimed} of ${MISSIONS.length} missions done.`;
+  $('#mission-list').innerHTML = shown.map(m => {
+    const have = Math.min(m.n, missionStat(m.stat)), done = have >= m.n;
+    return `<li class="upg${done ? ' next' : ''}"><div class="upg-text"><b>${m.name}</b><span>${done ? 'Done!' : `${have} of ${m.n}`} · ${m.gems} gems</span></div>` +
+      (done ? `<button class="btn primary" data-mission="${m.id}">Claim</button>` : '') + '</li>';
+  }).join('') || '<li class="upg done"><div class="upg-text"><b>Every mission done!</b><span>Amazing work.</span></div></li>';
+}
+function openGemShop() { arcade.openPrizes(); renderMissions(); }
+$('#mission-list').addEventListener('click', e => {
+  const b = e.target.closest('[data-mission]');
+  const m = b && MISSIONS.find(x => x.id === b.dataset.mission);
+  if (!m || S.missions[m.id] || !missionDone(m)) return;
+  S.missions[m.id] = true;
+  S.gems += m.gems;
+  buzz('serve');
+  toast(`Mission done: +${m.gems} gems!`);
+  openGemShop();
+  renderHeader(); save();
+});
 
 // ---------- badges ----------
 function statFor(b) {
@@ -1313,8 +1402,9 @@ function renderHeader() {
   const hearts = '♥'.repeat(Math.max(0, maxHearts() - (S.complaints || 0))) + '♡'.repeat(Math.min(maxHearts(), S.complaints || 0));
   $('#brand-next').innerHTML = `${lv >= goals.length ? `${cityStars()} stars. You won ${CITY.name}!` : `${cityStars()} of ${goal} stars`} <span class="hearts" title="Complaints left before the round starts over">${hearts}</span>`;
   $('#brand-fill').style.width = `${lv >= goals.length ? 100 : Math.min(100, Math.round((cityStars() - prev) / (goal - prev) * 100))}%`;
-  $('#brand-dot').hidden = !can;
+  $('#brand-dot').hidden = !hoodNews();
   $('#nav-restaurant .dot').hidden = !can;
+  $('#gems .dot').hidden = !missionReady();
 }
 
 function renderOrders() {
@@ -1663,7 +1753,8 @@ document.addEventListener('click', e => {
   }
   else if (t.dataset.sell !== undefined) sell(+t.dataset.sell);
   else if (t.dataset.ability !== undefined) useAbility(t.dataset.ability, +t.dataset.target);
-  else if (t.id === 'nav-today' || t.id === 'gems') arcade.open();
+  else if (t.id === 'nav-today') arcade.open();
+  else if (t.id === 'gems') openGemShop();
   else if (t.dataset.upg !== undefined) buyUpgrade(t.dataset.upg);
   else if (t.id === 'hint-btn') hint(true);
   else if (t.id === 'charges') openRefill();
@@ -1970,11 +2061,13 @@ function boot() {
   fillOrders();
   // An older save that already reached 2 stars in Toronto opens Mexico City now.
   if (S.starLevel >= city().opensNextAt) openNextCity();
+  accrueBia();
   checkHood();
   checkBadges();
   renderAll();
 
   setInterval(() => {
+    accrueBia();
     const paused = !$('#game').hidden || !$('#celebrate').hidden || document.querySelectorAll('.sheet:not([hidden])').length > 0;
     if (document.visibilityState === 'visible' && !paused) {
       // Customers wait: the bar drops and the amount they'll pay counts down toward the normal price.
