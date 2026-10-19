@@ -17,7 +17,9 @@ import { UPGRADES, LEVEL_NEEDS, themeFor } from '../data/restaurant.js';
 import { CUSTOMERS } from '../data/customers.js';
 import { VIPS, VIP_RULES } from '../data/vips.js';
 import { ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS, COMPLAINTS } from '../data/orders.js';
-import { buildSprite, use, ICONS, badgeSvg, restaurantSvg, neighbourhoodSvg } from './art.js';
+import { buildSprite, use, ICONS, badgeSvg, restaurantSvg } from './art.js';
+import { islandSvg, islandGeom, isoPoint, isoTile, isLand, fromCentre } from './island.js';
+import { ISLAND, PIECES, ISLAND_DECOR } from '../data/island.js';
 import { HOOD, BIA, IMPROVEMENTS, AMENITIES, EVENTS, HOOD_CHOICES, RESTAURANT_BUZZ, BUZZ_LEVELS, VISITORS_PER_BUZZ } from '../data/neighbourhood.js';
 import { MISSIONS } from '../data/missions.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
@@ -145,16 +147,95 @@ const hoodNews = () => potReady() >= BIA.dotAt || IMPROVEMENTS.some(x => x.stage
 
 const hoodChoice = key => HOOD_CHOICES[key].find(c => c.colour === S.hood.choices[key]) || HOOD_CHOICES[key][0];
 
-function hoodScene(focus = null, event = null) {
-  const shops = CITIES.map(c => ({
-    slot: c.slot, open: S.openCities.includes(c.id), sign: c.sign, wall: c.look.wall, awning: c.look.awning, style: themeFor(c.id).style,
-    stars: c.id === S.city ? S.starLevel : (S.cityData[c.id]?.starLevel || 0), here: c.id === S.city, label: 'For lease',
-  })).concat(COMING_SOON.map(c => ({ slot: c.slot, open: false, label: 'Coming soon' })));
-  return neighbourhoodSvg({
-    name: S.hood.name, built: new Set(S.hood.built), stages: S.hood.stages, level: S.hood.level, shops, focus, event,
-    focusStage: focus && IMPROVEMENTS.some(x => x.id === focus) ? Math.min(3, stageOf(focus) + 1) : 0,
+// ---------- Tulip Island: the map she builds on ----------
+// S.hood.island = { land: how big the island is (0 to 5, see ISLAND.land), pieces: [{ uid, kind, type, x, y }], next: the next uid }
+// kind is 'imp' (a landmark: one of the 12 improvements), 'amen' (an amenity) or 'decor' (a decoration).
+// A landmark's stage lives in S.hood.stages and an amenity in S.hood.built, as before; the island only adds where they are.
+const isl = () => S.hood.island;
+const landRadius = (lv = isl().land) => ISLAND.land[lv].radius;
+const decorOf = type => ISLAND_DECOR.find(d => d.id === type);
+const sizeOf = (kind, type) => kind === 'decor' ? [1, 1] : PIECES[type].size;
+const placeOf = (kind, type) => kind === 'decor' ? decorOf(type).on : PIECES[type].on;
+const pieceOf = (kind, type) => isl().pieces.find(p => p.kind === kind && p.type === type);
+const pieceName = p => p.kind === 'decor' ? decorOf(p.type).name : p.kind === 'amen' ? AMENITIES.find(a => a.id === p.type).name : IMPROVEMENTS.find(x => x.id === p.type).name;
+const squaresOf = (x, y, w, d) => { const out = []; for (let i = 0; i < w; i++) for (let j = 0; j < d; j++) out.push([x + i, y + j]); return out; };
+const lotOf = slot => ISLAND.lots[slot];
+// Squares that stay water even as the island grows: under docks, harbours, boats and ducks.
+function waterSquares(skip = null) {
+  const set = new Set();
+  for (const p of isl().pieces) if (p.uid !== skip && ['water', 'sea'].includes(placeOf(p.kind, p.type))) for (const [x, y] of squaresOf(p.x, p.y, ...sizeOf(p.kind, p.type))) set.add(`${x},${y}`);
+  return set;
+}
+function takenSquares(skip = null) {
+  const set = new Set();
+  for (const [x, y] of Object.values(ISLAND.lots)) for (const [a, b] of squaresOf(x, y, 2, 2)) set.add(`${a},${b}`);
+  for (const p of isl().pieces) if (p.uid !== skip) for (const [x, y] of squaresOf(p.x, p.y, ...sizeOf(p.kind, p.type))) set.add(`${x},${y}`);
+  return set;
+}
+// Can this piece go here? Returns { ok } or { ok: false, why } in words for her.
+function fits(kind, type, x, y, skip = null) {
+  const [w, d] = sizeOf(kind, type), on = placeOf(kind, type), N = ISLAND.size;
+  const water = waterSquares(skip), taken = takenSquares(skip), R = landRadius();
+  const land = (a, b) => isLand(R, water, a, b);
+  let nextToSea = false, nextToLand = false;
+  for (const [a, b] of squaresOf(x, y, w, d)) {
+    if (a < 0 || b < 0 || a >= N || b >= N) return { ok: false, why: "That's too far out to sea." };
+    if (taken.has(`${a},${b}`)) return { ok: false, why: 'Something is already there.' };
+    if (on === 'land' || on === 'shore') {
+      if (!land(a, b)) return { ok: false, why: 'That goes on the island.' };
+      if (b === ISLAND.mainStreet) return { ok: false, why: 'Keep Main Street clear for visitors.' };
+    } else if (land(a, b)) return { ok: false, why: 'That goes in the water.' };
+    for (const [da, db] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { if (land(a + da, b + db)) nextToLand = true; else nextToSea = true; }
+  }
+  if (on === 'water' && !nextToLand) return { ok: false, why: 'Put it right next to the island.' };
+  if (on === 'shore' && !nextToSea) return { ok: false, why: 'Put it on the shore, next to the water.' };
+  return { ok: true };
+}
+// The best free spot for a piece: as close to the middle of the island as it fits.
+function suggestSpot(kind, type, skip = null) {
+  const [w, d] = sizeOf(kind, type), spots = [];
+  for (let y = 0; y < ISLAND.size; y++) for (let x = 0; x < ISLAND.size; x++) spots.push([x, y, fromCentre(x + (w - 1) / 2, y + (d - 1) / 2)]);
+  spots.sort((a, b) => a[2] - b[2]);
+  const hit = spots.find(([x, y]) => fits(kind, type, x, y, skip).ok);
+  return hit ? { x: hit[0], y: hit[1] } : null;
+}
+// Older saves: put everything she already built somewhere sensible (growing the island for free if it's full).
+function autoPlace(kind, type) {
+  for (;;) {
+    const spot = suggestSpot(kind, type);
+    if (spot) { isl().pieces.push({ uid: isl().next++, kind, type, ...spot }); return; }
+    if (isl().land >= ISLAND.land.length - 1) return;
+    isl().land++;
+  }
+}
+function ensureIsland() {
+  S.hood.island ??= { land: 0, pieces: [], next: 1 };
+  if (S.hood.name === 'Tulip Row') S.hood.name = HOOD.defaultName; // the old default name becomes the island's
+  for (const x of IMPROVEMENTS) if (stageOf(x.id) && !pieceOf('imp', x.id)) autoPlace('imp', x.id);
+  for (const id of S.hood.built) if (!pieceOf('amen', id)) autoPlace('amen', id);
+}
+
+let islNight = null; // null: follow the clock
+const clockNight = () => { const h = new Date().getHours(); return h >= ISLAND.night.from || h < ISLAND.night.to; };
+const isNight = () => islNight ?? clockNight();
+const islScale = () => (innerWidth < 600 ? .72 : .9);
+function islandScene({ crop = false, focus = null, event = S.hood.event?.id || null, ghost = null } = {}) {
+  const lv = isl().land, water = waterSquares();
+  const shops = CITIES.map(c => {
+    const d = c.id === S.city ? S : S.cityData[c.id] || {}, [x, y] = lotOf(c.slot);
+    return { x, y, open: S.openCities.includes(c.id), sign: c.sign, wall: c.look.wall, roof: c.look.awning, awning: c.look.awning,
+      stars: d.starLevel || 0, ups: Object.values(d.upLv || {}).reduce((t, n) => t + n, 0), here: c.id === S.city, label: 'For lease' };
+  }).concat(COMING_SOON.map(c => ({ x: lotOf(c.slot)[0], y: lotOf(c.slot)[1], open: false, label: 'Coming soon' })));
+  const pieces = isl().pieces.map(p => { const [w, d] = sizeOf(p.kind, p.type); return { ...p, w, d, stage: p.kind === 'imp' ? stageOf(p.type) : 1 }; });
+  const dock = pieces.find(p => p.type === 'streetcar');
+  return islandSvg({
+    radius: landRadius(lv), saleRadius: ISLAND.land[lv + 1]?.radius || 0, water,
+    paths: new Set(isl().pieces.filter(p => p.type === 'path').map(p => `${p.x},${p.y}`)),
+    shops, pieces, focus, ghost, event, crop, name: S.hood.name,
     choices: { trees: hoodChoice('trees').colour, flowers: hoodChoice('flowers').colour, mural: hoodChoice('mural').name },
-    people: 2 + Math.floor(hoodBuzz() / 90),
+    people: Math.min(40, 2 + Math.floor(hoodBuzz() / 90)), sailboats: ISLAND.sailboats[S.hood.level] || 1,
+    ferry: dock ? { ...dock, stage: dock.stage } : null, night: isNight(),
+    scale: crop ? 1 : islScale(), label: `${S.hood.name}, seen from above`,
   });
 }
 
@@ -167,108 +248,212 @@ function checkHood() {
     S.hood.bia += L.bia || 0;
     const opens = [...AMENITIES, ...EVENTS].filter(x => x.needs === S.hood.level).map(x => x.name);
     celebrate({
-      art: hoodScene(), wide: true, title: `${S.hood.name} is a ${L.name}!`, name: `Customers pay ${Math.round(L.bonus * 100)}% more everywhere`,
-      line: `${L.bia ? `+$${L.bia.toLocaleString()} for the neighbourhood fund. ` : ''}${opens.length ? `Now you can build or host: ${opens.join(', ')}.` : 'People come from all over to visit.'}`, gems: L.gems,
+      art: islandScene({ crop: true }), wide: true, title: `${S.hood.name} is a ${L.name}!`, name: `Customers pay ${Math.round(L.bonus * 100)}% more everywhere`,
+      line: `${L.bia ? `+$${L.bia.toLocaleString()} for the island fund. ` : ''}${opens.length ? `Now you can build or host: ${opens.join(', ')}.` : 'More boats and visitors come to the island.'}`, gems: L.gems,
     });
   }
 }
 
-let hoodFocus = null;
-// An improvement row: three pips for its stages, and a button for the next one.
+// ----- what's happening on the island screen -----
+let islTab = 'build';
+let islMode = null;  // placing or moving a piece: { do: 'place' | 'move', kind, type, uid }
+let islGhost = null; // where that piece would go: { x, y }
+let islSel = null;   // the piece she tapped (its uid), or 'land' when she tapped the sand
+const ghostFor = () => {
+  if (!islMode || !islGhost) return null;
+  const [w, d] = sizeOf(islMode.kind, islMode.type);
+  return { kind: islMode.kind, type: islMode.type, x: islGhost.x, y: islGhost.y, w, d, uid: null,
+    stage: islMode.kind === 'imp' ? Math.max(1, stageOf(islMode.type)) : 1, ok: fits(islMode.kind, islMode.type, islGhost.x, islGhost.y, islMode.uid).ok };
+};
+const costToPlace = (kind, type) => kind === 'decor' ? decorOf(type).cost : kind === 'amen' ? AMENITIES.find(a => a.id === type).cost : IMPROVEMENTS.find(x => x.id === type).stages[0].cost;
+const pips = n => `<span class="pips">${[0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+
 function improveRow(x) {
   const n = stageOf(x.id), next = x.stages[n], top = !next;
   const can = !top && S.hood.bia >= next.cost;
-  const pips = `<span class="pips">${x.stages.map((_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
   const right = top ? `<span class="upg-done">${ICONS.check}</span>`
-    : `<button class="btn primary upg-buy" data-hood-build="${x.id}"${can ? '' : ' disabled'}>${n ? 'Upgrade' : 'Build'}<br>$${next.cost.toLocaleString()}</button>`;
+    : n ? `<button class="btn primary upg-buy" data-isl-up="${x.id}"${can ? '' : ' disabled'}>Upgrade<br>$${next.cost.toLocaleString()}</button>`
+    : `<button class="btn primary upg-buy" data-isl-place="imp:${x.id}"${can ? '' : ' disabled'}>Build<br>$${next.cost.toLocaleString()}</button>`;
   const note = top ? `${x.stages[2].name}. ${x.stages[2].about}`
     : `${n ? `Now: ${x.stages[n - 1].name}. Next: ` : ''}${next.name}. ${next.about} +${next.buzz} buzz.`;
   const swatches = n && x.choice ? `<div class="swatches">${HOOD_CHOICES[x.choice].map(c =>
     `<button class="swatch${hoodChoice(x.choice).colour === c.colour ? ' on' : ''}" data-hood-choice="${x.choice}" data-colour="${c.colour}" style="background:${c.colour}" aria-label="${c.name}"></button>`).join('')}</div>` : '';
-  return `<li class="upg${top ? ' done' : can ? ' next' : ''}${hoodFocus === x.id ? ' focused' : ''}" data-hood-focus="${x.id}">` +
-    `<div class="upg-text"><b>${x.name} ${pips}</b><span>${note}</span>${swatches}</div>${right}</li>`;
+  const p = pieceOf('imp', x.id);
+  return `<li class="upg${top ? ' done' : can ? ' next' : ''}${p && islSel === p.uid ? ' focused' : ''}"${p ? ` data-isl-find="${p.uid}"` : ''}>` +
+    `<div class="upg-text"><b>${x.name} ${pips(n)}</b><span>${note}</span>${swatches}</div>${right}</li>`;
 }
-function hoodRow(x) {
+function amenityRow(x) {
   const built = S.hood.built.includes(x.id), locked = x.needs && S.hood.level < x.needs;
   const can = !built && !locked && S.hood.bia >= x.cost;
-  const right = built ? `<span class="upg-done">${ICONS.check}</span>`
-    : locked ? '<span class="upg-cost">Locked</span>'
-    : `<button class="btn primary upg-buy" data-hood-build="${x.id}"${can ? '' : ' disabled'}>$${x.cost.toLocaleString()}</button>`;
+  const right = built ? `<span class="upg-done">${ICONS.check}</span>` : locked ? '<span class="upg-cost">Locked</span>'
+    : `<button class="btn primary upg-buy" data-isl-place="amen:${x.id}"${can ? '' : ' disabled'}>Build<br>$${x.cost.toLocaleString()}</button>`;
   const note = locked ? `Opens when ${S.hood.name} is a ${BUZZ_LEVELS[x.needs].name}.` : `${x.about} +${x.buzz} buzz.`;
-  const swatches = built && x.choice ? `<div class="swatches">${HOOD_CHOICES[x.choice].map(c =>
-    `<button class="swatch${hoodChoice(x.choice).colour === c.colour ? ' on' : ''}" data-hood-choice="${x.choice}" data-colour="${c.colour}" style="background:${c.colour}" aria-label="${c.name}"></button>`).join('')}</div>` : '';
-  return `<li class="upg${built ? ' done' : can ? ' next' : locked ? ' later' : ''}${hoodFocus === x.id ? ' focused' : ''}" data-hood-focus="${x.id}">` +
-    `<div class="upg-text"><b>${x.name}</b><span>${note}</span>${swatches}</div>${right}</li>`;
+  const p = pieceOf('amen', x.id);
+  return `<li class="upg${built ? ' done' : can ? ' next' : locked ? ' later' : ''}${p && islSel === p.uid ? ' focused' : ''}"${p ? ` data-isl-find="${p.uid}"` : ''}>` +
+    `<div class="upg-text"><b>${x.name}</b><span>${note}</span></div>${right}</li>`;
+}
+function growRow() {
+  const lv = isl().land, next = ISLAND.land[lv + 1];
+  if (!next) return `<li class="upg done"><div class="upg-text"><b>The island is as big as it gets</b><span>Every bit of shoreline is yours.</span></div><span class="upg-done">${ICONS.check}</span></li>`;
+  const can = S.hood.bia >= next.cost;
+  return `<li class="upg${can ? ' next' : ''}"><div class="upg-text"><b>Grow the island</b><span>More shoreline to build on (size ${lv + 2} of ${ISLAND.land.length}). You can also tap the sand on the map.</span></div>` +
+    `<button class="btn primary upg-buy" data-isl-grow${can ? '' : ' disabled'}>Grow<br>$${next.cost.toLocaleString()}</button></li>`;
 }
 
+function renderIslandMap() {
+  const box = $('#isl-map'), fresh = !box.firstChild, keep = [box.scrollLeft, box.scrollTop];
+  box.innerHTML = islandScene({ focus: typeof islSel === 'number' ? islSel : null, ghost: ghostFor() });
+  if (fresh) centreMap(ISLAND.centre, ISLAND.centre); else { box.scrollLeft = keep[0]; box.scrollTop = keep[1]; }
+  $('#isl-night').textContent = isNight() ? '☀' : '☾';
+  $('#isl-night').setAttribute('aria-label', isNight() ? 'Switch to daytime' : 'Switch to night');
+}
+// Bring the map back into view when she picks something from the lists below it.
+const showMap = () => $('.isl-mapwrap').scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
+function centreMap(x, y, smooth = false) {
+  const box = $('#isl-map'), p = isoPoint(islandGeom(), x, y), s = islScale();
+  box.scrollTo({ left: p[0] * s - box.clientWidth / 2, top: p[1] * s - box.clientHeight / 2 - 30 * s, behavior: smooth && !reduceMotion ? 'smooth' : 'auto' });
+}
+// The card over the bottom of the map: placing, moving, a tapped piece, or growing the island.
+function renderBanner() {
+  const el = $('#isl-banner');
+  let html = '';
+  if (islMode) {
+    const name = islMode.do === 'move' ? pieceName(isl().pieces.find(p => p.uid === islMode.uid)) : islMode.kind === 'decor' ? decorOf(islMode.type).name : pieceName({ kind: islMode.kind, type: islMode.type });
+    const g = ghostFor(), why = g && !g.ok ? fits(islMode.kind, islMode.type, g.x, g.y, islMode.uid).why : null;
+    if (islMode.kind === 'decor' && islMode.do === 'place') {
+      const cost = decorOf(islMode.type).cost;
+      html = `<div class="isl-b-text"><b>${name} · $${cost}</b><span>${S.hood.bia < cost ? 'Not enough BIA dollars yet.' : why || 'Tap the map to place one. Tap again for more.'}</span></div><button class="btn primary" data-isl-done>Done</button>`;
+    } else {
+      const cost = islMode.do === 'place' ? costToPlace(islMode.kind, islMode.type) : 0;
+      const can = g && g.ok && S.hood.bia >= cost;
+      html = `<div class="isl-b-text"><b>${name}${cost ? ` · $${cost.toLocaleString()}` : ''}</b><span>${why || (islMode.do === 'move' ? 'Tap where it should go.' : 'Tap the map to choose a spot.')}</span></div>` +
+        `<button class="btn primary" data-isl-confirm${can ? '' : ' disabled'}>${islMode.do === 'move' ? 'Move here' : 'Build here'}</button><button class="btn ghost" data-isl-cancel>Cancel</button>`;
+    }
+  } else if (islSel === 'land') {
+    const next = ISLAND.land[isl().land + 1];
+    html = next ? `<div class="isl-b-text"><b>Grow the island · $${next.cost.toLocaleString()}</b><span>${S.hood.bia >= next.cost ? 'More shoreline to build on.' : `$${(next.cost - S.hood.bia).toLocaleString()} more BIA dollars to go.`}</span></div>` +
+      `<button class="btn primary" data-isl-grow${S.hood.bia >= next.cost ? '' : ' disabled'}>Grow</button><button class="btn ghost" data-isl-cancel>×</button>` : '';
+  } else if (typeof islSel === 'number') {
+    const p = isl().pieces.find(q => q.uid === islSel);
+    if (p) {
+      let up = '', sub = '';
+      if (p.kind === 'imp') {
+        const x = IMPROVEMENTS.find(i => i.id === p.type), n = stageOf(p.type), next = x.stages[n];
+        sub = `${pips(n)} ${x.stages[n - 1].name}`;
+        if (next) up = `<button class="btn primary" data-isl-up="${p.type}"${S.hood.bia >= next.cost ? '' : ' disabled'}>Upgrade $${next.cost.toLocaleString()}</button>`;
+      } else if (p.kind === 'amen') sub = AMENITIES.find(a => a.id === p.type).about;
+      else sub = `A decoration. Putting it away gives back $${decorOf(p.type).cost}.`;
+      html = `<div class="isl-b-text"><b>${pieceName(p)}</b><span>${sub}</span></div>${up}<button class="btn ghost" data-isl-move>Move</button>` +
+        (p.kind === 'decor' ? '<button class="btn ghost" data-isl-remove>Put away</button>' : '') + '<button class="btn ghost" data-isl-cancel aria-label="Close">×</button>';
+    }
+  }
+  el.innerHTML = html;
+  el.hidden = !html;
+}
+function renderIslandPanel() {
+  document.querySelectorAll('[data-isl-tab]').forEach(b => b.classList.toggle('on', b.dataset.islTab === islTab));
+  const panel = $('#isl-panel');
+  if (islTab === 'build') {
+    panel.innerHTML = `<ul class="list">${growRow()}</ul><h3>Landmarks</h3><ul class="list">${IMPROVEMENTS.map(improveRow).join('')}</ul>` +
+      `<h3>Amenities</h3><ul class="list">${AMENITIES.map(amenityRow).join('')}</ul>`;
+  } else if (islTab === 'decor') {
+    panel.innerHTML = `<p class="muted small">Just for fun: place as many as you like. Put one away to get your money back.</p><div class="isl-decor">` +
+      ISLAND_DECOR.map(d => `<button class="isl-deco${islMode?.type === d.id ? ' on' : ''}" data-isl-place="decor:${d.id}"${S.hood.bia >= d.cost ? '' : ' disabled'}>` +
+        `<span class="isl-deco-art">${decorPreview(d.id)}</span><b>${d.name}</b><span class="money">$${d.cost}</span></button>`).join('') + '</div>';
+  } else if (islTab === 'events') {
+    panel.innerHTML = `<ul class="list">${EVENTS.map(e => {
+      const locked = S.hood.level < e.needs, on = S.hood.event?.id === e.id, busy = !!S.hood.event;
+      const can = !locked && !busy && S.hood.bia >= e.cost;
+      const right = on ? '<span class="map-here">On now!</span>' : locked ? '<span class="upg-cost">Locked</span>'
+        : `<button class="btn primary upg-buy" data-hood-event="${e.id}"${can ? '' : ' disabled'}>$${e.cost.toLocaleString()}</button>`;
+      const perk = `The next ${e.orders} customers pay ${Math.round(e.bonus * 100)}% more${e.stars ? ` and give ${e.stars} extra star${e.stars > 1 ? 's' : ''}` : ''}.`;
+      const note = locked ? `Opens when ${S.hood.name} is a ${BUZZ_LEVELS[e.needs].name}.` : `${e.about} ${perk}${S.hood.hosted[e.id] ? '' : ` First time: +${e.firstBuzz} buzz.`}`;
+      return `<li class="upg${on ? ' next' : locked ? ' later' : ''}"><div class="upg-text"><b>${e.name}</b><span>${note}</span></div>${right}</li>`;
+    }).join('')}</ul>`;
+  } else {
+    panel.innerHTML = `<ul class="list">${CITIES.map((c, i) => {
+      const here = c.id === S.city, open = S.openCities.includes(c.id);
+      const lv = here ? S.starLevel : (S.cityData[c.id]?.starLevel || 0), prev = CITIES[i - 1];
+      const right = here ? '<span class="map-here">You\'re here</span>' : open ? `<button class="btn primary" data-travel="${c.id}">Go there</button>` : '<span class="upg-cost">For lease</span>';
+      const note = open ? `${c.cuisine} · ${'★'.repeat(lv)}${'☆'.repeat(3 - lv)}` : `Opens when ${prev.name} reaches ${prev.opensNextAt} stars.`;
+      return `<li class="${here ? 'upg next' : open ? 'upg' : 'upg later'}"><div class="upg-text"><b>${c.name}</b><span>${note}</span></div>${right}</li>`;
+    }).join('') + COMING_SOON.map(c => `<li class="upg later"><div class="upg-text"><b>${c.name}</b><span>${c.cuisine} · coming in a later update.</span></div></li>`).join('')}</ul>`;
+  }
+}
+// A small picture of a decoration for the Decorate tab.
+const decorPreview = id => {
+  const onLand = decorOf(id).on === 'land';
+  const svg = islandSvg({ radius: onLand ? .8 : 0, saleRadius: 0, water: new Set(), paths: new Set(id === 'path' ? ['10,10'] : []), shops: [], pieces: [{ uid: 1, kind: 'decor', type: id, x: 10, y: 10, w: 1, d: 1 }], choices: {}, people: 0, sailboats: 0, scale: 1 });
+  const p = isoPoint(islandGeom(), 10.5, 10.5);
+  return svg.replace(/width="[^"]*" height="[^"]*" viewBox="[^"]*"/, `viewBox="${p[0] - 34} ${p[1] - 52} 68 68"`);
+};
 function renderHood() {
   accrueBia();
-  const pot = potReady();
-  $('#hood-fund').innerHTML = `<div class="fund-text"><b>$${S.hood.bia.toLocaleString()}</b><span>${S.hood.name} fund (BIA dollars)</span>` +
-    `<span class="muted small">Visitors spend about $${Math.round(biaPerHour()).toLocaleString()} an hour here, plus a share of every customer you serve.</span></div>` +
-    (pot ? `<button class="btn primary" data-collect>Collect<br>$${pot.toLocaleString()}</button>` : '<span class="upg-cost">Nothing to collect yet</span>');
-  const b = hoodBuzz(), L = BUZZ_LEVELS[S.hood.level], next = BUZZ_LEVELS[S.hood.level + 1];
-  $('#hood-name').value = S.hood.name;
-  $('#hood-art').innerHTML = hoodScene(hoodFocus, S.hood.event?.id || null);
-  const f = ALL_HOOD.find(x => x.id === hoodFocus);
-  const fName = !f ? '' : !f.stages ? f.name : f.stages[Math.min(2, stageOf(f.id))].name;
-  const fBuilt = f && (f.stages ? stageOf(f.id) >= 3 : S.hood.built.includes(f.id));
-  $('#hood-caption').textContent = !f ? 'Tap anything below to see where it goes. Tap a shop to visit it.'
-    : fBuilt ? `${fName}, outlined in purple.` : `Preview: ${fName}, outlined in purple.`;
-  const pct = next ? Math.min(100, Math.round((b - L.at) / (next.at - L.at) * 100)) : 100;
-  $('#hood-buzz').innerHTML = `<div class="buzz-top"><b>${L.name}</b><span>${(b * VISITORS_PER_BUZZ).toLocaleString()} visitors a day</span></div>` +
-    `<div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>` +
-    `<span class="muted small">${b} buzz${next ? ` · ${next.at - b} more for ${next.name}` : ' · the most famous food district in town!'}` +
-    `${L.bonus ? ` · customers pay ${Math.round(L.bonus * 100)}% more` : ''}</span>` +
+  const pot = potReady(), b = hoodBuzz(), L = BUZZ_LEVELS[S.hood.level], next = BUZZ_LEVELS[S.hood.level + 1];
+  if (document.activeElement !== $('#hood-name')) $('#hood-name').value = S.hood.name;
+  const pct = next ? Math.max(0, Math.min(100, Math.round((b - L.at) / (next.at - L.at) * 100))) : 100;
+  $('#isl-stats').innerHTML = `<div class="isl-fund"><b>$${S.hood.bia.toLocaleString()}</b><span>BIA dollars</span></div>` +
+    (pot ? `<button class="btn primary" data-collect>Collect $${pot.toLocaleString()}</button>` : '') +
+    `<div class="isl-level"><b>${L.name}</b><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>` +
+    `<span>${(b * VISITORS_PER_BUZZ).toLocaleString()} visitors a day${next ? ` · ${next.at - b} buzz to ${next.name}` : ''}</span></div>` +
     (activeEvent() ? `<span class="event-on">${activeEvent().name}: ${S.hood.event.left} more customers pay ${Math.round(activeEvent().bonus * 100)}% more!</span>` : '');
-  $('#hood-shops').innerHTML = CITIES.map((c, i) => {
-    const here = c.id === S.city, open = S.openCities.includes(c.id);
-    const lv = here ? S.starLevel : (S.cityData[c.id]?.starLevel || 0);
-    const prev = CITIES[i - 1];
-    const right = here ? '<span class="map-here">You\'re here</span>'
-      : open ? `<button class="btn primary" data-travel="${c.id}">Go there</button>` : '<span class="upg-cost">For lease</span>';
-    const note = open ? `${c.cuisine} · ${'★'.repeat(lv)}${'☆'.repeat(3 - lv)}` : `Opens when ${prev.name} reaches ${prev.opensNextAt} stars.`;
-    return `<li class="${here ? 'upg next' : open ? 'upg' : 'upg later'}"><div class="upg-text"><b>${c.name}</b><span>${note}</span></div>${right}</li>`;
-  }).join('') + COMING_SOON.map(c => `<li class="upg later"><div class="upg-text"><b>${c.name}</b><span>${c.cuisine} · coming in a later update.</span></div></li>`).join('');
-  $('#hood-improve').innerHTML = IMPROVEMENTS.map(improveRow).join('');
-  $('#hood-amen').innerHTML = AMENITIES.map(x => hoodRow(x)).join('');
-  $('#hood-events').innerHTML = EVENTS.map(e => {
-    const locked = S.hood.level < e.needs, on = S.hood.event?.id === e.id, busy = !!S.hood.event;
-    const can = !locked && !busy && S.hood.bia >= e.cost;
-    const right = on ? '<span class="map-here">On now!</span>' : locked ? '<span class="upg-cost">Locked</span>'
-      : `<button class="btn primary upg-buy" data-hood-event="${e.id}"${can ? '' : ' disabled'}>$${e.cost.toLocaleString()}</button>`;
-    const perk = `The next ${e.orders} customers pay ${Math.round(e.bonus * 100)}% more${e.stars ? ` and give ${e.stars} extra star${e.stars > 1 ? 's' : ''}` : ''}.`;
-    const note = locked ? `Opens when ${S.hood.name} is a ${BUZZ_LEVELS[e.needs].name}.` : `${e.about} ${perk}${S.hood.hosted[e.id] ? '' : ` First time: +${e.firstBuzz} buzz.`}`;
-    return `<li class="upg${on ? ' next' : locked ? ' later' : ''}"><div class="upg-text"><b>${e.name}</b><span>${note}</span></div>${right}</li>`;
-  }).join('');
+  renderIslandMap();
+  renderBanner();
+  renderIslandPanel();
 }
-function openHood() { hoodFocus = null; renderHood(); openSheet('#hood'); }
+function openHood() { islMode = null; islGhost = null; islSel = null; $('#isl-map').innerHTML = ''; openSheet('#hood'); renderHood(); }
 
-function buildHood(id) {
-  const imp = IMPROVEMENTS.find(i => i.id === id);
-  if (imp) {
-    const n = stageOf(id), st = imp.stages[n];
-    if (!st || S.hood.bia < st.cost) return;
-    S.hood.bia -= st.cost;
-    S.hood.stages[id] = n + 1;
-    hoodFocus = null;
-    buzz('serve');
-    renderHood();
-    celebrate({ art: hoodScene(), wide: true, title: `${st.name}!`, name: `+${st.buzz} buzz for ${S.hood.name}`,
-      line: st.about + (n === 0 && imp.choice ? ' Pick a style below.' : n < 2 ? ` Upgrade it again any time.` : ` That's as amazing as it gets!`) });
-    checkHood(); renderHeader(); save();
-    return;
-  }
-  const x = AMENITIES.find(i => i.id === id);
-  if (!x || S.hood.built.includes(id) || (x.needs && S.hood.level < x.needs) || S.hood.bia < x.cost) return;
-  S.hood.bia -= x.cost;
-  S.hood.built.push(id);
-  hoodFocus = id;
+function startPlacing(kind, type) {
+  islMode = { do: 'place', kind, type };
+  islSel = null;
+  islGhost = suggestSpot(kind, type);
+  renderHood();
+  showMap();
+  if (islGhost) centreMap(islGhost.x + .5, islGhost.y + .5, true);
+}
+// Build a landmark or amenity, or place a decoration, at x, y.
+function placePiece(kind, type, x, y) {
+  const cost = costToPlace(kind, type);
+  if (!fits(kind, type, x, y).ok || S.hood.bia < cost) return false;
+  if (kind === 'imp' && stageOf(type)) return false;
+  if (kind === 'amen' && S.hood.built.includes(type)) return false;
+  S.hood.bia -= cost;
+  const uid = isl().next++;
+  isl().pieces.push({ uid, kind, type, x, y });
+  if (kind === 'decor') { buzz('tap'); renderHood(); save(); return true; }
+  if (kind === 'imp') S.hood.stages[type] = 1; else S.hood.built.push(type);
+  islMode = null; islGhost = null; islSel = uid;
   buzz('serve');
   renderHood();
-  celebrate({ art: hoodScene(id), wide: true, title: `${x.name}!`, name: `+${x.buzz} buzz for ${S.hood.name}`, line: x.about });
-  checkHood();
-  renderHeader();
+  const x0 = kind === 'imp' ? IMPROVEMENTS.find(i => i.id === type) : AMENITIES.find(a => a.id === type);
+  const st = kind === 'imp' ? x0.stages[0] : x0;
+  celebrate({ art: islandScene({ crop: true, focus: uid }), wide: true, title: `${st.name}!`, name: `+${st.buzz} buzz for ${S.hood.name}`,
+    line: st.about + (kind === 'imp' ? (x0.choice ? ' Pick a style in the Build list.' : ' Tap it on the map to upgrade it later.') : '') });
+  checkHood(); renderHeader(); save();
+  return true;
+}
+function upgradeLandmark(type) {
+  const imp = IMPROVEMENTS.find(i => i.id === type), n = stageOf(type), st = imp?.stages[n];
+  if (!st || !n || S.hood.bia < st.cost) return;
+  S.hood.bia -= st.cost;
+  S.hood.stages[type] = n + 1;
+  const p = pieceOf('imp', type);
+  islSel = p?.uid ?? null;
+  buzz('serve');
+  renderHood();
+  celebrate({ art: islandScene({ crop: true, focus: islSel }), wide: true, title: `${st.name}!`, name: `+${st.buzz} buzz for ${S.hood.name}`,
+    line: st.about + (n < 2 ? ' Upgrade it again any time.' : " That's as amazing as it gets!") });
+  checkHood(); renderHeader(); save();
+}
+function growIsland() {
+  const next = ISLAND.land[isl().land + 1];
+  if (!next || S.hood.bia < next.cost) return;
+  S.hood.bia -= next.cost;
+  isl().land++;
+  islSel = null;
+  buzz('serve');
+  renderHood();
+  toast(`${S.hood.name} just got bigger!`);
   save();
 }
 
@@ -281,7 +466,7 @@ function hostEvent(id) {
   S.hood.hosted[id] = (S.hood.hosted[id] || 0) + 1;
   buzz('serve');
   closeSheets();
-  celebrate({ art: hoodScene(null, id), wide: true, title: `${e.name}!`, name: `The next ${e.orders} customers pay ${Math.round(e.bonus * 100)}% more`,
+  celebrate({ art: islandScene({ crop: true, event: id }), wide: true, title: `${e.name}!`, name: `The next ${e.orders} customers pay ${Math.round(e.bonus * 100)}% more`,
     line: `${e.about}${e.stars ? ` Each one also gives ${e.stars} extra star${e.stars > 1 ? 's' : ''}.` : ''}${first ? ` +${e.firstBuzz} buzz.` : ''}` });
   checkHood();
   renderAll();
@@ -299,29 +484,77 @@ function eventTurn() {
   return e.stars;
 }
 
-$('#hood').addEventListener('click', e => {
-  // Tapping a storefront in the picture walks her over to that restaurant.
-  const art = e.target.closest('#hood-art');
-  if (art) {
-    const r = art.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * 400, y = (e.clientY - r.top) / r.height * 300;
-    const c = y > 30 && y < 152 ? CITIES.find(cc => cc.slot === Math.floor((x - 4) / 80) && S.openCities.includes(cc.id)) : null;
-    if (c && c.id !== S.city) travel(c.id);
-    else if (c) closeSheets();
+// Tapping the map: place or move a piece, pick one up, visit a restaurant, or grow the island.
+function tapIsland(e) {
+  const svg = $('#isl-map svg');
+  if (!svg) return;
+  const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
+  const q = pt.matrixTransform(svg.getScreenCTM().inverse());
+  const [tx, ty] = isoTile(islandGeom(), q.x, q.y);
+  if (islMode) {
+    const [w, d] = sizeOf(islMode.kind, islMode.type);
+    const at = { x: tx - Math.floor((w - 1) / 2), y: ty - Math.floor((d - 1) / 2) };
+    // Decorations go down with one tap; landmarks show where they'd go first and wait for "Build here".
+    islGhost = null;
+    if (islMode.do === 'place' && islMode.kind === 'decor' && placePiece('decor', islMode.type, at.x, at.y)) return;
+    islGhost = at;
+    buzz('tap'); renderIslandMap(); renderBanner();
     return;
   }
+  // Tall things stand above their squares, so also look one and two squares further down.
+  for (let k = 0; k <= 2; k++) {
+    const x = tx + k, y = ty + k;
+    const c = CITIES.find(cc => { const [lx, ly] = lotOf(cc.slot); return x >= lx && x < lx + 2 && y >= ly && y < ly + 2; });
+    if (c) { if (!S.openCities.includes(c.id)) { toast(`${c.name} opens later.`); return; } if (c.id !== S.city) travel(c.id); else closeSheets(); return; }
+    const hits = isl().pieces.filter(p => { const [w, dd] = sizeOf(p.kind, p.type); return x >= p.x && x < p.x + w && y >= p.y && y < p.y + dd; });
+    const p = hits.find(h => h.type !== 'path') || hits[0];
+    if (p) { islSel = islSel === p.uid ? null : p.uid; buzz('tap'); renderIslandMap(); renderBanner(); renderIslandPanel(); return; }
+  }
+  const next = ISLAND.land[isl().land + 1];
+  islSel = next && !isLand(landRadius(), waterSquares(), tx, ty) && fromCentre(tx, ty) <= next.radius ? 'land' : null;
+  renderIslandMap(); renderBanner(); renderIslandPanel();
+}
+// Drag to look around with a mouse (fingers scroll the map on their own); a drag isn't a tap.
+let islDrag = null, islDragged = false;
+$('#isl-map').addEventListener('pointerdown', e => { islDragged = false; if (e.pointerType === 'mouse') islDrag = { x: e.clientX, y: e.clientY, l: $('#isl-map').scrollLeft, t: $('#isl-map').scrollTop }; });
+addEventListener('pointermove', e => { if (!islDrag) return; const dx = e.clientX - islDrag.x, dy = e.clientY - islDrag.y; if (Math.abs(dx) + Math.abs(dy) > 6) islDragged = true; $('#isl-map').scrollLeft = islDrag.l - dx; $('#isl-map').scrollTop = islDrag.t - dy; });
+addEventListener('pointerup', () => { islDrag = null; });
+$('#isl-map').addEventListener('click', e => { if (!islDragged) tapIsland(e); });
+
+$('#hood').addEventListener('click', e => {
+  if (e.target.closest('#isl-map')) return;
   const sw = e.target.closest('[data-hood-choice]');
   if (sw) {
     S.hood.choices[sw.dataset.hoodChoice] = sw.dataset.colour;
-    hoodFocus = IMPROVEMENTS.find(x => x.choice === sw.dataset.hoodChoice)?.id || null;
+    islSel = pieceOf('imp', IMPROVEMENTS.find(x => x.choice === sw.dataset.hoodChoice)?.id)?.uid ?? null;
     buzz('tap'); renderHood(); save(); return;
   }
   const b = e.target.closest('button');
-  if (b?.dataset.collect !== undefined) { collectBia(); return; }
-  if (b?.dataset.hoodBuild) { buildHood(b.dataset.hoodBuild); return; }
-  if (b?.dataset.hoodEvent) { hostEvent(b.dataset.hoodEvent); return; }
+  const d = b?.dataset || {};
+  if (d.islTab) { islTab = d.islTab; if (islMode?.kind === 'decor' && islTab !== 'decor') islMode = null; buzz('tap'); renderHood(); return; }
+  if (d.collect !== undefined) { collectBia(); return; }
+  if (d.islPlace) { const [kind, type] = d.islPlace.split(':'); startPlacing(kind, type); return; }
+  if (d.islUp) { upgradeLandmark(d.islUp); return; }
+  if (d.islGrow !== undefined) { growIsland(); return; }
+  if (d.hoodEvent) { hostEvent(d.hoodEvent); return; }
+  if (d.islConfirm !== undefined && islMode && islGhost) {
+    if (islMode.do === 'move') {
+      const p = isl().pieces.find(q => q.uid === islMode.uid);
+      if (p && fits(p.kind, p.type, islGhost.x, islGhost.y, p.uid).ok) { p.x = islGhost.x; p.y = islGhost.y; islSel = p.uid; islMode = null; islGhost = null; buzz('merge'); renderHood(); save(); }
+    } else placePiece(islMode.kind, islMode.type, islGhost.x, islGhost.y);
+    return;
+  }
+  if (d.islCancel !== undefined || d.islDone !== undefined) { islMode = null; islGhost = null; islSel = null; renderHood(); return; }
+  if (d.islMove !== undefined && typeof islSel === 'number') { const p = isl().pieces.find(q => q.uid === islSel); islMode = { do: 'move', kind: p.kind, type: p.type, uid: p.uid }; islGhost = { x: p.x, y: p.y }; renderHood(); return; }
+  if (d.islRemove !== undefined && typeof islSel === 'number') {
+    const p = isl().pieces.find(q => q.uid === islSel);
+    if (p?.kind === 'decor') { isl().pieces = isl().pieces.filter(q => q !== p); S.hood.bia += decorOf(p.type).cost; islSel = null; buzz('tap'); renderHood(); save(); }
+    return;
+  }
+  if (b?.id === 'isl-night') { islNight = !isNight(); buzz('tap'); renderIslandMap(); return; }
   if (b) return;
-  const li = e.target.closest('[data-hood-focus]');
-  if (li) { hoodFocus = hoodFocus === li.dataset.hoodFocus ? null : li.dataset.hoodFocus; buzz('tap'); renderHood(); }
+  const li = e.target.closest('[data-isl-find]');
+  if (li) { const p = isl().pieces.find(q => q.uid === +li.dataset.islFind); if (p) { islSel = p.uid; islMode = null; buzz('tap'); renderHood(); showMap(); const [w, dd] = sizeOf(p.kind, p.type); centreMap(p.x + w / 2, p.y + dd / 2, true); } }
 });
 $('#hood-name').addEventListener('change', e => {
   S.hood.name = e.target.value.trim().slice(0, HOOD.nameMax) || HOOD.defaultName;
@@ -334,8 +567,8 @@ function openNextCity() {
   const i = CITIES.findIndex(c => c.id === S.city), next = CITIES[i + 1];
   if (!next || S.openCities.includes(next.id)) return;
   S.openCities.push(next.id);
-  celebrate({ art: hoodScene(), wide: true, title: `${next.name} opens on ${S.hood.name}!`, name: `A new ${next.cuisine.toLowerCase()} restaurant`,
-    line: `Tap your restaurant's name at the top to see your neighbourhood, then walk over. Each restaurant keeps its own tip jar.` });
+  celebrate({ art: islandScene({ crop: true }), wide: true, title: `${next.name} opens on ${S.hood.name}!`, name: `A new ${next.cuisine.toLowerCase()} restaurant`,
+    line: `Tap your restaurant's name at the top to see your island, then tap the new restaurant to walk over. Each restaurant keeps its own tip jar.` });
   checkBadges();
   checkHood();
 }
@@ -343,7 +576,7 @@ function openNextCity() {
 function newGame() {
   S = {
     v: SAVE_VERSION, city: 'toronto', openCities: ['toronto'], cityData: {}, missions: {},
-    hood: { name: HOOD.defaultName, built: [], stages: {}, choices: {}, level: 0, event: null, hosted: {}, bia: 0, pot: 0, potAt: Date.now() },
+    hood: { name: HOOD.defaultName, built: [], stages: {}, choices: {}, level: 0, event: null, hosted: {}, bia: 0, pot: 0, potAt: Date.now(), island: { land: 0, pieces: [], next: 1 } },
     charges: CONFIG.charges.start, chargesAt: Date.now(), freeRefillAt: 0,
     tutorial: 0,
     seen: { 'bakery:1': true }, recipes: {}, badges: {},
@@ -2046,6 +2279,7 @@ function restore(text) {
   const data = fromCode(text);
   if (!data) { toast("That doesn't look like a backup code."); return; }
   S = migrate(data);
+  ensureIsland();
   sel = -1;
   orderPick = null;
   writeSave(S);
@@ -2122,6 +2356,7 @@ function boot() {
   $('#settings-btn .nav-icon').innerHTML = ICONS.gear;
   S = loadSave();
   if (S) migrate(S); else { newGame(); writeSave(S); }
+  ensureIsland(); // older saves get their neighbourhood laid out on the island
   unlockProducers();
   fillOrders();
   // An older save that already reached 2 stars in Toronto opens Mexico City now.

@@ -545,7 +545,6 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 }
 .hood-name input:focus { outline: none; border-bottom-color: var(--eggplant); }
 .hood-name .pencil { color: var(--muted); font-size: 1.1rem; }
-.hood-art { background: #cfeaf2; }
 .buzz-card { background: var(--panel); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
 .buzz-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
 .buzz-top b { font-family: var(--display); font-weight: 400; font-size: 1.15rem; color: var(--eggplant); }
@@ -632,3 +631,46 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .shop-chip i b { padding: 0; font-size: .95rem; }
 .tip.boost { background: #efe3fb; color: var(--eggplant); }
 .mission-bar { margin-top: 6px; height: 8px; }
+
+/* ---------- Tulip Island ---------- */
+.island-card { max-height: 94%; padding: 14px; gap: 8px; }
+.isl-top { display: flex; align-items: center; gap: 8px; }
+.isl-top .hood-name { flex: 1; min-width: 0; }
+.isl-x { flex: none; width: 40px; height: 40px; border: 0; border-radius: 50%; background: var(--panel); color: var(--eggplant); font-size: 1.5rem; line-height: 1; cursor: pointer; }
+.isl-stats { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+.isl-fund { display: flex; flex-direction: column; line-height: 1.1; }
+.isl-fund b { font-family: var(--display); font-weight: 400; font-size: 1.4rem; color: var(--leaf); }
+.isl-fund span, .isl-level span { font-size: .75rem; color: var(--muted); }
+.isl-level { flex: 1; min-width: 140px; display: flex; flex-direction: column; gap: 3px; }
+.isl-level b { font-family: var(--display); font-weight: 400; color: var(--eggplant); font-size: 1rem; }
+.isl-stats .btn { min-height: 40px; padding: 0 12px; }
+.isl-stats .event-on { flex-basis: 100%; }
+.isl-mapwrap { position: relative; flex: none; height: min(52vh, 460px); border-radius: 16px; overflow: hidden; background: #6ab9d6; box-shadow: inset 0 0 0 2px var(--edge); }
+.isl-map { width: 100%; height: 100%; overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; cursor: grab; }
+.isl-map::-webkit-scrollbar { display: none; }
+.isl-map svg { display: block; }
+.isl-night { position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 250, 240, .92); color: var(--eggplant); font-size: 1.25rem; cursor: pointer; box-shadow: 0 2px 6px rgba(0, 0, 0, .15); }
+.isl-banner { position: absolute; left: 8px; right: 8px; bottom: 8px; background: var(--card); border-radius: 14px; padding: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; box-shadow: 0 6px 18px rgba(36, 27, 74, .25); }
+.isl-b-text { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; }
+.isl-b-text b { font-family: var(--display); font-weight: 400; color: var(--eggplant); }
+.isl-b-text span { font-size: .8rem; color: var(--muted); }
+.isl-banner .btn { min-height: 40px; padding: 0 12px; }
+.isl-banner .pips { margin-left: 0; margin-right: 4px; vertical-align: 0; }
+.isl-tabs { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 4px; background: var(--panel); border-radius: 14px; padding: 4px; }
+.isl-tab { border: 0; border-radius: 10px; background: transparent; min-height: 42px; font-family: var(--display); font-size: .92rem; color: var(--muted); cursor: pointer; }
+.isl-tab.on { background: var(--card); color: var(--eggplant); box-shadow: 0 2px 4px rgba(122, 59, 31, .15); }
+.isl-panel { display: flex; flex-direction: column; gap: 8px; }
+.isl-panel h3 { margin: 6px 0 0; }
+.isl-decor { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 8px; }
+.isl-deco { border: 0; background: var(--panel); border-radius: 14px; padding: 6px; display: flex; flex-direction: column; align-items: center; gap: 2px; cursor: pointer; color: var(--ink); font-family: var(--body); }
+.isl-deco.on { box-shadow: inset 0 0 0 3px var(--eggplant); }
+.isl-deco:disabled { opacity: .5; }
+.isl-deco b { font-family: var(--display); font-weight: 400; font-size: .85rem; color: var(--eggplant); }
+.isl-deco .money { color: var(--leaf); font-weight: 700; font-size: .85rem; }
+.isl-deco-art { width: 56px; height: 56px; background: #a6dcea; border-radius: 12px; overflow: hidden; }
+.isl-deco-art svg { width: 100%; height: 100%; display: block; }
+.isl-wave { animation: isl-wave 3.4s ease-in-out infinite; }
+@keyframes isl-wave { 50% { opacity: .1; transform: translateX(6px); } }
+.isl-beam { animation: isl-beam 5s ease-in-out infinite alternate; }
+@keyframes isl-beam { from { transform: rotate(-25deg); } to { transform: rotate(205deg); } }
+@media (prefers-reduced-motion: reduce) { .isl-wave, .isl-beam { animation: none; } .isl-move { display: none; } }

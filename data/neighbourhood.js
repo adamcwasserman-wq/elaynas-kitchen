@@ -1,9 +1,9 @@
-// Elayna's neighbourhood: the food district she builds up, like a BIA (business improvement area).
-// Each improvement shows up on the street. Improvements, restaurant stars and restaurant upgrades
+// Elayna's neighbourhood: Tulip Island, the food district she builds up, like a BIA (business improvement area).
+// She places each improvement on the island map (see data/island.js). Improvements, restaurant stars and restaurant upgrades
 // all add "buzz". More buzz brings more people to the neighbourhood, and every buzz level
 // pays gems and makes customers pay a little more in all of her restaurants.
 
-export const HOOD = { defaultName: 'Tulip Row', nameMax: 22 };
+export const HOOD = { defaultName: 'Tulip Island', nameMax: 22 };
 
 // BIA dollars: the neighbourhood's own money, separate from each restaurant's tips.
 // Visitors spend money on the street, and it piles up for her to collect on the neighbourhood screen:
@@ -42,10 +42,10 @@ export const IMPROVEMENTS = [
     { name: 'Bike racks', cost: 800, buzz: 90, about: 'A place to park bikes.' },
     { name: 'Bike lane', cost: 2000, buzz: 72, about: 'Easy to get here on two wheels.' },
     { name: 'Bike lane and bike-share station', cost: 4000, buzz: 108, about: 'Bikes to borrow, right on the street.' }] },
-  { id: 'streetcar', name: 'Transit', stages: [
-    { name: 'A bus stop', cost: 1000, buzz: 110, about: 'Visitors can get here.' },
-    { name: 'Streetcar stop', cost: 2500, buzz: 88, about: 'A streetcar stops right outside.' },
-    { name: 'Streetcar station', cost: 5000, buzz: 132, about: 'A long streetcar and a station with a garden roof.' }] },
+  { id: 'streetcar', name: 'Ferry dock', stages: [
+    { name: 'A rowboat dock', cost: 1000, buzz: 110, about: 'Visitors can row over to the island.' },
+    { name: 'Ferry dock', cost: 2500, buzz: 88, about: 'A ferry brings visitors across the water.' },
+    { name: 'Ferry terminal', cost: 5000, buzz: 132, about: 'Two ferries and a terminal with a flag on top.' }] },
   { id: 'market', name: 'Farmers market', stages: [
     { name: 'One market stall', cost: 1300, buzz: 140, about: 'Fresh food on weekends.' },
     { name: 'Weekend farmers market', cost: 3250, buzz: 112, about: 'Stalls full of fresh food.' },
@@ -63,8 +63,8 @@ export const IMPROVEMENTS = [
     { name: 'Music stage', cost: 6250, buzz: 176, about: 'Live music on summer nights.' },
     { name: 'Big stage with lights', cost: 12500, buzz: 264, about: 'Concerts with lights and speakers.' }] },
   { id: 'arch', name: 'Welcome sign', stages: [
-    { name: 'A welcome sign', cost: 3200, buzz: 300, about: 'Your neighbourhood name on a post.' },
-    { name: 'Welcome arch', cost: 8000, buzz: 240, about: 'An arch over the street with your name.' },
+    { name: 'A welcome sign', cost: 3200, buzz: 300, about: "Your island's name on a post." },
+    { name: 'Welcome arch', cost: 8000, buzz: 240, about: 'An arch with your name for visitors to walk under.' },
     { name: 'Grand glowing arch', cost: 16000, buzz: 360, about: 'Lights, flags and tulips.' }] },
 ];
 
@@ -72,19 +72,21 @@ export const IMPROVEMENTS = [
 export const AMENITIES = [
   { id: 'washrooms', name: 'Public washrooms', cost: 400, buzz: 50, needs: 1, about: 'Families can stay all afternoon.' },
   { id: 'park', name: 'Neighbourhood park', cost: 900, buzz: 100, needs: 2, about: 'Grass, trees and picnic tables.' },
+  { id: 'lighthouse', name: 'Lighthouse', cost: 1800, buzz: 150, needs: 2, about: 'It lights the way for boats at night. Goes on the shore.' },
   { id: 'splash', name: 'Splash pad', cost: 1400, buzz: 130, needs: 3, about: 'Kids run through the fountains.' },
   { id: 'pool', name: 'Community pool', cost: 2200, buzz: 180, needs: 4, about: 'A summer favourite.' },
+  { id: 'marina', name: 'Marina', cost: 2800, buzz: 200, needs: 4, about: 'A harbour full of sailboats. Goes in the water.' },
   { id: 'zoo', name: 'Petting zoo', cost: 3500, buzz: 250, needs: 5, about: 'Goats, bunnies and a very friendly duck.' },
 ];
 
 // Events she can host once they unlock. One at a time. Each boosts the next few customers:
 // "orders" customers pay "bonus" more (and earn "stars" extra stars each). The first time adds buzz.
 export const EVENTS = [
-  { id: 'trucks', name: 'Food truck rally', cost: 200, needs: 1, orders: 6, bonus: 0.25, stars: 0, firstBuzz: 40, about: 'Food trucks line the street.' },
+  { id: 'trucks', name: 'Food truck rally', cost: 200, needs: 1, orders: 6, bonus: 0.25, stars: 0, firstBuzz: 40, about: 'Food trucks line Main Street.' },
   { id: 'festival', name: 'Street festival', cost: 400, needs: 2, orders: 8, bonus: 0.30, stars: 1, firstBuzz: 60, about: 'Bunting, music and crowds.' },
-  { id: 'parade', name: 'Parade', cost: 700, needs: 3, orders: 10, bonus: 0.35, stars: 1, firstBuzz: 80, about: 'Food friends march down the street.' },
+  { id: 'parade', name: 'Boat parade', cost: 700, needs: 3, orders: 10, bonus: 0.35, stars: 1, firstBuzz: 80, about: 'Boats with flags sail round the island.' },
   { id: 'tulipfest', name: 'Tulip festival', cost: 1000, needs: 4, orders: 10, bonus: 0.40, stars: 1, firstBuzz: 100, about: 'Tulips everywhere you look.' },
-  { id: 'fireworks', name: 'Fireworks night', cost: 1500, needs: 5, orders: 12, bonus: 0.50, stars: 2, firstBuzz: 150, about: 'The sky lights up over the neighbourhood.' },
+  { id: 'fireworks', name: 'Fireworks night', cost: 1500, needs: 5, orders: 12, bonus: 0.50, stars: 2, firstBuzz: 150, about: 'Fireworks over the water.' },
 ];
 
 // Style choices. The first option is the one she starts with.

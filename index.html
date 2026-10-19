@@ -133,22 +133,24 @@
 </div>
 
 <div class="sheet" id="hood" hidden>
-  <div class="sheet-card" role="dialog" aria-label="Your neighbourhood">
-    <div class="rest-photo">
-      <label class="hood-name"><input id="hood-name" maxlength="22" aria-label="Your neighbourhood's name"><span class="pencil" aria-hidden="true">✎</span></label>
-      <div class="rest-art hood-art" id="hood-art"></div>
-      <p class="muted small" id="hood-caption"></p>
+  <div class="sheet-card island-card" role="dialog" aria-label="Your island">
+    <div class="isl-top">
+      <label class="hood-name"><input id="hood-name" maxlength="22" aria-label="Your island's name"><span class="pencil" aria-hidden="true">✎</span></label>
+      <button class="isl-x" data-close aria-label="Close">×</button>
     </div>
-    <div class="buzz-card fund-card" id="hood-fund"></div>
-    <div class="buzz-card" id="hood-buzz"></div>
-    <h3>Your restaurants</h3>
-    <ul class="list" id="hood-shops"></ul>
-    <h3>Make it better</h3>
-    <ul class="list" id="hood-improve"></ul>
-    <h3>Amenities</h3>
-    <ul class="list" id="hood-amen"></ul>
-    <h3>Events</h3>
-    <ul class="list" id="hood-events"></ul>
+    <div class="isl-stats" id="isl-stats"></div>
+    <div class="isl-mapwrap">
+      <div class="isl-map" id="isl-map"></div>
+      <button class="isl-night" id="isl-night" aria-label="Switch to night">☾</button>
+      <div class="isl-banner" id="isl-banner" hidden></div>
+    </div>
+    <div class="isl-tabs" role="tablist">
+      <button class="isl-tab" data-isl-tab="build">Build</button>
+      <button class="isl-tab" data-isl-tab="decor">Decorate</button>
+      <button class="isl-tab" data-isl-tab="events">Events</button>
+      <button class="isl-tab" data-isl-tab="shops">Restaurants</button>
+    </div>
+    <div class="isl-panel" id="isl-panel"></div>
     <button class="btn ghost" data-close>Close</button>
   </div>
 </div>
@@ -221,7 +223,7 @@
     <h3>Start over</h3>
     <button class="btn danger" id="reset">Start a new game</button>
 
-    <p class="muted small version">Elayna's Kitchen · version 0.10</p>
+    <p class="muted small version">Elayna's Kitchen · version 0.11</p>
     <button class="btn ghost" data-close>Close</button>
   </div>
 </div>
