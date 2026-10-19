@@ -15,6 +15,7 @@ import { RECIPES, RENAMED_DISHES, RECIPE_DISCOVERY_REWARD, recipeLevel, recipeCi
 import { BADGES, BADGE_REWARD, BADGE_TIER_NAMES } from '../data/badges.js';
 import { UPGRADES, CHOICES } from '../data/restaurant.js';
 import { CUSTOMERS } from '../data/customers.js';
+import { VIPS, VIP_RULES } from '../data/vips.js';
 import { ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS, COMPLAINTS } from '../data/orders.js';
 import { buildSprite, use, ICONS, badgeSvg, restaurantSvg, mapSvg as drawMap } from './art.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
@@ -132,7 +133,8 @@ function newGame() {
     tutorial: 0,
     seen: { 'bakery:1': true }, recipes: {}, badges: {},
     ...newCityState('toronto'),
-    stats: { produced: 0, merges: 0, mixes: 0, sold: 0, earned: 0, bounces: 0, arcadeWins: 0, triviaRight: 0 },
+    stats: { produced: 0, merges: 0, mixes: 0, sold: 0, earned: 0, bounces: 0, arcadeWins: 0, triviaRight: 0, vips: 0 },
+    vipSeen: {}, sinceVip: 0,
     gems: 0, wildcards: 0, triviaIndex: 0, triviaStreak: 0, triviaLastRight: null,
     settings: { vibrate: true },
     created: Date.now(),
@@ -144,7 +146,8 @@ function newGame() {
 function migrate(s) {
   s.settings ??= { vibrate: true };
   s.stats ??= {};
-  for (const k of ['produced', 'merges', 'mixes', 'sold', 'bounces', 'arcadeWins', 'triviaRight']) s.stats[k] ??= 0;
+  for (const k of ['produced', 'merges', 'mixes', 'sold', 'bounces', 'arcadeWins', 'triviaRight', 'vips']) s.stats[k] ??= 0;
+  s.vipSeen ??= {}; s.sinceVip ??= 0;
   if (s.gems === undefined) {
     // Gems arrived in phase 3: pay out gems for badges she already has.
     s.gems = Object.values(s.badges || {}).reduce((t, lv) => t + GEMS.badge.slice(0, lv).reduce((a, b) => a + b, 0), 0);
@@ -298,6 +301,8 @@ function pickWant(stage, avoid) {
 function makeOrder() {
   let wants;
   const firsts = city().firstOrders;
+  const vip = S.orderSeq >= firsts.length ? maybeVip() : null;
+  if (vip) return vip;
   if (S.orderSeq < firsts.length) {
     wants = firsts[S.orderSeq].map(w => ({ ...w }));
   } else {
@@ -315,10 +320,127 @@ function makeOrder() {
   const free = CUSTOMERS.filter(c => !busy.has(c.id));
   const pool = free.length ? free : CUSTOMERS;
   S.orderSeq++;
+  S.sinceVip = (S.sinceVip || 0) + 1;
   return orderFor(wants, { id: S.orderSeq, customer: pool[randInt(0, pool.length - 1)].id });
+}
+
+// ---------- VIPs: special guests (data/vips.js) ----------
+const vipOf = o => o && o.vip ? VIPS.find(v => v.id === o.vip) : null;
+const custName = o => vipOf(o)?.name || CUSTOMERS.find(c => c.id === o.customer)?.name || '';
+const pick = list => list[randInt(0, list.length - 1)];
+// Dishes customers here could ask for right now. "hers" limits it to Elayna's own recipes.
+function dishChoices(stage, opts = {}) {
+  const chains = availableChains();
+  return RECIPES.filter(r => recipeCity(r) === S.city && chains.includes(r.a.chain) && chains.includes(r.b.chain) &&
+    Math.max(r.a.tier, r.b.tier) <= stage.plainTiers[1] + 1 && (!opts.hers || r.hers) && (!opts.level || recipeLevel(r) === opts.level));
+}
+
+// Now and then a new customer is a VIP. Only one waits at a time, with a few regulars in between.
+function maybeVip() {
+  if (cityStars() < VIP_RULES.afterStars || (S.sinceVip || 0) < VIP_RULES.gap) return null;
+  if (S.orders.some(o => o.vip) || Math.random() >= VIP_RULES.chance) return null;
+  const stage = currentStage();
+  const made = VIPS.map(v => [v, vipOrder(v, stage)]).filter(([, o]) => o);
+  if (!made.length) return null;
+  // She meets every VIP once before any of them comes back.
+  const fresh = made.filter(([v]) => !S.vipSeen[v.id]);
+  const [v, order] = pick(fresh.length ? fresh : made);
+  S.orderSeq++;
+  S.sinceVip = 0;
+  order.id = S.orderSeq;
+  if (!S.vipSeen[v.id]) {
+    S.vipSeen[v.id] = true;
+    celebrate({ art: `<svg viewBox="7 7 86 86" aria-hidden="true"><use href="#cust-${v.id}"/></svg>`, title: 'A VIP is here!',
+      name: `${v.name}, ${v.title.toLowerCase()}`, line: v.intro });
+  }
+  return order;
+}
+
+// Builds this VIP's order, or returns null if they can't order anything here yet.
+function vipOrder(v, stage) {
+  const base = { customer: v.id };
+  let o;
+  if (v.kind === 'rush') {
+    o = orderFor([pickWant({ ...stage, dishLevels: ['simple'] }, new Set())], base);
+    o.limit = Math.max(60, Math.round(stage.fastSeconds * v.seconds));
+  } else if (v.kind === 'puzzle') {
+    // Three foods she likes: two make a recipe, the third is a decoy (it may make another recipe, which is fine).
+    const dishes = dishChoices(stage);
+    if (!dishes.length) return null;
+    const r = pick(dishes);
+    const top = Math.max(r.a.tier, r.b.tier), chains = [r.a.chain, r.b.chain];
+    let decoy = null;
+    for (let tries = 0; tries < 20 && !decoy; tries++) {
+      const d = { chain: pick(chains), tier: randInt(1, Math.min(maxTier(r.a.chain), top + 1)) };
+      if (!sameItem(d, r.a) && !sameItem(d, r.b)) decoy = d;
+    }
+    if (!decoy) return null;
+    const likes = [{ ...r.a }, { ...r.b }, decoy].sort(() => Math.random() - .5);
+    o = orderFor([], base);
+    Object.assign(o, { likes, reward: r.value, stars: wantStars({ dish: r.id }) });
+  } else if (v.kind === 'critic') {
+    const fancy = dishChoices(stage, { level: 'advanced' });
+    const chain = pick(availableChains());
+    o = orderFor([fancy.length ? { dish: pick(fancy).id } : { chain, tier: Math.min(maxTier(chain), stage.plainTiers[1]) }], base);
+  } else if (v.kind === 'gift') {
+    const classics = dishChoices(stage, { hers: true });
+    if (!classics.length) return null;
+    o = orderFor([{ dish: pick(classics).id }], { ...base, fast: stage.fastSeconds * 2 });
+  } else if (v.kind === 'party') {
+    const avoid = new Set(), wants = [];
+    for (let k = 0; k < 3; k++) { const w = pickWant(stage, avoid); avoid.add(keyOf(w)); wants.push(w); }
+    o = orderFor(wants, { ...base, fast: stage.fastSeconds * 2 });
+    o.reward = wants.reduce((t, w) => t + wantValue(w), 0); // the VIP's double pay replaces the big order bonus
+  }
+  o.vip = v.id;
+  o.reward = Math.round(o.reward * v.pay);
+  return o;
+}
+
+// Penny (the puzzle VIP): a dish on the board made from two of the foods she likes.
+const lovesDish = (o, it) => {
+  if (!it || !it.dish) return false;
+  const r = recipeOf(it.dish);
+  return o.likes.some(l => sameItem(l, r.a)) && o.likes.some(l => sameItem(l, r.b));
+};
+const pennyDishAt = o => S.board.findIndex(it => lovesDish(o, it));
+// The critic's review follows his bar: three golden spoons in its first third, then two, then one.
+const reviewSpoons = o => { const t = tipShare(o); return t > 2 / 3 ? 3 : t > 1 / 3 ? 2 : 1; };
+// Zip's timer, in seconds left.
+const rushLeft = o => Math.max(0, Math.ceil(o.limit - o.age / 1000));
+// Stars an order earns: the critic's grow with his review.
+const starsFor = o => {
+  const v = vipOf(o);
+  if (!v) return o.stars;
+  return o.stars + (v.kind === 'critic' ? reviewSpoons(o) * v.stars : v.stars);
+};
+// The line under a VIP's order.
+function vipLine(o) {
+  const v = vipOf(o);
+  if (v.kind === 'rush') return `Hurry! ${mmss(rushLeft(o))}`;
+  if (v.kind === 'puzzle') return 'Mix 2 she likes';
+  if (v.kind === 'critic') { const n = reviewSpoons(o); return `${n} spoon review`; }
+  return orderName(o);
+}
+
+// Zip ran out of time: he leaves, and the restaurant loses a few stars (never a star rating it already has).
+function vipLeaves(oi) {
+  const o = S.orders[oi], v = vipOf(o);
+  const floor = S.starLevel > 0 ? city().starGoals[S.starLevel - 1] : 0;
+  const lost = Math.min(v.lose, Math.max(0, cityStars() - floor));
+  S.cityStars = cityStars() - lost;
+  if (orderPick?.o === oi) orderPick = null;
+  S.orders[oi] = makeOrder();
+  buzz('nope');
+  renderAll();
+  toast(`${v.gone}${lost ? ` You lost ${lost} stars.` : ''}`, { icon: `cust-${v.id}`, ms: 4000 });
+  if (lost) floatText(`-${lost} ★`, $('#brand'));
+  save();
 }
 // Board items that help with a want: the item itself, or a dish and its two foods.
 const wantKeys = w => w.dish ? [`dish:${w.dish}`, keyOf(recipeOf(w.dish).a), keyOf(recipeOf(w.dish).b)] : [keyOf(w)];
+// Everything on the board that helps with an order. (Penny's likes count, so they get a tick.)
+const orderKeys = o => o.likes ? o.likes.map(keyOf) : o.wants.flatMap(wantKeys);
 // More customers arrive as the restaurant grows (never fewer than are already waiting).
 function fillOrders() {
   const want = currentStage().customers;
@@ -327,11 +449,20 @@ function fillOrders() {
   return added;
 }
 const wantName = w => w.dish ? recipeOf(w.dish).name : nameOf(w);
-const orderName = o => o.wants.map(wantName).join(' + ');
+const orderName = o => o.likes ? `Likes ${o.likes.map(nameOf).join(', ')}` : o.wants.map(wantName).join(' + ');
 const payFor = o => Math.round(o.reward * (1 + perks().orderBonus));
 // The speed tip: full when the order is new, nothing at twice its fast time.
 const tipShare = o => Math.max(0, 1 - o.age / (o.fast * 2000));
-const tipFor = o => Math.round(payFor(o) * SPEED_TIP * (1 + perks().tipBonus) * tipShare(o));
+// Zip and the critic don't tip: Zip's pay is already doubled, and the critic's reward is his review.
+const tipsNormally = o => !['rush', 'critic'].includes(vipOf(o)?.kind);
+const tipFor = o => tipsNormally(o) ? Math.round(payFor(o) * SPEED_TIP * (1 + perks().tipBonus) * tipShare(o)) : 0;
+// The bar along the bottom of an order card: the speed tip, or Zip's timer.
+const barShare = o => o.limit ? Math.max(0, 1 - o.age / (o.limit * 1000)) : tipShare(o);
+const barClass = o => {
+  const k = vipOf(o)?.kind;
+  if (k === 'rush') { const t = barShare(o); return `rush ${t > 0.5 ? 'fresh' : t > 0.25 ? 'waiting' : 'late'}`; }
+  return `${k === 'critic' ? 'review ' : ''}${tipClass(o)}`;
+};
 const isSpeedy = o => o.age <= o.fast * 1000;
 const tipClass = o => { const t = tipShare(o); return t > 0.6 ? 'fresh' : t > 0.25 ? 'waiting' : t > 0.1 ? 'late' : 'urgent'; };
 // The first few teaching orders in a city never complain.
@@ -340,7 +471,7 @@ const canComplain = o => (o.id || 0) > city().firstOrders.length;
 // A customer whose bar ran out complains and leaves; a new one takes their place.
 function complain(oi) {
   const o = S.orders[oi];
-  const cust = CUSTOMERS.find(c => c.id === o.customer);
+  const cust = { id: o.customer, name: custName(o) };
   S.complaints = (S.complaints || 0) + 1;
   if (orderPick?.o === oi) orderPick = null;
   S.orders[oi] = makeOrder();
@@ -374,6 +505,7 @@ function failRound(cust) {
 
 // What an order card shows. A single dish shows its two foods; anything else shows each thing.
 function slotsOf(o) {
+  if (o.likes) return o.likes.map(l => ({ ...l }));
   if (o.wants.length === 1 && o.wants[0].dish) {
     const r = recipeOf(o.wants[0].dish);
     return [{ ...r.a }, { ...r.b }];
@@ -398,12 +530,13 @@ function wantReady(w, left) {
 }
 // For each slot on the order card: is it ready?
 function orderStatus(order, counts) {
+  if (order.likes) return order.likes.map(l => (counts.get(keyOf(l)) || 0) > 0);
   const left = new Map(counts);
   const st = order.wants.map(w => wantReady(w, left));
   if (order.wants.length === 1 && order.wants[0].dish) return st[0].parts;
   return st.map(x => x.ok);
 }
-const isReady = (o, counts) => orderStatus(o, counts).every(Boolean);
+const isReady = (o, counts) => o.likes ? pennyDishAt(o) >= 0 : orderStatus(o, counts).every(Boolean);
 
 // ---------- board helpers ----------
 function nearestEmpty(from) {
@@ -567,6 +700,11 @@ function serve(oi) {
     if (pickI >= 0) taken.push(pickI);
     return pickI >= 0;
   };
+  if (order.likes) {
+    const at = pennyDishAt(order);
+    taken.push(at);
+    learnRecipe(recipeOf(S.board[at].dish));
+  }
   for (const w of order.wants) {
     if (!w.dish) { grab(keyOf(w)); continue; }
     if (grab(`dish:${w.dish}`)) { learnRecipe(recipeOf(w.dish)); continue; }
@@ -575,10 +713,11 @@ function serve(oi) {
     S.stats.mixes++; // cooked straight from the ingredients
     learnRecipe(r);
   }
-  const speedy = isSpeedy(order);
+  const v = vipOf(order);
+  const speedy = !v && isSpeedy(order);
   const tip = tipFor(order);
   const pay = payFor(order) + tip;
-  const stars = order.stars + (speedy ? ORDER_STARS.speedy : 0);
+  const stars = starsFor(order) + (speedy ? ORDER_STARS.speedy : 0);
   flyAway(taken, $(`.order[data-o="${oi}"]`));
   for (const i of taken) S.board[i] = null;
   if (taken.includes(sel)) sel = -1;
@@ -589,8 +728,9 @@ function serve(oi) {
   buzz('serve');
   floatText(`+$${pay}${tip ? ' with tip' : ''}`, $('#money'));
   addStars(stars, speedy);
+  if (v) vipThanks(order, v);
   S.orders[oi] = makeOrder();
-  if (fillOrders()) toast('Another customer just walked in!');
+  if (fillOrders() && !v) toast('Another customer just walked in!');
   unlockProducers();
   renderAll();
   const fresh = $(`.order[data-o="${oi}"]`);
@@ -599,6 +739,25 @@ function serve(oi) {
   advanceTutorial('serve');
   checkBadges();
   save();
+}
+
+// What a VIP gives on top of the bill.
+function vipThanks(o, v) {
+  S.stats.vips++;
+  let gems = v.gems, line;
+  if (v.kind === 'critic') {
+    const n = reviewSpoons(o);
+    gems = n * v.gems;
+    line = `${v.name} gave you a ${n} golden spoon review!`;
+  } else if (v.kind === 'gift') {
+    if (placeWild()) line = 'Bubbie left you a wild card. Drop it on any food!';
+    else { S.wildcards++; line = 'Bubbie left you a wild card. Find it in Today.'; }
+  } else if (v.kind === 'rush') line = 'Zip made it in time. Zoom!';
+  else if (v.kind === 'puzzle') line = 'Penny loves it!';
+  else line = 'Pina\'s party is a hit!';
+  S.gems += gems;
+  setTimeout(() => floatText(`+${gems} gems`, $('#gems')), 250);
+  toast(line, { icon: `cust-${v.id}`, ms: 3500 });
 }
 
 // Stars move the restaurant toward winning. Each goal reached is a new star rating.
@@ -785,6 +944,15 @@ function findPair() {
 // If a customer wants a dish and both ingredients are on the board, find them.
 function findDishPair() {
   for (const o of S.orders) {
+    if (o.likes) {
+      if (pennyDishAt(o) >= 0) continue;
+      for (const a of o.likes) for (const b of o.likes) {
+        const r = findRecipe(a, b), ia = S.board.findIndex(x => isChain(x) && sameItem(x, a));
+        const ib = S.board.findIndex((x, j) => isChain(x) && sameItem(x, b) && j !== ia);
+        if (r && ia >= 0 && ib >= 0) return { r, a: ia, b: ib };
+      }
+      continue;
+    }
     const w = o.wants.find(x => x.dish && !S.board.some(b => b && b.dish === x.dish));
     if (!w) continue;
     const r = recipeOf(w.dish);
@@ -831,7 +999,7 @@ function hint(fromButton) {
   }
   if (!unlimited() && S.charges <= 0) { if (fromButton) openRefill(); return; }
   // Board is full with nothing to merge: suggest selling the smallest thing.
-  const wanted = new Set(S.orders.flatMap(o => o.wants.flatMap(wantKeys)));
+  const wanted = new Set(S.orders.flatMap(orderKeys));
   const score = it => (it.dish ? 7 : it.tier) + (wanted.has(keyOf(it)) ? 10 : 0);
   let low = -1;
   S.board.forEach((it, i) => {
@@ -912,20 +1080,22 @@ function renderOrders() {
   $('#orders').style.gridTemplateColumns = `repeat(${S.orders.length}, minmax(0, 1fr))`;
   $('#orders').innerHTML = S.orders.map((o, oi) => {
     const have = orderStatus(o, counts);
-    const ready = have.every(Boolean);
-    const cust = CUSTOMERS.find(c => c.id === o.customer);
+    const ready = isReady(o, counts);
+    const v = vipOf(o);
     const slots = slotsOf(o);
     const need = slots.map((it, k) => {
       const picked = orderPick && orderPick.o === oi && orderPick.k === k;
-      return `<button class="need-item fam-${familyOf(it)}${have[k] ? ' have' : ''}${picked ? ' picked' : ''}" data-o="${oi}" data-k="${k}" aria-label="${nameOf(it)}">` +
+      return `<button class="need-item fam-${familyOf(it)}${have[k] ? ' have' : ''}${picked ? ' picked' : ''}${o.likes ? ' like' : ''}" data-o="${oi}" data-k="${k}" aria-label="${nameOf(it)}">` +
         `${use(artId(it))}${have[k] ? `<span class="tick">${ICONS.check}</span>` : ''}</button>`;
     }).join('');
-    return `<div class="order${ready ? ' ready' : ''}" data-o="${oi}">
-      <div class="cust">${use(`cust-${o.customer}`, cust.name)}</div>
-      <div class="reward"><span class="pay">${ICONS.coin}<b class="pay-n">${payFor(o) + tipFor(o)}</b></span><span class="stars">★${o.stars}</span></div>
+    const cust = v ? `<button class="cust vip-face" data-vip="${oi}" aria-label="${v.name}, VIP">${use(`cust-${o.customer}`)}<span class="vip-tag">VIP</span></button>` :
+      `<div class="cust">${use(`cust-${o.customer}`, custName(o))}</div>`;
+    return `<div class="order${ready ? ' ready' : ''}${v ? ` vip vip-${v.kind}` : ''}" data-o="${oi}">
+      ${cust}
+      <div class="reward"><span class="pay">${ICONS.coin}<b class="pay-n">${payFor(o) + tipFor(o)}</b></span><span class="stars">★<b class="stars-n">${starsFor(o)}</b></span></div>
       <div class="need${slots.length > 2 ? ' many' : ''}">${need}</div>
-      ${ready ? `<button class="serve" data-serve="${oi}">Serve</button>` : `<div class="cust-name">${orderName(o)}</div>`}
-      <div class="tipbar ${tipClass(o)}" title="Pay drops as the customer waits"><i style="width:${Math.round(tipShare(o) * 100)}%"></i></div>
+      ${ready ? `<button class="serve" data-serve="${oi}">Serve</button>` : `<div class="cust-name">${v ? vipLine(o) : orderName(o)}</div>`}
+      <div class="tipbar ${barClass(o)}" title="${o.limit ? 'Time left before Zip leaves' : 'Pay drops as the customer waits'}"><i style="width:${Math.round(barShare(o) * 100)}%"></i></div>
     </div>`;
   }).join('');
 }
@@ -933,7 +1103,7 @@ function renderOrders() {
 function render() {
   const wanted = new Set();
   const counts = boardCounts();
-  for (const o of S.orders) for (const w of o.wants) for (const k of wantKeys(w)) wanted.add(k);
+  for (const o of S.orders) for (const k of orderKeys(o)) wanted.add(k);
   $('#board').innerHTML = S.board.map((it, i) => {
     const selCls = i === sel ? ' sel' : '';
     if (!it) return `<div class="cell${selCls}" data-i="${i}"></div>`;
@@ -1003,7 +1173,7 @@ function renderAbilities() {
   bar.innerHTML = `<span class="abilities-title">Gem abilities</span>` +
     gemButton('serve', orderPick.o, 'Serve now', skipCost(o)) +
     gemButton('swap', orderPick.o, 'Swap', GEMS.swap) +
-    (tipShare(o) < 1 ? gemButton('tip', orderPick.o, 'Fresh tip', GEMS.freshTip) : '');
+    (tipShare(o) < 1 ? gemButton('tip', orderPick.o, tipsNormally(o) ? 'Fresh tip' : 'More time', GEMS.freshTip) : '');
 }
 function useAbility(ability, target) {
   if (ability === 'serve') { skipOrder(target); return; }
@@ -1152,7 +1322,7 @@ function toast(text, opts = {}) {
   el.hidden = false;
   if (!reduceMotion) el.animate([{ transform: 'translate(-50%, -6px)', opacity: 0 }, { transform: 'translate(-50%, 0)', opacity: 1 }], { duration: 200, easing: 'ease-out' });
   clearTimeout(toastTimer);
-  toastTimer = setTimeout(() => { el.hidden = true; }, opts.action ? 4500 : 1800);
+  toastTimer = setTimeout(() => { el.hidden = true; }, opts.ms || (opts.action ? 4500 : 1800));
 }
 
 // ---------- dragging and tapping on the board ----------
@@ -1236,6 +1406,10 @@ document.addEventListener('click', e => {
   if (!t) return;
   lastAction = Date.now();
   if (t.dataset.serve !== undefined) serve(+t.dataset.serve);
+  else if (t.dataset.vip !== undefined) {
+    const o = S.orders[+t.dataset.vip], v = vipOf(o);
+    if (v) { buzz('tap'); toast(v.kind === 'puzzle' ? `${v.about} ${orderName(o)}.` : v.about, { icon: `cust-${v.id}`, ms: 4500 }); }
+  }
   else if (t.dataset.k !== undefined) {
     const o = +t.dataset.o, k = +t.dataset.k;
     const same = orderPick && orderPick.o === o && orderPick.k === k;
@@ -1557,13 +1731,22 @@ function boot() {
       const done = S.orders.findIndex(o => o.age + 1000 >= o.fast * 2000 && canComplain(o));
       if (done >= 0) { complain(done); return; }
       S.orders.forEach((o, oi) => {
-        const before = payFor(o) + tipFor(o);
+        const before = payFor(o) + tipFor(o), starsBefore = starsFor(o);
         o.age = Math.min(o.age + 1000, o.fast * 2000);
+        // Zip has his own, shorter timer (see vipLeaves).
+        if (o.limit && o.age >= o.limit * 1000) { vipLeaves(oi); return; }
         const card = $(`.order[data-o="${oi}"]`);
         if (!card) return;
         const bar = card.querySelector('.tipbar');
-        bar.className = `tipbar ${tipClass(o)}`;
-        bar.querySelector('i').style.width = `${Math.round(tipShare(o) * 100)}%`;
+        bar.className = `tipbar ${barClass(o)}`;
+        bar.querySelector('i').style.width = `${Math.round(barShare(o) * 100)}%`;
+        const line = card.querySelector('.cust-name');
+        if (line && o.vip) line.textContent = vipLine(o);
+        const sn = card.querySelector('.stars-n');
+        if (sn && starsFor(o) !== starsBefore) {
+          sn.textContent = starsFor(o);
+          if (!reduceMotion) sn.animate([{ color: '#e2412f', transform: 'scale(1.3)' }, { color: 'inherit', transform: 'none' }], { duration: 450 });
+        }
         const now = payFor(o) + tipFor(o), n = card.querySelector('.pay-n');
         if (n && now !== before) {
           n.textContent = now;

@@ -882,6 +882,65 @@ export const CUSTOMER_ART = {
       fill(C(30, 38, 6.5), K.white) + fill(C(55, 28, 7.5), K.white) + fill(C(73, 44, 5), K.white) + fill(C(46, 47, 3.5), K.white) +
       face(44, 56, 69, { r: 2.8, mouthDrop: 8 });
   },
+
+  // ----- VIPs (see data/vips.js) -----
+  zip() { // a hot pepper in a delivery helmet, zooming left
+    const pep = P('M20,46 C18,30 36,24 50,30 C66,38 76,56 82,74 C86,86 80,93 73,86 C64,75 52,68 38,66 C26,63 21,56 20,46 Z');
+    let s = line('M70,30 L90,30', '#f2a03d', 4) + line('M78,44 L94,44', '#f2a03d', 4) + line('M86,58 L96,58', '#f2a03d', 4);
+    s += body(pep, K.tomato, -7, -7, .2) + shine(EL(64, 52, 3, 9, -40), .5);
+    const helmet = P('M12,42 Q10,14 38,13 Q62,13 64,36 Q40,30 12,42 Z');
+    s += body(helmet, K.teal, -6, -5, .22) + line('M22,24 Q36,15 52,20', '#fff', 4, { opacity: .85 });
+    s += fill(R(8, 38, 26, 7, 3.5), '#26585b') + shine(EL(28, 20, 5, 2.5, -20), .5);
+    return s + face(30, 46, 51, { r: 3.2, mouthDrop: 8 });
+  },
+  penny() { // a pea pod with a question on her mind
+    let s = line('M12,58 Q2,50 6,40', K.leaf, 4);
+    s += body(P('M10,58 C20,28 80,28 90,58 C80,86 20,86 10,58 Z'), '#4f9a3a', -7, -7, .2);
+    s += fill(P('M18,52 C30,36 70,36 82,52 C70,60 30,60 18,52 Z'), '#cdeaa8');
+    for (const x of [33, 50, 67]) s += body(C(x, 49, 8.5), '#8fd05a', -4, -4, .2) + shine(C(x - 3, 46, 2.2), .6);
+    s += face(42, 58, 66, { r: 3, mouthDrop: 7, mouth: K.cream });
+    s += fill(C(58, 32, 2.2), '#fff') + fill(C(62, 27, 3), '#fff') + fill(C(70, 19, 9), '#fff');
+    return s + E('text', { x: 70, y: 24, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 14, fill: K.eggplant }, '?');
+  },
+  critic() { // a croissant in a beret, with a monocle and a fancy moustache
+    const c = P('M8,72 Q8,40 30,30 Q50,20 70,30 Q92,40 92,72 Q84,64 76,67 Q72,58 64,60 Q56,54 50,56 Q44,54 36,60 Q28,58 24,67 Q16,64 8,72 Z');
+    let s = body(c, '#d4852c', -7, -7, .22);
+    s += line('M30,31 Q34,46 36,60', '#9c5a1c', 2.6) + line('M70,31 Q66,46 64,60', '#9c5a1c', 2.6) + line('M17,46 Q22,56 24,66', '#9c5a1c', 2.2) + line('M83,46 Q78,56 76,66', '#9c5a1c', 2.2);
+    s += shine(EL(30, 40, 7, 3, -25), .5);
+    s += body(EL(54, 24, 24, 8, -8), K.eggplant, -5, -4, .25) + fill(C(56, 15, 3.5), K.eggplant);
+    s += face(42, 58, 42, { r: 3, mouthDrop: 10 });
+    s += line('M50,49 Q44,46 40,50 Q38,47 41,45 M50,49 Q56,46 60,50 Q62,47 59,45', '#6b3a1f', 2.4);
+    s += E('circle', { cx: 58, cy: 42, r: 6.5, fill: '#fff', 'fill-opacity': .25, stroke: K.gold, 'stroke-width': 2 });
+    return s + line('M64,45 Q72,54 68,64', K.gold, 1.3);
+  },
+  bubbie() { // a round challah in a polka dot kerchief and round glasses
+    const loaf = P('M12,76 Q10,30 50,28 Q90,30 88,76 Q50,84 12,76 Z');
+    let s = body(loaf, '#d98a3a', -7, -7, .2);
+    s += line('M22,72 Q30,60 26,48 M78,72 Q70,60 74,48 M38,78 Q46,70 42,62 M62,78 Q54,70 58,62', '#b56a24', 2.2);
+    for (const [x, y, r] of [[30, 64, -30], [70, 66, 30], [50, 74, 0], [20, 58, -50]]) s += fill(EL(x, y, 1.3, 2.4, r), K.cream);
+    const scarf = P('M14,50 Q12,22 50,20 Q88,22 86,50 Q50,38 14,50 Z');
+    s += body(scarf, K.tulip, -5, -5, .2);
+    for (const [x, y] of [[30, 32], [46, 26], [62, 28], [74, 38], [38, 40], [56, 36]]) s += fill(C(x, y, 2.4), '#fff', { opacity: .9 });
+    s += fill(EL(90, 50, 6, 4, 30), K.tulip) + fill(EL(88, 58, 4, 6, -20), K.tulip);
+    s += face(40, 60, 56, { r: 2.6, mouthDrop: 9 });
+    for (const x of [40, 60]) s += E('circle', { cx: x, cy: 56, r: 7, fill: '#fff', 'fill-opacity': .25, stroke: K.ink, 'stroke-width': 1.8 });
+    return s + line('M47,55 Q50,53 53,55', K.ink, 1.8);
+  },
+  party() { // a pineapple in a party hat, with confetti
+    let s = '';
+    for (const [x, y, c, r] of [[12, 30, K.tulip, 20], [86, 52, K.teal, -30], [14, 70, K.gold, 40], [88, 80, K.eggplant, 10], [24, 14, K.teal, -10]]) {
+      s += fill(R(x - 3, y - 1.5, 6, 3, 1), c, { transform: `rotate(${r} ${x} ${y})` });
+    }
+    s += fill(P(leaf(46, 36, -100, 22, 6)), K.leaf) + fill(P(leaf(46, 36, -135, 20, 6)), '#58b347') + fill(P(leaf(46, 36, -70, 18, 6)), '#58b347');
+    const fruit = EL(50, 64, 26, 28);
+    s += body(fruit, '#f6b62e', -7, -7, .2);
+    for (const [x, y] of [[36, 46], [50, 42], [64, 46], [30, 60], [70, 60], [36, 80], [50, 86], [64, 80]]) s += line(`M${x - 3},${y} L${x},${y + 3} L${x + 3},${y}`, '#c98612', 1.8);
+    s += shine(EL(36, 52, 4, 7, 25), .4);
+    s += fill(P('M52,40 L64,15 L76,38 Q64,44 52,40 Z'), K.eggplant);
+    s += line('M56,33 L72,34 M60,24 L69,25', K.gold, 3);
+    s += fill(C(64, 15, 4.5), K.tulip);
+    return s + face(41, 59, 62, { r: 3.2 });
+  },
 };
 
 // ---------- badges: a food friend under a silver lid, rated in golden spoons ----------
@@ -941,6 +1000,12 @@ const BADGE_FRIENDS = {
     for (const [x, y, r] of [[-12, -10, 2.4], [11, -11, 2], [-14, 6, 2.2], [13, 8, 2.6], [2, 15, 2.2], [-4, -15, 1.6]]) s += fill(C(x, y, r), '#6b3a1f');
     for (const x of [-7, 7]) s += E('circle', { cx: x, cy: -2, r: 5.6, fill: '#fff', 'fill-opacity': .35, stroke: K.ink, 'stroke-width': 1.6 });
     return s + line('M-1.4,-2 Q0,-3.4 1.4,-2', K.ink, 1.6) + tinyFace(-7, 7, -2, 2);
+  },
+  vip() { // VIP Host: a jam thumbprint cookie wearing a crown
+    let s = body(C(0, 6, 18), '#e2b26a', -6, -6, .2) + fill(C(0, 14, 5), '#d7263d') + shine(C(-1.5, 12.5, 1.5), .6);
+    s += fill(P('M-13,-9 L-14,-25 L-6,-17 L0,-28 L6,-17 L14,-25 L13,-9 Z'), K.gold) + fill(R(-13, -11, 26, 4, 1.5), K.goldDark);
+    s += fill(C(0, -19, 2.2), K.tulip) + fill(C(-8, -15, 1.6), K.teal) + fill(C(8, -15, 1.6), K.teal);
+    return s + tinyFace(-6, 6, 2, 2);
   },
 };
 

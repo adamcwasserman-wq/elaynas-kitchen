@@ -510,3 +510,25 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .tipbar.urgent i { background: #e2412f; animation: urgent .8s ease-in-out infinite; }
 @keyframes urgent { 50% { opacity: .45; } }
 @media (prefers-reduced-motion: reduce) { .tipbar.urgent i { animation: none; } }
+
+/* ---------- VIPs: special guests with a gold card ---------- */
+.order.vip { background: #fff3cf; box-shadow: 0 0 0 2px var(--gold), 0 2px 0 var(--edge); }
+.order.vip.ready { box-shadow: 0 0 0 3px var(--leaf), 0 2px 0 var(--edge); }
+.cust.vip-face { position: relative; overflow: visible; border: 0; padding: 0; cursor: pointer; background: #ffe08a; box-shadow: 0 0 0 2px var(--gold); }
+.cust.vip-face svg { clip-path: circle(46% at 50% 47%); }
+.vip-tag {
+  position: absolute; left: 50%; bottom: -7px; transform: translateX(-50%);
+  background: var(--eggplant); color: #ffd34d; border-radius: 6px; padding: 0 4px;
+  font-family: var(--display); font-size: .58rem; line-height: 1.35; letter-spacing: .04em;
+}
+.order.vip .cust-name { font-size: .7rem; }
+.order.vip-rush .cust-name { color: var(--tomato); font-family: var(--display); font-weight: 400; font-size: .85rem; font-variant-numeric: tabular-nums; }
+.need-item.like::before {
+  content: "♥"; position: absolute; left: -3px; top: -5px; font-size: .8rem; line-height: 1; color: var(--tulip, #e8475f);
+}
+.tipbar.rush i { background: var(--tomato); }
+.tipbar.rush.fresh i { background: #e8742f; }
+.tipbar.rush.late { animation: rushpulse .8s ease-in-out infinite; }
+.tipbar.review:not(.urgent) i { background: var(--gold); }
+@keyframes rushpulse { 50% { box-shadow: 0 0 0 2px var(--tomato); } }
+@media (prefers-reduced-motion: reduce) { .tipbar.rush.late { animation: none; } }
