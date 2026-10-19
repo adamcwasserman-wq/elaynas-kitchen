@@ -7,7 +7,10 @@ export const CONFIG = {
 
   // Pantry charges. Every tap on the pantry crate uses one.
   // A full pool of 150 plus the slow refill lasts roughly 30 to 45 minutes of play.
+  // unlimited: true means the starter blocks never run out, so she can play as long as she likes.
+  // (Set it to false to bring back the old limit and refill timer.)
   charges: {
+    unlimited: true,
     max: 150,
     start: 150,
     refillSeconds: 45, // one charge comes back every 45 seconds, even while the game is closed

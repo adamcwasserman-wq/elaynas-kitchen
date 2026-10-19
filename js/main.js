@@ -139,6 +139,7 @@ function perks() {
     refillSeconds: CONFIG.charges.refillSeconds,
     bonusChance: CONFIG.producerBonusChance,
     chargesMax: CONFIG.charges.max,
+    tipBonus: 0,
   };
   for (const u of UPGRADES) {
     if (!S.upgrades.includes(u.id)) continue;
@@ -147,6 +148,7 @@ function perks() {
     if (e.refillSeconds) p.refillSeconds = Math.min(p.refillSeconds, e.refillSeconds);
     if (e.producerBonusChance) p.bonusChance = Math.max(p.bonusChance, e.producerBonusChance);
     if (e.chargesMax) p.chargesMax += e.chargesMax;
+    if (e.tipBonus) p.tipBonus += e.tipBonus;
   }
   return p;
 }
@@ -167,6 +169,7 @@ function nextChargeIn() {
   const ms = perks().refillSeconds * 1000;
   return Math.max(0, Math.ceil((S.chargesAt + ms - Date.now()) / 1000));
 }
+const unlimited = () => !!CONFIG.charges.unlimited;
 const mmss = sec => `${Math.floor(sec / 60)}:${String(sec % 60).padStart(2, '0')}`;
 
 // ---------- orders ----------
@@ -246,7 +249,7 @@ const orderName = o => o.wants.map(wantName).join(' + ');
 const payFor = o => Math.round(o.reward * (1 + perks().orderBonus));
 // The speed tip: full when the order is new, nothing at twice its fast time.
 const tipShare = o => Math.max(0, 1 - o.age / (o.fast * 2000));
-const tipFor = o => Math.round(payFor(o) * SPEED_TIP * tipShare(o));
+const tipFor = o => Math.round(payFor(o) * SPEED_TIP * (1 + perks().tipBonus) * tipShare(o));
 const isSpeedy = o => o.age <= o.fast * 1000;
 
 // What an order card shows. A single dish shows its two foods; anything else shows each thing.
@@ -299,7 +302,7 @@ const cellEl = i => i >= 0 ? $(`#board .cell[data-i="${i}"]`) : null;
 // ---------- actions ----------
 function produce(i) {
   tickCharges();
-  if (S.charges <= 0) { buzz('nope'); openRefill(); return; }
+  if (!unlimited() && S.charges <= 0) { buzz('nope'); openRefill(); return; }
   const spot = nearestEmpty(i);
   if (spot < 0) {
     buzz('nope');
@@ -312,8 +315,10 @@ function produce(i) {
   const pick = makes.find(m => (roll -= m.weight) < 0) || makes[0];
   let tier = pick.tier;
   if (Math.random() < perks().bonusChance) tier = Math.min(tier + 1, maxTier(pick.chain));
-  if (S.charges >= perks().chargesMax) S.chargesAt = Date.now();
-  S.charges--;
+  if (!unlimited()) {
+    if (S.charges >= perks().chargesMax) S.chargesAt = Date.now();
+    S.charges--;
+  }
   S.board[spot] = { chain: pick.chain, tier };
   S.stats.produced++;
   buzz('tap');
@@ -694,12 +699,12 @@ function hint(fromButton) {
     }
   }
   const p = producerIndex();
-  if (S.charges > 0 && nearestEmpty(p) >= 0) {
+  if ((unlimited() || S.charges > 0) && nearestEmpty(p) >= 0) {
     wiggle([cellEl(p)]);
     if (fromButton) toast('Tap a starter block for more ingredients.');
     return;
   }
-  if (S.charges <= 0) { if (fromButton) openRefill(); return; }
+  if (!unlimited() && S.charges <= 0) { if (fromButton) openRefill(); return; }
   // Board is full with nothing to merge: suggest selling the smallest thing.
   const wanted = new Set(S.orders.flatMap(o => o.wants.flatMap(wantKeys)));
   const score = it => (it.dish ? 7 : it.tier) + (wanted.has(keyOf(it)) ? 10 : 0);
@@ -761,6 +766,7 @@ function renderTip() {
 // ---------- drawing the screen ----------
 function renderHeader() {
   $('#money-n').textContent = S.dollars.toLocaleString();
+  $('#charges').hidden = unlimited();
   $('#charges-n').textContent = S.charges;
   $('#gems-n').textContent = S.gems;
   if (arcade) $('#nav-today .dot').hidden = !arcade.somethingNew();
@@ -807,7 +813,7 @@ function render() {
     if (!it) return `<div class="cell${selCls}" data-i="${i}"></div>`;
     const cls = ['item'];
     if (it.producer) cls.push('producer');
-    if (it.producer && S.charges <= 0) cls.push('empty');
+    if (it.producer && !unlimited() && S.charges <= 0) cls.push('empty');
     return `<div class="cell fam-${familyOf(it)}${selCls}" data-i="${i}"><div class="${cls.join(' ')}">${use(artId(it), nameOf(it))}</div>` +
       `${isChain(it) ? `<span class="lv">${it.tier}</span>` : ''}` +
       `${mark && mark.i === i ? `<span class="new-tag">${mark.text}</span>` : ''}` +
@@ -833,7 +839,7 @@ function renderInfo() {
   } else if (it.producer) {
     const names = PRODUCERS[it.producer].makes.map(m => CHAINS[m.chain].tiers[m.tier - 1].name).join(' or ');
     info.innerHTML = `<div class="info-icon">${use(artId(it))}</div>
-      <div class="info-text"><b>${nameOf(it)}</b><span>Tap to make ${names}. Uses 1 charge.</span></div>`;
+      <div class="info-text"><b>${nameOf(it)}</b><span>Tap to make ${names}.${unlimited() ? '' : ' Uses 1 charge.'}</span></div>`;
   } else {
     let text;
     if (it.dish) {

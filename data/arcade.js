@@ -51,7 +51,7 @@ export const MATCHING = {
 
 // The prize counter. Prices are in tickets.
 export const PRIZES = [
-  { id: 'charges', name: '25 pantry charges', cost: 20, give: { charges: 25 } },
+  { id: 'food4', name: 'A level 4 food for your board', cost: 20, give: { foods: { tier: 4, count: 1 } } },
   { id: 'gem1', name: '1 gem', cost: 30, give: { gems: 1 } },
   { id: 'wild', name: 'Wild card', cost: 40, give: { wildcards: 1 } },
   { id: 'basket', name: 'Food basket: 3 level 3 foods', cost: 50, give: { foods: { tier: 3, count: 3 } } },
