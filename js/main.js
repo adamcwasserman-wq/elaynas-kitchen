@@ -569,6 +569,35 @@ $('#hood-name').addEventListener('change', e => {
   toast(`Welcome to ${S.hood.name}!`);
 });
 
+// ---------- sharing: adding to the home screen, and feedback ----------
+// Android offers its own "install" prompt; we keep it for the "Add to home screen" buttons.
+// Once the game runs from the home screen, the install help is hidden.
+let installPrompt = null;
+const installed = () => matchMedia('(display-mode: standalone)').matches || navigator.standalone === true;
+function renderInstall() {
+  document.querySelectorAll('.install-row').forEach(r => { r.hidden = installed(); });
+  document.querySelectorAll('[data-install]').forEach(b => { b.hidden = !installPrompt; });
+}
+addEventListener('beforeinstallprompt', e => { e.preventDefault(); installPrompt = e; renderInstall(); });
+addEventListener('appinstalled', () => { installPrompt = null; renderInstall(); toast('Tulip Kitchen is on your home screen!'); });
+document.addEventListener('click', async e => {
+  if (!e.target.closest('[data-install]') || !installPrompt) return;
+  installPrompt.prompt();
+  await installPrompt.userChoice.catch(() => null);
+  installPrompt = null;
+  renderInstall();
+});
+renderInstall();
+const feedbackLink = () => {
+  const body = `\n\n\n(Tulip Kitchen version ${$('.version').textContent.replace(/.*version /, '')} on ${navigator.userAgent.match(/\(([^)]+)\)/)?.[1] || 'this device'})`;
+  return `mailto:${CONFIG.feedbackEmail}?subject=${encodeURIComponent('Tulip Kitchen feedback')}&body=${encodeURIComponent(body)}`;
+};
+$('#feedback').addEventListener('click', e => { e.currentTarget.href = feedbackLink(); });
+$('#feedback-copy').addEventListener('click', async () => {
+  try { await navigator.clipboard.writeText(CONFIG.feedbackEmail); toast(`Copied: ${CONFIG.feedbackEmail}`); }
+  catch { toast(`Email: ${CONFIG.feedbackEmail}`, { ms: 5000 }); }
+});
+
 // ---------- the player's name ----------
 // Restaurant names in data/cities.js can hold {chef}: the player's name goes there.
 const chefName = () => (S.profile?.name || '').trim() || 'Tulip';
@@ -2460,6 +2489,8 @@ function boot() {
   checkBadges();
   renderAll();
   if (!S.profile?.name) openWelcome();
+  // The splash (the icon and the name) stays up a moment, then fades away.
+  setTimeout(() => { $('#splash').classList.add('gone'); setTimeout(() => $('#splash').remove(), 600); }, Math.max(0, 900 - performance.now()));
 
   setInterval(() => {
     accrueBia();

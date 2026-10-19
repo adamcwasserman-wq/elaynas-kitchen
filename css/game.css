@@ -714,3 +714,15 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .cell.fam-icecream { background: #eee6fb; box-shadow: inset 0 0 0 3px #b9a2e6; }
 .need-item.fam-icecream { background: #eee6fb; box-shadow: inset 0 0 0 2px #b9a2e6; }
 .step.fam-icecream .step-art, .info-icon.fam-icecream { background: #eee6fb; }
+
+/* ---------- the splash: the icon and the name while the game starts ---------- */
+.splash { position: fixed; inset: 0; z-index: 200; background: #5b2c6f; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 12px; transition: opacity .5s ease; }
+.splash img { width: 136px; height: 136px; border-radius: 32px; box-shadow: 0 10px 30px rgba(0, 0, 0, .3); }
+.splash b { font-family: var(--display); font-weight: 400; font-size: 2.1rem; color: #fff3dc; letter-spacing: .02em; }
+.splash span { color: #f6c33e; font-weight: 700; }
+.splash.gone { opacity: 0; pointer-events: none; }
+@media (prefers-reduced-motion: reduce) { .splash { transition: none; } }
+/* help with putting the game on the home screen */
+.install-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; }
+.install-link { color: var(--eggplant); font-weight: 700; }
+a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: inherit; }

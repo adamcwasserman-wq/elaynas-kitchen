@@ -38,4 +38,7 @@ export const CONFIG = {
     serve: [30, 40, 50],
     nope: [12, 30, 12],
   },
+
+  // Sharing with friends: where "Send feedback" (Settings) writes to.
+  feedbackEmail: 'adamcwasserman@gmail.com',
 };

@@ -11,12 +11,15 @@
 <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
 <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png">
 <meta name="apple-mobile-web-app-title" content="Tulip Kitchen">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
 <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:wght@400;700&family=Righteous&display=swap">
 <link rel="stylesheet" href="css/game.css">
 </head>
 <body>
+<div class="splash" id="splash" aria-hidden="true"><img src="icons/icon-512.png" alt=""><b>Tulip Kitchen</b><span>Cozy cooking on your own island</span></div>
 <div id="app">
   <header class="top">
     <button class="brand" id="brand" aria-label="Your neighbourhood">
@@ -211,6 +214,7 @@
       <button class="btn primary" type="submit">Let's cook!</button>
     </form>
     <p class="muted small">Your game saves on this phone only. Nothing is sent anywhere.</p>
+    <p class="install-row"><button class="btn" type="button" data-install hidden>Add to home screen</button><a class="install-link" href="install.html" data-install-guide>How to put it on your home screen</a></p>
   </div>
 </div>
 
@@ -224,6 +228,13 @@
     <h3>Today's mood</h3>
     <p class="muted small">How busy should your restaurants feel? Change it any time.</p>
     <div class="moods" id="set-mood" role="radiogroup" aria-label="Today's mood"></div>
+
+    <h3>On your phone</h3>
+    <p class="install-row"><button class="btn" type="button" data-install hidden>Add to home screen</button><a class="install-link" href="install.html" data-install-guide>How to put it on your home screen</a></p>
+
+    <h3>Tell us what you think</h3>
+    <p class="muted small">Found a bug, or have an idea for the game? We'd love to hear it.</p>
+    <div class="btn-row"><a class="btn" id="feedback" href="#">Send feedback</a><button class="btn ghost" type="button" id="feedback-copy">Copy email address</button></div>
 
     <h3>Backup</h3>
     <p class="muted small">The game saves on this phone by itself. A backup keeps your progress safe if the browser is ever cleared.</p>
@@ -243,7 +254,7 @@
     <h3>Start over</h3>
     <button class="btn danger" id="reset">Start a new game</button>
 
-    <p class="muted small version">Tulip Kitchen · version 0.13</p>
+    <p class="muted small version">Tulip Kitchen · version 0.14</p>
     <button class="btn ghost" data-close>Close</button>
   </div>
 </div>

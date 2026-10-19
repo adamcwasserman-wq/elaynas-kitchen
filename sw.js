@@ -1,10 +1,11 @@
 // Keeps a copy of the game on the phone so it works with no connection.
 // When you change any game file, bump VERSION so phones pick up the new copy.
 
-const VERSION = 'ek-0.13.1';
+const VERSION = 'ek-0.14.0';
 const FILES = [
   './',
   'index.html',
+  'install.html',
   'manifest.webmanifest',
   'css/game.css',
   'js/main.js',
