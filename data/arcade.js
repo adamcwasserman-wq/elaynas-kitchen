@@ -12,7 +12,10 @@ export const GEMS = {
   badge: [1, 3, 10],                    // for bronze, silver, gold
   refill: { gems: 3, charges: 60 },     // skip the wait for pantry charges
   wildcard: 2,                          // buy an extra wild card
-  skipOrderPer: 25,                     // finishing an order with gems: 1 gem per $25 it pays (at least 2)
+  skipOrderPer: 25,                     // "Serve now": 1 gem per $25 the order pays (at least 2)
+  swap: 1,                              // "Swap": send a customer off and bring a new one
+  freshTip: 1,                          // "Fresh tip": refill a customer's speed tip
+  levelUp: 2,                           // "Level up": turn a food on the board into the next level
 };
 
 // Daily trivia rewards.

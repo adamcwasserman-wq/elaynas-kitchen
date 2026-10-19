@@ -455,3 +455,12 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .need.many .need-item { width: 38px; height: 38px; }
 .brand-stars { color: #f6b62e; font-size: .9rem; letter-spacing: 1px; }
 .cele-stars { width: 100%; height: 100%; display: grid; place-items: center; font-size: 3.4rem; color: #f6b62e; letter-spacing: 4px; text-shadow: 0 3px 0 #c48a12; }
+
+.abilities {
+  display: flex; align-items: center; gap: 6px; flex-wrap: wrap;
+  background: var(--card); border-radius: 16px; padding: 6px 8px;
+  box-shadow: 0 6px 20px rgba(122, 59, 31, .22);
+}
+.abilities[hidden] { display: none !important; }
+.abilities-title { font-size: .72rem; font-weight: 700; color: var(--muted); margin-right: auto; }
+.abilities .gem-skip, .info .gem-skip { min-height: 44px; padding: 0 10px; }

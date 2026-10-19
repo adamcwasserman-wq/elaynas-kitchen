@@ -857,13 +857,63 @@ function renderInfo() {
         text = `Level ${it.tier} of ${max}. ` + (it.tier < max ? `Merge 2 to make ${CHAINS[it.chain].tiers[it.tier].name}.` : 'Top of the chain!');
       }
     }
-    const o = orderPick ? S.orders[orderPick.o] : null;
-    const sellBtn = sel >= 0 ? `<button class="sell" data-sell="${sel}">Sell $${sellValue(it)}</button>`
-      : o ? `<button class="sell gem-skip" data-skip="${orderPick.o}"${S.gems < skipCost(o) ? ' disabled' : ''}>Finish now<br>${ICONS.gem}${skipCost(o)}</button>` : '';
+    let buttons = '';
+    if (sel >= 0) {
+      buttons = `<button class="sell" data-sell="${sel}">Sell $${sellValue(it)}</button>`;
+      if (isChain(it) && it.tier < maxTier(it.chain)) buttons += gemButton('levelup', sel, 'Level up', GEMS.levelUp);
+    }
     info.innerHTML = `<div class="info-icon fam-${familyOf(it)}">${use(artId(it))}</div>
-      <div class="info-text"><b>${nameOf(it)}</b><span>${text}</span></div>${sellBtn}`;
+      <div class="info-text"><b>${nameOf(it)}</b><span>${text}</span></div>${buttons}`;
   }
+  renderAbilities();
   renderChainPreview(orderPick ? it : null);
+}
+
+// Gem abilities for the customer whose food she tapped.
+const gemButton = (ability, target, label, cost) =>
+  `<button class="sell gem-skip" data-ability="${ability}" data-target="${target}"${S.gems < cost ? ' disabled' : ''}>${label}<br>${ICONS.gem}${cost}</button>`;
+function renderAbilities() {
+  const bar = $('#abilities');
+  const o = orderPick ? S.orders[orderPick.o] : null;
+  bar.hidden = !o;
+  if (!o) { bar.innerHTML = ''; return; }
+  bar.innerHTML = `<span class="abilities-title">Gem abilities</span>` +
+    gemButton('serve', orderPick.o, 'Serve now', skipCost(o)) +
+    gemButton('swap', orderPick.o, 'Swap', GEMS.swap) +
+    (tipShare(o) < 1 ? gemButton('tip', orderPick.o, 'Fresh tip', GEMS.freshTip) : '');
+}
+function useAbility(ability, target) {
+  if (ability === 'serve') { skipOrder(target); return; }
+  if (ability === 'swap') {
+    const o = S.orders[target];
+    if (!o || S.gems < GEMS.swap) return;
+    S.gems -= GEMS.swap;
+    S.orders[target] = makeOrder();
+    orderPick = null;
+    buzz('merge');
+    toast('A new customer stepped up!');
+  } else if (ability === 'tip') {
+    const o = S.orders[target];
+    if (!o || S.gems < GEMS.freshTip) return;
+    S.gems -= GEMS.freshTip;
+    o.age = 0;
+    buzz('merge');
+    toast('Speed tip refilled.');
+  } else if (ability === 'levelup') {
+    const it = S.board[target];
+    if (!isChain(it) || it.tier >= maxTier(it.chain) || S.gems < GEMS.levelUp) return;
+    S.gems -= GEMS.levelUp;
+    S.board[target] = { chain: it.chain, tier: it.tier + 1 };
+    buzz('merge');
+    discover(S.board[target], target);
+    renderAll();
+    pop(target);
+    checkBadges();
+    save();
+    return;
+  }
+  renderAll();
+  save();
 }
 
 function renderChainPreview(it) {
@@ -1073,7 +1123,7 @@ document.addEventListener('click', e => {
     renderAll();
   }
   else if (t.dataset.sell !== undefined) sell(+t.dataset.sell);
-  else if (t.dataset.skip !== undefined) skipOrder(+t.dataset.skip);
+  else if (t.dataset.ability !== undefined) useAbility(t.dataset.ability, +t.dataset.target);
   else if (t.id === 'nav-today' || t.id === 'gems') arcade.open();
   else if (t.dataset.upg !== undefined) buyUpgrade(t.dataset.upg);
   else if (t.id === 'hint-btn') hint(true);
