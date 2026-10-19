@@ -1129,12 +1129,14 @@ const swag = () => { let w = 'M74,104'; for (let i = 0; i < 8; i++) w += ` Q${80
 const sideSwags = () => line('M70,104 Q40,118 10,112', K.ink, 1) + line('M330,104 Q350,112 366,104', K.ink, 1);
 const SIDE_X = [[60, 109], [44, 113], [26, 114], [342, 107], [356, 107]];
 // Pennants along the roof: "row" 1 hangs at the top of the band, row 2 a little lower and smaller.
-function pennants(row, cols, shape = 'tri') {
+// "gap" leaves out flags where something (like shop lettering) needs to show.
+function pennants(row, cols, shape = 'tri', gap = () => false) {
   const [x0, x1, y0, n, w, h, dip] = row === 1 ? [60, 340, 48, 14, 6, 11, 6] : [70, 330, 56, 13, 4, 7, 5];
   let b = line(`M${x0},${y0} Q${(x0 + 200) / 2},${y0 + 12} 200,${y0 + 2} Q${(x1 + 200) / 2},${y0 + 12} ${x1},${y0}`, K.ink, row === 1 ? 1.2 : .9);
   for (let i = 0; i < n; i++) {
     const x = x0 + (row === 1 ? 6 : 8) + i * 20, y = y0 + 2 + Math.sin((i / (n - 1)) * Math.PI) * dip;
     const c = cols[i % cols.length];
+    if (gap(x)) continue;
     b += shape === 'papel'
       ? fill(P(`M${x - w - 1},${y} L${x + w + 1},${y} L${x + w + 1},${y + h} Q${x + w / 2},${y + h - 3} ${x},${y + h} Q${x - w / 2},${y + h - 3} ${x - w - 1},${y + h} Z`), c) +
         fill(C(x, y + h * .45, 1.4), '#fff', { opacity: .7 })
@@ -1243,7 +1245,11 @@ const DELI = {
   roof: () => fill(R(58, 44, 284, 20, 4), K.eggplant) +
     E('text', { x: 98, y: 59, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 9, fill: '#f6c33e', 'letter-spacing': 1 }, 'BAKERY') +
     E('text', { x: 302, y: 59, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 9, fill: '#f6c33e', 'letter-spacing': 1 }, 'DELI'),
-  bunting: n => pennants(1, [K.tulip, '#fff3dc']) + (n >= 2 ? pennants(2, ['#f6b62e', '#6cc6e0', '#8b55a6']) : '') + (n >= 3 ? roofFlags(K.tulip, '#f6b62e') : ''),
+  // The flags part around the BAKERY and DELI lettering on the roof.
+  bunting: n => {
+    const letters = x => (x > 70 && x < 126) || (x > 280 && x < 324);
+    return pennants(1, [K.tulip, '#fff3dc'], 'tri', letters) + (n >= 2 ? pennants(2, ['#f6b62e', '#6cc6e0', '#8b55a6'], 'tri', letters) : '') + (n >= 3 ? roofFlags(K.tulip, '#f6b62e') : '');
+  },
   sign: (x, w, t) => fill(R(x, 8, w, 40, 10), K.eggplant) + E('rect', { x: x + 4, y: 12, width: w - 8, height: 32, rx: 7, fill: 'none', stroke: '#f6c33e', 'stroke-width': 1.2, opacity: .8 }) +
     E('text', { x: 200, y: 36, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': t.length > 10 ? 19 : 23, fill: '#fff3dc' }, t),
   awning: (n, { awn }) => {

@@ -83,7 +83,7 @@ export function createArcade(api) {
     };
     $('#today-list').innerHTML = `
       <li class="today-card${d.gift ? ' done' : ' glow'}"><div class="today-text"><b>Daily gift</b>
-        <span>${d.gift ? 'Opened. A new gift tomorrow!' : `$${DAILY.gift.dollars}, ${DAILY.gift.gems} gem and a wild card.`}</span></div>
+        <span>${d.gift ? 'Opened. A new gift tomorrow!' : `$${DAILY.gift.dollars} in tips, ${DAILY.gift.gems} gem and a wild card.`}</span></div>
         ${d.gift ? `<span class="upg-done">${ICONS.check}</span>` : '<button class="btn primary" data-today="gift">Open</button>'}</li>
       <li class="today-card${d.trivia ? ' done' : ' glow'}"><div class="today-text"><b>Daily food trivia</b>
         <span>${d.trivia ? `Answered${s.triviaStreak > 1 ? `. ${s.triviaStreak} days in a row!` : '.'} A new question tomorrow.` : 'One question a day. Win gems.'}</span></div>
@@ -91,7 +91,7 @@ export function createArcade(api) {
       ${gameCard('skee', 'Skee ball', 'Grab a ball, flick it up the hill and into the rings. Win gems.', SKEEBALL)}
       ${gameCard('match', 'Food match', 'Flip cards to find the pairs. Win gems.', MATCHING)}
       ${golfCard()}
-      <li class="today-card"><div class="today-text"><b>Gem shop</b><span>Wild cards, foods and decorations. You have ${s.gems} gems.</span></div>
+      <li class="today-card"><div class="today-text"><b>Gem shop</b><span>Missions, wild cards, foods and decorations. You have ${s.gems} gems.</span></div>
         <button class="btn" data-today="prizes">Open</button></li>
       <li class="today-card"><div class="today-text"><b>Wild cards: ${s.wildcards}</b><span>Drop one on any food to make a copy.</span></div>
         <button class="btn" data-today="wild"${s.wildcards ? '' : ' disabled'}>Use one</button></li>`;
@@ -185,6 +185,7 @@ export function createArcade(api) {
         ${owned ? `<span class="upg-done">${ICONS.check}</span>` : `<button class="btn primary" data-prize="${p.id}"${s.gems < p.cost ? ' disabled' : ''}>Get</button>`}</li>`;
     }).join('');
     api.openSheet('#prizes');
+    api.renderMissions();
   }
   $('#prize-list').addEventListener('click', e => {
     const b = e.target.closest('[data-prize]');

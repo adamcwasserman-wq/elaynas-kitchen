@@ -122,11 +122,13 @@ button:focus-visible, summary:focus-visible, .file-btn:focus-within { outline: 3
 }
 
 /* ---------- board ---------- */
-.board-wrap { position: relative; flex: 1; min-height: 0; container-type: size; display: grid; place-items: center; }
+.board-wrap { position: relative; flex: 1; min-height: 0; container-type: size; display: grid; place-items: start center; }
+/* The board sits at the top and leaves room underneath for the info bar, so the bar never hides the bottom row. */
 .board {
   --cols: 6;
   --rows: 8;
-  width: min(100cqw, calc(100cqh * var(--cols) / var(--rows)));
+  --info-room: 70px;
+  width: min(100cqw, calc((100cqh - var(--info-room)) * var(--cols) / var(--rows)));
   aspect-ratio: var(--cols) / var(--rows);
   display: grid;
   grid-template-columns: repeat(var(--cols), minmax(0, 1fr));
@@ -571,7 +573,7 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .pill-num small { font-family: var(--body, inherit); font-size: .62rem; color: var(--muted); letter-spacing: .02em; margin-top: 1px; }
 .pill.gems .dot { top: 2px; right: 2px; }
 /* The neighbourhood fund (BIA dollars) */
-.fund-card { display: flex; align-items: center; gap: 12px; }
+.fund-card { flex-direction: row; align-items: center; gap: 12px; }
 .fund-text { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 2px; }
 .fund-text b { font-family: var(--display); font-size: 1.5rem; font-weight: 400; color: var(--eggplant); }
 .fund-text span { font-size: .85rem; }

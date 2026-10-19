@@ -1188,7 +1188,7 @@ function renderMissions() {
       (done ? `<button class="btn primary" data-mission="${m.id}">Claim</button>` : '') + '</li>';
   }).join('') || '<li class="upg done"><div class="upg-text"><b>Every mission done!</b><span>Amazing work.</span></div></li>';
 }
-function openGemShop() { arcade.openPrizes(); renderMissions(); }
+const openGemShop = () => arcade.openPrizes(); // the gem shop draws the missions too (renderMissions)
 $('#mission-list').addEventListener('click', e => {
   const b = e.target.closest('[data-mission]');
   const m = b && MISSIONS.find(x => x.id === b.dataset.mission);
@@ -1355,7 +1355,7 @@ const TUTORIAL = [
 ];
 function advanceTutorial(event) {
   const step = TUTORIAL[S.tutorial];
-  if (step && step.on === event) S.tutorial++;
+  if (step && step.on === event) { S.tutorial++; renderTip(); }
 }
 function tutorialTarget() {
   if (S.tutorial === 0) return cellEl(producerIndex());
@@ -1499,7 +1499,7 @@ const gemButton = (ability, target, label, cost) =>
   `<button class="sell gem-skip" data-ability="${ability}" data-target="${target}"${S.gems < cost ? ' disabled' : ''}>${label}<br>${ICONS.gem}${cost}</button>`;
 function renderAbilities() {
   const bar = $('#abilities');
-  const o = orderPick ? S.orders[orderPick.o] : null;
+  const o = orderPick && S.gems > 0 ? S.orders[orderPick.o] : null; // nothing to show until she has gems
   bar.hidden = !o;
   if (!o) { bar.innerHTML = ''; return; }
   bar.innerHTML = `<span class="abilities-title">Gem abilities</span>` +
@@ -1726,7 +1726,7 @@ function cellAt(x, y) {
 function tap(i) {
   const it = S.board[i];
   orderPick = null;
-  if (it?.producer) { sel = i; produce(i); return; }
+  if (it?.producer) { sel = -1; produce(i); return; }
   sel = sel === i ? -1 : i;
   buzz('tap');
   renderAll();
@@ -2046,7 +2046,7 @@ function boot() {
   $('#nav-today .nav-icon').innerHTML = ICONS.sun;
   arcade = createArcade({
     getS: () => S, save, renderAll, celebrate, toast, buzz, openSheet, closeSheets,
-    placeFoods, placeWild, freeCells, artPool, checkBadges,
+    placeFoods, placeWild, freeCells, artPool, checkBadges, renderMissions,
   });
   $('#brand-pin').innerHTML = ICONS.pin;
   $('#charges .icon').innerHTML = ICONS.bolt;
