@@ -63,7 +63,7 @@ function compile(hole) {
   addPts(hole.outline, true, RAIL, PHYS.wall);
   for (const b of hole.blocks || []) {
     const e = b.bounce ?? PHYS.wall;
-    if (b.circle) circles.push({ x: b.circle[0], y: b.circle[1], r: b.circle[2], bounce: e });
+    if (b.circle) circles.push({ x: b.circle[0], y: b.circle[1], r: b.circle[2], bounce: e, block: b });
     else if (b.rect) addPts(rectPoly(b.rect), true, 0, e);
     else if (b.poly) addPts(b.poly, true, 0, e);
     else if (b.arc) addPts(arcPoints(b.arc), false, b.w / 2, e);
@@ -91,15 +91,29 @@ const closestOnSeg = (s, x, y) => {
   const t = clamp(((x - s.ax) * dx + (y - s.ay) * dy) / (dx * dx + dy * dy || 1), 0, 1);
   return [s.ax + dx * t, s.ay + dy * t];
 };
-function hitStatics(b, W, bounceOverride) {
+// onHit(thing, howHard) hears about every bumper the ball touches, so it can wobble.
+function hitStatics(b, W, bounceOverride, onHit) {
   let hit = 0;
   for (const s of W.segs) { const [cx, cy] = closestOnSeg(s, b.x, b.y); hit = Math.max(hit, pushOut(b, cx, cy, BALL_R + s.pad, bounceOverride ?? s.bounce)); }
-  for (const c of W.circles) hit = Math.max(hit, pushOut(b, c.x, c.y, BALL_R + c.r, bounceOverride ?? c.bounce));
+  for (const c of W.circles) {
+    const h = pushOut(b, c.x, c.y, BALL_R + c.r, bounceOverride ?? c.bounce);
+    if (h > .01 && onHit) onHit(c.block, h);
+    hit = Math.max(hit, h);
+  }
   return hit;
 }
 
 // Where the moving things are at time t (seconds), as walls with their own speed.
 function moverParts(m, t) {
+  if (m.type === 'orbit') {
+    // things riding round a turning tray, like dumplings on a lazy susan
+    const parts = [];
+    for (let i = 0; i < m.n; i++) {
+      const a = m.speed * t + i * TAU / m.n, dx = Math.cos(a) * m.R, dy = Math.sin(a) * m.R;
+      parts.push({ circle: true, x: m.x + dx, y: m.y + dy, r: m.r, vx: -m.speed * dy, vy: m.speed * dx, a });
+    }
+    return parts;
+  }
   if (m.type === 'spin') {
     const a0 = m.speed * t, parts = [{ circle: true, x: m.x, y: m.y, r: m.w * 0.9, vx: 0, vy: 0 }];
     for (let i = 0; i < m.n; i++) {
@@ -114,20 +128,39 @@ function moverParts(m, t) {
   if (m.len) return [{ ax: x - m.len / 2, ay: y, bx: x + m.len / 2, by: y, pad: m.r, vx, vy, x, y }];
   return [{ circle: true, x, y, r: m.r, vx, vy }];
 }
-function hitMovers(b, movers, t) {
+function hitMovers(b, movers, t, onHit) {
   let hit = 0;
-  for (const m of movers) for (const p of moverParts(m, t)) {
-    if (p.circle) { hit = Math.max(hit, pushOut(b, p.x, p.y, BALL_R + p.r, PHYS.mover, p.vx, p.vy)); continue; }
-    const [cx, cy] = closestOnSeg(p, b.x, b.y);
-    const vx = p.spin ? -p.spin.speed * (cy - p.spin.y) : p.vx, vy = p.spin ? p.spin.speed * (cx - p.spin.x) : p.vy;
-    hit = Math.max(hit, pushOut(b, cx, cy, BALL_R + p.pad, PHYS.mover, vx, vy));
-  }
+  for (const m of movers) moverParts(m, t).forEach((p, i) => {
+    const e = m.bounce ?? PHYS.mover;
+    let h;
+    if (p.circle) h = pushOut(b, p.x, p.y, BALL_R + p.r, e, p.vx, p.vy);
+    else {
+      const [cx, cy] = closestOnSeg(p, b.x, b.y);
+      const vx = p.spin ? -p.spin.speed * (cy - p.spin.y) : p.vx, vy = p.spin ? p.spin.speed * (cx - p.spin.x) : p.vy;
+      h = pushOut(b, cx, cy, BALL_R + p.pad, e, vx, vy);
+    }
+    if (h > .01 && onHit) onHit(m.type === 'orbit' ? `${movers.indexOf(m)}:${i}` : m, h);
+    hit = Math.max(hit, h);
+  });
   return hit;
 }
 
 // ---------- drawing ----------
 // Everything is drawn in course units; the caller sets the scale.
 let seed = 1;
+let NOW = 0;        // the drawing clock, so friends can blink and palms can sway
+let HITS = null;    // when each bumper was last hit, so it can wobble
+// A quick squash-and-stretch after a bumper is hit.
+function wobble(key) {
+  const h = HITS?.get(key);
+  if (h == null) return 1;
+  const k = (NOW - h) / .4;
+  return k < 0 || k > 1 ? 1 : 1 + .25 * Math.sin(k * Math.PI * 2.5) * (1 - k);
+}
+function scaled(ctx, x, y, k, draw) {
+  if (k === 1) { draw(); return; }
+  ctx.save(); ctx.translate(x, y); ctx.scale(k, 2 - k); ctx.translate(-x, -y); draw(); ctx.restore();
+}
 const rnd = () => { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
 const circ = (ctx, x, y, r, c) => { ctx.fillStyle = c; ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.fill(); };
 const ell = (ctx, x, y, rx, ry, c, rot = 0) => { ctx.fillStyle = c; ctx.beginPath(); ctx.ellipse(x, y, rx, ry, rot, 0, TAU); ctx.fill(); };
@@ -135,8 +168,14 @@ const shadow = (ctx, x, y, r) => ell(ctx, x + r * .18, y + r * .3, r * 1.02, r *
 
 // A food friend face: dot eyes, rosy cheeks, a small smile.
 function face(ctx, x, y, s) {
-  circ(ctx, x - s * .3, y - s * .08, s * .1, '#3a2a2a');
-  circ(ctx, x + s * .3, y - s * .08, s * .1, '#3a2a2a');
+  // every friend blinks now and then, each at its own moment
+  if ((NOW + x * .37 + y * .11) % 4 < .14) {
+    ctx.strokeStyle = '#3a2a2a'; ctx.lineWidth = s * .07; ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x - s * .4, y - s * .08); ctx.lineTo(x - s * .2, y - s * .08); ctx.moveTo(x + s * .2, y - s * .08); ctx.lineTo(x + s * .4, y - s * .08); ctx.stroke();
+  } else {
+    circ(ctx, x - s * .3, y - s * .08, s * .1, '#3a2a2a');
+    circ(ctx, x + s * .3, y - s * .08, s * .1, '#3a2a2a');
+  }
   ell(ctx, x - s * .5, y + s * .15, s * .14, s * .09, 'rgba(242,107,107,.6)');
   ell(ctx, x + s * .5, y + s * .15, s * .14, s * .09, 'rgba(242,107,107,.6)');
   ctx.strokeStyle = '#3a2a2a'; ctx.lineWidth = s * .08; ctx.lineCap = 'round';
@@ -206,6 +245,8 @@ const LOOKS = {
   },
   palmBlock(ctx, x, y, r) { LOOKS.palmTop(ctx, x, y, r * 2.4); circ(ctx, x, y, r * .6, '#8a5a2b'); },
   palmTop(ctx, x, y, s) {
+    // fronds sway in the breeze
+    ctx.save(); ctx.translate(x, y); ctx.rotate(Math.sin(NOW * 1.3 + x) * .08); x = 0; y = 0;
     for (let i = 0; i < 7; i++) {
       const a = i * TAU / 7 + .2;
       ctx.fillStyle = i % 2 ? '#2f8a3c' : '#3fa548';
@@ -214,6 +255,21 @@ const LOOKS = {
       ctx.quadraticCurveTo(x + Math.cos(a + .35) * s * .7, y + Math.sin(a + .35) * s * .7, x, y); ctx.fill();
     }
     circ(ctx, x - s * .1, y + s * .05, s * .1, '#7a4b2b'); circ(ctx, x + s * .1, y + s * .08, s * .1, '#7a4b2b'); circ(ctx, x, y - s * .08, s * .1, '#8a5a2b');
+    ctx.restore();
+  },
+  pinata(ctx, x, y, r) {
+    // a striped pinata on a string, swinging as it dances
+    ctx.strokeStyle = 'rgba(58,42,42,.5)'; ctx.lineWidth = .4; ctx.beginPath(); ctx.moveTo(x, y - r); ctx.lineTo(x + Math.sin(NOW * 4) * 2, 13); ctx.stroke();
+    ctx.save(); ctx.beginPath(); ctx.arc(x, y, r, 0, TAU); ctx.clip();
+    ['#e8475f', '#f6b62e', '#3f9b3c', '#2f8a8f', '#9b5cc0'].forEach((c, i) => { ctx.fillStyle = c; ctx.fillRect(x - r, y - r + i * r * .4, r * 2, r * .4 + .1); });
+    ctx.restore();
+    for (let i = 0; i < 5; i++) { const a = i * TAU / 5 + NOW * 2; ell(ctx, x + Math.cos(a) * r * 1.05, y + Math.sin(a) * r * 1.05, r * .28, r * .12, ['#e8475f', '#f6b62e', '#3f9b3c', '#2f8a8f', '#9b5cc0'][i], a); }
+    face(ctx, x, y + r * .05, r * .55); gloss(ctx, x, y, r);
+  },
+  lassi(ctx, x, y, r) {
+    circ(ctx, x, y, r, '#d8eef0'); circ(ctx, x, y, r * .8, '#f6a43a'); circ(ctx, x - r * .1, y - r * .1, r * .55, '#f8b85a');
+    ctx.strokeStyle = '#e8475f'; ctx.lineWidth = r * .16; ctx.lineCap = 'round'; ctx.beginPath(); ctx.moveTo(x + r * .2, y - r * .1); ctx.lineTo(x + r * .75, y - r * .95); ctx.stroke();
+    face(ctx, x - r * .05, y + r * .15, r * .5); gloss(ctx, x, y, r);
   },
   steamer(ctx, x, y, r) {
     circ(ctx, x, y, r, '#c9a066'); circ(ctx, x, y, r * .85, '#e3c088');
@@ -239,7 +295,12 @@ const DECOR = {
   basil(ctx, x, y, s) { for (let i = 0; i < 5; i++) { const a = i * TAU / 5; ell(ctx, x + Math.cos(a) * 2.2 * s, y + Math.sin(a) * 2.2 * s, 2.4 * s, 1.3 * s, i % 2 ? '#3f9b3c' : '#4fb04a', a); } },
   cactusPot(ctx, x, y, s) { circ(ctx, x, y, 4 * s, '#c8643b'); circ(ctx, x, y, 3.2 * s, '#4fb04a'); circ(ctx, x + 1.2 * s, y - 1.2 * s, .7 * s, '#e8475f'); },
   pepper(ctx, x, y, s) { ell(ctx, x, y, 4 * s, 1.6 * s, '#e2412f', .4); ell(ctx, x - 3.4 * s, y - 1.6 * s, 1 * s, .6 * s, '#3f9b3c', .4); },
-  lantern(ctx, x, y, s) { ell(ctx, x, y, 4 * s, 4.6 * s, '#d9342b'); ctx.fillStyle = '#f6b62e'; ctx.fillRect(x - 2.4 * s, y - 4.8 * s, 4.8 * s, 1.2 * s); ctx.fillRect(x - 2.4 * s, y + 3.6 * s, 4.8 * s, 1.2 * s); ell(ctx, x - 1.4 * s, y - 1.4 * s, .9 * s, 1.6 * s, 'rgba(255,255,255,.35)'); },
+  lantern(ctx, x, y, s) {
+    // lanterns swing gently from the top
+    ctx.save(); ctx.translate(x, y - 5 * s); ctx.rotate(Math.sin(NOW * 1.6 + x) * .15); ctx.translate(-x, -(y - 5 * s));
+    DECOR.lanternBody(ctx, x, y, s); ctx.restore();
+  },
+  lanternBody(ctx, x, y, s) { ell(ctx, x, y, 4 * s, 4.6 * s, '#d9342b'); ctx.fillStyle = '#f6b62e'; ctx.fillRect(x - 2.4 * s, y - 4.8 * s, 4.8 * s, 1.2 * s); ctx.fillRect(x - 2.4 * s, y + 3.6 * s, 4.8 * s, 1.2 * s); ell(ctx, x - 1.4 * s, y - 1.4 * s, .9 * s, 1.6 * s, 'rgba(255,255,255,.35)'); },
   blossom(ctx, x, y, s) { for (let i = 0; i < 5; i++) { const a = i * TAU / 5; circ(ctx, x + Math.cos(a) * 2.2 * s, y + Math.sin(a) * 2.2 * s, 1.8 * s, '#f7a8c4'); } circ(ctx, x, y, 1.2 * s, '#f6b62e'); },
   shake(ctx, x, y, s) { circ(ctx, x, y, 4 * s, '#d8eef0'); circ(ctx, x, y, 3.2 * s, '#f7a8c4'); circ(ctx, x, y - .4 * s, 1.8 * s, '#fffaf0'); circ(ctx, x + .3 * s, y - 1.6 * s, .9 * s, '#d9342b'); },
   dome(ctx, x, y, s) { circ(ctx, x, y, 5 * s, '#fffaf0'); circ(ctx, x, y, 3.8 * s, '#2c6fb5'); ell(ctx, x - 1.2 * s, y - 1.3 * s, 1.1 * s, .7 * s, 'rgba(255,255,255,.45)'); },
@@ -248,7 +309,13 @@ const DECOR = {
     circ(ctx, x, y, .8 * s, '#3a2a2a');
   },
   spices(ctx, x, y, s) { [['#f2c230', -5], ['#e2412f', 0], ['#7a4b2b', 5]].forEach(([c, dx]) => { circ(ctx, x + dx * s, y, 2.4 * s, '#c8a26b'); circ(ctx, x + dx * s, y, 1.8 * s, c); }); },
+  torch(ctx, x, y, s) {
+    circ(ctx, x, y + 1 * s, 2 * s, '#8a5a2b'); circ(ctx, x, y, 1.6 * s, '#a8743f');
+    const f = 1 + Math.sin(NOW * 14 + x) * .15 + Math.sin(NOW * 23 + y) * .1;
+    ell(ctx, x, y - 1.6 * s * f, 1.5 * s, 2.6 * s * f, '#ff7b2f'); ell(ctx, x, y - 1 * s * f, .9 * s, 1.6 * s * f, '#ffd34d');
+  },
   flamingo(ctx, x, y, s) {
+    y += Math.sin(NOW * 1.8 + x) * .5;   // bobbing in the water
     ell(ctx, x + 1 * s, y + 4 * s, 3.5 * s, 1.2 * s, 'rgba(255,255,255,.35)');
     ell(ctx, x, y, 3.2 * s, 2.2 * s, '#f48fb1'); ell(ctx, x - .8 * s, y - .3 * s, 2 * s, 1.2 * s, '#f7a8c4');
     ctx.strokeStyle = '#f48fb1'; ctx.lineWidth = 1 * s; ctx.lineCap = 'round';
@@ -282,8 +349,10 @@ function outlinePath(ctx, pts) { ctx.beginPath(); pts.forEach(([x, y], i) => i ?
 
 // Draws the whole hole (everything but the ball). t is seconds, for things that move.
 // view: the visible area in course units, so the ground fills the whole screen.
-export function drawCourse(ctx, hole, t, view = { x: 0, y: 0, w: FW, h: FH }) {
+// hits: when each bumper was last hit (for its wobble).
+export function drawCourse(ctx, hole, t, view = { x: 0, y: 0, w: FW, h: FH }, hits = null) {
   const th = hole.theme;
+  NOW = t; HITS = hits;
   drawGround(ctx, th, view.x, view.y, view.w, view.h);
   for (const d of hole.decor || []) if (!d.over) DECOR[d.look]?.(ctx, d.x, d.y, d.s || 1);
 
@@ -345,6 +414,12 @@ export function drawCourse(ctx, hole, t, view = { x: 0, y: 0, w: FW, h: FH }) {
         circ(ctx, fx + Math.cos(a + Math.PI / 2) * .4, fy + Math.sin(a + Math.PI / 2) * .4, .5, '#e2412f');
       }
     }
+    // sunshine sparkling on the water
+    seed = 11;
+    for (let i = 0; i < 14; i++) {
+      const x = rnd() * FW, y = rnd() * FH, k = Math.sin(t * 2.2 + i * 1.7);
+      if (k > .4 && inside(w, x, y)) sparkle(ctx, x, y, 1.6 * (k - .4) / .6, 'rgba(255,255,255,.9)');
+    }
     ctx.restore();
     shapePath(ctx, w); ctx.strokeStyle = 'rgba(30,110,130,.45)'; ctx.lineWidth = .8; ctx.stroke();
   }
@@ -376,8 +451,14 @@ export function drawCourse(ctx, hole, t, view = { x: 0, y: 0, w: FW, h: FH }) {
     for (const [[x, y], isIn] of [[tn.from, true], [tn.to, false]]) {
       circ(ctx, x, y, tn.r + 2.4, '#a8552f'); circ(ctx, x, y, tn.r + 1.4, '#c8693b');
       const g = ctx.createRadialGradient(x, y, 0, x, y, tn.r);
-      g.addColorStop(0, isIn ? '#ffb347' : '#3a1a10'); g.addColorStop(1, '#2a120a');
+      const flick = .55 + .2 * Math.sin(t * 9 + x) + .1 * Math.sin(t * 23 + y);
+      g.addColorStop(0, isIn ? '#ffd34d' : '#3a1a10'); g.addColorStop(isIn ? flick : .8, isIn ? '#ff7b2f' : '#2a120a'); g.addColorStop(1, '#2a120a');
       circ(ctx, x, y, tn.r, g);
+      // little flames dance round the mouth of the oven
+      if (isIn) for (let i = 0; i < 6; i++) {
+        const a = i * TAU / 6 + .3, f = 1 + .35 * Math.sin(t * 12 + i * 2);
+        ell(ctx, x + Math.cos(a) * (tn.r - .6), y + Math.sin(a) * (tn.r - .6), .7 * f, 1.3 * f, i % 2 ? '#ffd34d' : '#ff9a3c', a + Math.PI / 2);
+      }
     }
     // a dotted line shows where the shortcut comes out
     ctx.strokeStyle = 'rgba(255,255,255,.35)'; ctx.lineWidth = .6; ctx.setLineDash([1.2, 2]);
@@ -401,7 +482,11 @@ export function drawCourse(ctx, hole, t, view = { x: 0, y: 0, w: FW, h: FH }) {
 
   // blocks
   for (const b of hole.blocks || []) {
-    if (b.circle) { const [x, y, r] = b.circle; shadow(ctx, x, y, r); (LOOKS[b.look] || ((c, xx, yy, rr) => circ(c, xx, yy, rr, '#8a7a6a')))(ctx, x, y, r); }
+    if (b.circle) {
+      const [x, y, r] = b.circle;
+      shadow(ctx, x, y, r);
+      scaled(ctx, x, y, wobble(b), () => (LOOKS[b.look] || ((c, xx, yy, rr) => circ(c, xx, yy, rr, '#8a7a6a')))(ctx, x, y, r));
+    }
     else if (b.rect) {
       const [x, y, w, h] = b.rect;
       ctx.fillStyle = 'rgba(70,40,20,.22)'; ctx.fillRect(x + .5, y + .8, w, h);
@@ -417,8 +502,10 @@ export function drawCourse(ctx, hole, t, view = { x: 0, y: 0, w: FW, h: FH }) {
       const [x, y, r, a0, a1] = b.arc, A0 = a0 * Math.PI / 180, A1 = a1 * Math.PI / 180;
       if (b.look === 'volcano') {
         circ(ctx, x, y, r, '#b0603a'); circ(ctx, x, y, r * .8, '#c8774a');
-        const g = ctx.createRadialGradient(x, y, 0, x, y, r * .7); g.addColorStop(0, 'rgba(255,140,40,.9)'); g.addColorStop(1, 'rgba(255,140,40,0)');
-        circ(ctx, x, y, r * .7, g);
+        const glow = r * (.7 + .08 * Math.sin(t * 3));
+        const g = ctx.createRadialGradient(x, y, 0, x, y, glow); g.addColorStop(0, 'rgba(255,140,40,.95)'); g.addColorStop(1, 'rgba(255,140,40,0)');
+        circ(ctx, x, y, glow, g);
+        bubbles(ctx, x, y, r * .6, t, ['#ffd34d', '#ff7b2f'], 5);
         // lava trickles down the back of the volcano
         ctx.fillStyle = '#ff7b2f';
         for (const [dx, len] of [[-6, 7], [1, 10], [7, 6]]) { ctx.beginPath(); ctx.roundRect(x + dx - .9, y - r - len + 1, 1.8, len, .9); ctx.fill(); }
@@ -426,10 +513,12 @@ export function drawCourse(ctx, hole, t, view = { x: 0, y: 0, w: FW, h: FH }) {
         circ(ctx, x, y, r, '#f3cf7a'); circ(ctx, x - 2, y - 2, r * .6, '#f7dc94');
         ctx.fillStyle = '#e6b45e'; for (let i = 0; i < 6; i++) { const a = i * 1.1; circ(ctx, x + Math.cos(a) * r * .55, y + Math.sin(a) * r * .55, .9, '#e2a44a'); }
         ctx.fillStyle = '#2a2a33'; ctx.save(); ctx.translate(x, y); ctx.rotate(-Math.PI / 4); ctx.beginPath(); ctx.roundRect(r - 1, -1.6, 13, 3.2, 1.6); ctx.fill(); ctx.restore();
+        bubbles(ctx, x, y, r * .7, t, ['#fff3c4', '#f7dc94'], 4);   // the crepe sizzles
       }
       ctx.beginPath(); ctx.arc(x, y, r, A0, A1); ctx.lineCap = 'round';
       ctx.strokeStyle = b.look === 'volcano' ? '#7a3f24' : '#2a2a33'; ctx.lineWidth = b.w; ctx.stroke();
       ctx.strokeStyle = 'rgba(255,255,255,.25)'; ctx.lineWidth = b.w * .25; ctx.stroke();
+      if (b.look === 'volcano') puffs(ctx, x, y - r - 2, t, 'rgba(120,110,110,', 7, .45);   // smoke
     }
   }
   // the cup again inside a pan or volcano, so it sits on top
@@ -445,6 +534,19 @@ export function drawCourse(ctx, hole, t, view = { x: 0, y: 0, w: FW, h: FH }) {
         if (m.look === 'straw') {
           ctx.strokeStyle = '#fffaf0'; ctx.lineWidth = m.w; ctx.beginPath(); ctx.moveTo(p.ax, p.ay); ctx.lineTo(p.bx, p.by); ctx.stroke();
           ctx.strokeStyle = '#e8475f'; ctx.setLineDash([1.6, 1.6]); ctx.stroke(); ctx.setLineDash([]);
+        } else if (m.look === 'chopsticks') {
+          const nx = (p.by - p.ay) / m.len * .7, ny = -(p.bx - p.ax) / m.len * .7;
+          for (const k of [-1, 1]) {
+            ctx.strokeStyle = '#c0884a'; ctx.lineWidth = m.w * .55; ctx.beginPath(); ctx.moveTo(p.ax + nx * k, p.ay + ny * k); ctx.lineTo(p.bx + nx * k * .4, p.by + ny * k * .4); ctx.stroke();
+          }
+          ctx.strokeStyle = '#e8475f'; ctx.lineWidth = m.w * .7; ctx.beginPath(); ctx.moveTo(p.ax + (p.bx - p.ax) * .15, p.ay + (p.by - p.ay) * .15); ctx.lineTo(p.ax + (p.bx - p.ax) * .3, p.ay + (p.by - p.ay) * .3); ctx.stroke();
+        } else if (m.look === 'windmill') {
+          // a white Greek windmill: wooden arms with triangle sails
+          ctx.strokeStyle = '#8a5a2b'; ctx.lineWidth = m.w * .5; ctx.beginPath(); ctx.moveTo(p.ax, p.ay); ctx.lineTo(p.bx, p.by); ctx.stroke();
+          const a = Math.atan2(p.by - p.ay, p.bx - p.ax), px = -Math.sin(a), py = Math.cos(a);
+          ctx.fillStyle = '#fffaf0'; ctx.beginPath();
+          ctx.moveTo(p.ax + (p.bx - p.ax) * .25, p.ay + (p.by - p.ay) * .25); ctx.lineTo(p.bx, p.by);
+          ctx.lineTo(p.bx + px * m.len * .38, p.by + py * m.len * .38); ctx.closePath(); ctx.fill();
         } else {
           ctx.strokeStyle = '#b9c3cc'; ctx.lineWidth = m.w * .5; ctx.beginPath(); ctx.moveTo(p.ax, p.ay); ctx.lineTo(p.bx, p.by); ctx.stroke();
           const a = Math.atan2(p.by - p.ay, p.bx - p.ax);
@@ -452,13 +554,34 @@ export function drawCourse(ctx, hole, t, view = { x: 0, y: 0, w: FW, h: FH }) {
           ell(ctx, p.ax + (p.bx - p.ax) * .75, p.ay + (p.by - p.ay) * .75, m.len * .2, m.w * .35, TURF, a);
         }
       }
-      circ(ctx, m.x, m.y, m.w * 1.1, m.look === 'straw' ? '#d9342b' : '#8a95a0');
+      const hub = { straw: '#d9342b', chopsticks: '#1f3b2c', windmill: '#2c6fb5' }[m.look] || '#8a95a0';
+      circ(ctx, m.x, m.y, m.w * 1.1, hub);
       gloss(ctx, m.x, m.y, m.w * 1.1);
+    } else if (m.type === 'orbit') {
+      // the turning tray, with a dotted ring that shows its path
+      circ(ctx, m.x + .6, m.y + 1, m.R + m.r + 1.5, 'rgba(70,40,20,.2)');
+      circ(ctx, m.x, m.y, m.R + m.r + 1.5, '#c8372d'); circ(ctx, m.x, m.y, m.R + m.r, '#e2a63b'); circ(ctx, m.x, m.y, m.R - m.r, '#c8372d');
+      ctx.save(); ctx.translate(m.x, m.y); ctx.rotate(m.speed * t);
+      ctx.strokeStyle = 'rgba(255,255,255,.4)'; ctx.lineWidth = .5; ctx.setLineDash([1.2, 1.8]); ctx.beginPath(); ctx.arc(0, 0, m.R, 0, TAU); ctx.stroke(); ctx.setLineDash([]);
+      ctx.restore();
+      circ(ctx, m.x, m.y, 2.4, '#f6b62e');
+      parts.forEach((p, i) => {
+        shadow(ctx, p.x, p.y, p.r);
+        scaled(ctx, p.x, p.y, wobble(`${hole.movers.indexOf(m)}:${i}`), () => (LOOKS[m.look] || LOOKS.steamer)(ctx, p.x, p.y, p.r));
+        if (m.look === 'dumpling') puffs(ctx, p.x, p.y - p.r, t + i * .7, 'rgba(255,255,255,', 3, .5);
+      });
     } else if (m.look === 'gator') {
       ell(ctx, parts[0].x + .6, parts[0].y + 1, m.len / 2 + m.r, m.r, 'rgba(70,40,20,.22)');
-      LOOKS.gator(ctx, parts[0], m);
+      scaled(ctx, parts[0].x, parts[0].y, wobble(m), () => LOOKS.gator(ctx, parts[0], m));
     } else {
-      const p = parts[0]; shadow(ctx, p.x, p.y, p.r); (LOOKS[m.look] || LOOKS.steamer)(ctx, p.x, p.y, p.r);
+      const p = parts[0];
+      shadow(ctx, p.x, p.y, p.r);
+      scaled(ctx, p.x, p.y, wobble(m), () => {
+        if (m.turn) { ctx.save(); ctx.translate(p.x, p.y); ctx.rotate(Math.sin(t * m.turn) * .5); ctx.translate(-p.x, -p.y); }
+        (LOOKS[m.look] || LOOKS.steamer)(ctx, p.x, p.y, p.r);
+        if (m.turn) ctx.restore();
+      });
+      if (m.look === 'steamer') puffs(ctx, p.x, p.y - p.r, t, 'rgba(255,255,255,', 4, .55);
     }
   }
 
@@ -467,6 +590,43 @@ export function drawCourse(ctx, hole, t, view = { x: 0, y: 0, w: FW, h: FH }) {
   ctx.strokeStyle = 'rgba(70,40,20,.25)'; ctx.lineWidth = .7; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx + 6, cy - 2); ctx.stroke();
   ctx.strokeStyle = '#fffaf0'; ctx.lineWidth = .8; ctx.beginPath(); ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - 15); ctx.stroke();
   ctx.fillStyle = th.flag; ctx.beginPath(); ctx.moveTo(cx, cy - 15); ctx.quadraticCurveTo(cx + 4, cy - 15 + wave, cx + 8, cy - 12.5 + wave); ctx.lineTo(cx, cy - 10); ctx.closePath(); ctx.fill();
+
+  // now and then a Florida seagull glides over the course, with its shadow below
+  const k = (t + 4) % 13 / 13;
+  if (k < .6 && t > 0) {
+    const f = k / .6, gx = view.x - 10 + f * (view.w + 20), gy = view.y + view.h * (.75 - .55 * f) + Math.sin(f * 7) * 4;
+    gull(ctx, gx + 5, gy + 9, 'rgba(70,40,20,.18)', t);
+    gull(ctx, gx, gy, '#fffaf0', t);
+  }
+}
+
+// ---------- little animations ----------
+function sparkle(ctx, x, y, r, c) {
+  ctx.fillStyle = c; ctx.beginPath();
+  ctx.moveTo(x, y - r); ctx.lineTo(x + r * .25, y - r * .25); ctx.lineTo(x + r, y); ctx.lineTo(x + r * .25, y + r * .25);
+  ctx.lineTo(x, y + r); ctx.lineTo(x - r * .25, y + r * .25); ctx.lineTo(x - r, y); ctx.lineTo(x - r * .25, y - r * .25); ctx.closePath(); ctx.fill();
+}
+// Steam or smoke: puffs that rise, grow and fade. rgb is like 'rgba(255,255,255,'.
+function puffs(ctx, x, y, t, rgb, size, alpha) {
+  for (let i = 0; i < 3; i++) {
+    const k = (t * .5 + i / 3) % 1;
+    ctx.fillStyle = `${rgb}${(alpha * (1 - k)).toFixed(3)})`;
+    ctx.beginPath(); ctx.arc(x + Math.sin(k * 6 + i * 2) * size * .25, y - k * size * 1.6, size * (.25 + k * .35), 0, TAU); ctx.fill();
+  }
+}
+// Bubbles that swell and pop (lava, a sizzling crepe).
+function bubbles(ctx, x, y, spread, t, colours, n) {
+  for (let i = 0; i < n; i++) {
+    const k = (t * .8 + i / n) % 1, a = i * 2.4 + Math.floor(t * .8 + i / n) * 1.3;
+    ctx.globalAlpha = 1 - k;
+    circ(ctx, x + Math.cos(a) * spread * ((i % 3 + 1) / 3), y + Math.sin(a) * spread * ((i % 3 + 1) / 3), .4 + k * 1.1, colours[i % colours.length]);
+  }
+  ctx.globalAlpha = 1;
+}
+function gull(ctx, x, y, c, t) {
+  const flap = Math.sin(t * 7) * 1.4;
+  ctx.strokeStyle = c; ctx.lineWidth = 1; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+  ctx.beginPath(); ctx.moveTo(x - 4, y - 1 + flap); ctx.quadraticCurveTo(x - 2, y - 2.4, x, y); ctx.quadraticCurveTo(x + 2, y - 2.4, x + 4, y - 1 + flap); ctx.stroke();
 }
 
 function drawBall(ctx, x, y, s = 1) {
@@ -510,6 +670,20 @@ export function playGolfHole(stage, hole, mode, hooks) {
   let strokes = 0, done = false, stopped = false, aim = null, lipCool = 0, lastBuzz = 0;
   let clock = 0, last = performance.now(), raf = 0, waitUntil = 0, after = null;
   const trail = [], particles = [], popups = [];
+  const hits = new Map();          // bumper -> when it was last hit (it wobbles)
+  let shakeUntil = 0, shakeAmt = 0;
+  const shake = (secs, amt) => { shakeUntil = Math.max(shakeUntil, clock + secs); shakeAmt = Math.max(clock < shakeUntil ? shakeAmt : 0, amt); };
+  // A bumper or moving friend was hit: it wobbles, and a hard hit boings with sparks.
+  const bumped = (thing, howHard) => {
+    if (howHard < 12) return;
+    const fresh = !(clock - (hits.get(thing) ?? -9) < .3);
+    hits.set(thing, clock);
+    if (fresh && howHard > 45) {
+      shake(.15, .5 + Math.min(1, howHard / 150));
+      burst(ball.x, ball.y, 10, ['#f6b62e', '#e8475f', '#fffaf0', '#9b5cc0'], 28);
+      if (Math.random() < .6) popup(ball.x, ball.y, ['Boing!', 'Bonk!', 'Wheee!', 'Boop!'][Math.floor(Math.random() * 4)], '', 6);
+    }
+  };
 
   const status = () => hooks.status(`Shots ${strokes} · Par ${hole.par}`);
   status();
@@ -521,13 +695,13 @@ export function playGolfHole(stage, hole, mode, hooks) {
       particles.push({ x, y, vx: Math.cos(a) * v, vy: Math.sin(a) * v - 10, life: 1, c: colours[i % colours.length], r: .5 + Math.random() * .9 });
     }
   }
-  const popup = (x, y, words, text = '') => popups.push({ x, y, t0: clock, words, text });
+  const popup = (x, y, words, text = '', size = 0) => popups.push({ x, y, t0: clock, words, text, size });
 
   // ----- physics, a small step at a time -----
   function physics(dt) {
     if (ball.state !== 'roll') {
       // a resting ball can still be bumped by something moving
-      if (ball.state === 'rest' && movers.length && hitMovers(ball, movers, clock)) {
+      if (ball.state === 'rest' && movers.length && hitMovers(ball, movers, clock, bumped)) {
         if (Math.hypot(ball.vx, ball.vy) > 2) { ball.state = 'roll'; ball.slow = 0; aim = null; }
         else { ball.vx = ball.vy = 0; }
       }
@@ -559,9 +733,9 @@ export function playGolfHole(stage, hole, mode, hooks) {
     if (speed > PHYS.maxSpeed) { b.vx *= PHYS.maxSpeed / speed; b.vy *= PHYS.maxSpeed / speed; }
     b.x += b.vx * dt; b.y += b.vy * dt;
 
-    let hit = hitStatics(b, walls);
-    hit = Math.max(hit, hitMovers(b, movers, clock));
-    hit = Math.max(hit, hitStatics(b, walls));
+    let hit = hitStatics(b, walls, undefined, bumped);
+    hit = Math.max(hit, hitMovers(b, movers, clock, bumped));
+    hit = Math.max(hit, hitStatics(b, walls, undefined, bumped));
     if (hit > 35 && clock - lastBuzz > .12) { lastBuzz = clock; hooks.buzz('tap'); burst(b.x, b.y, 4, ['#fffaf0', '#f6b62e'], 18); }
 
     // water
@@ -635,7 +809,11 @@ export function playGolfHole(stage, hole, mode, hooks) {
     const words = holeInOne ? 'HOLE IN ONE!' : diff <= -2 ? 'Eagle!' : diff === -1 ? 'Birdie!' : diff === 0 ? 'Par! Nice!' : 'In the cup!';
     setTimeout(() => {
       if (stopped) return;
-      burst(cx, cy, holeInOne ? 60 : diff <= 0 ? 36 : 18, ['#f6b62e', '#e8475f', '#5b2c6f', '#3f9b3c', '#fff'], holeInOne ? 55 : 40);
+      const volcano = (hole.blocks || []).some(b => b.look === 'volcano');
+      burst(cx, cy, holeInOne ? 70 : diff <= 0 ? 40 : 22, ['#f6b62e', '#e8475f', '#5b2c6f', '#3f9b3c', '#fff'], holeInOne ? 60 : 42);
+      if (volcano) burst(cx, cy, 50, ['#ff7b2f', '#ffd34d', '#e2412f'], 70);   // the volcano erupts!
+      if (holeInOne || volcano) setTimeout(() => !stopped && burst(cx, cy - 10, 40, ['#f6b62e', '#e8475f', '#2f8a8f', '#fff'], 55), 350);
+      shake(holeInOne || volcano ? .5 : .25, holeInOne || volcano ? 1.6 : .8);
       popup(cx, cy, words);
       hooks.buzz(diff <= 0 ? 'serve' : 'merge');
     }, 280);
@@ -670,7 +848,16 @@ export function playGolfHole(stage, hole, mode, hooks) {
     for (let i = particles.length - 1; i >= 0; i--) if (particles[i].life <= 0) particles.splice(i, 1);
 
     ctx.setTransform(dpr * s, 0, 0, dpr * s, dpr * ox, dpr * oy);
-    drawCourse(ctx, hole, clock, view);
+    if (clock < shakeUntil) { const k = (shakeUntil - clock) * 4 * shakeAmt; ctx.translate((Math.random() - .5) * k, (Math.random() - .5) * k); }
+    drawCourse(ctx, hole, clock, view, hits);
+
+    // the cup glows when the ball rolls close
+    const near = Math.hypot(ball.x - hole.cup[0], ball.y - hole.cup[1]);
+    if (ball.state === 'roll' && near < 16) {
+      ctx.globalAlpha = (1 - near / 16) * (.6 + .4 * Math.sin(clock * 18));
+      ctx.strokeStyle = '#ffd34d'; ctx.lineWidth = 1; ctx.beginPath(); ctx.arc(hole.cup[0], hole.cup[1], CUP_R + 1.5, 0, TAU); ctx.stroke();
+      ctx.globalAlpha = 1;
+    }
 
     // the aim line
     if (aim && ball.state === 'rest') {
@@ -711,11 +898,22 @@ export function playGolfHole(stage, hole, mode, hooks) {
       if (k >= 1) { popups.splice(i, 1); continue; }
       ctx.globalAlpha = 1 - k * k;
       const y = clamp(p.y - 8 - 10 * k, 12, FH - 6), x = clamp(p.x, 22, FW - 22);
-      ctx.font = `${p.words.length > 10 ? 8 : 9}px Righteous, sans-serif`;
+      ctx.font = `${p.size || (p.words.length > 10 ? 8 : 9)}px Righteous, sans-serif`;
       ctx.strokeStyle = '#3a2a2a'; ctx.lineWidth = 2;
       ctx.strokeText(p.words, x, y); ctx.fillStyle = '#ffd34d'; ctx.fillText(p.words, x, y);
       if (p.text) { ctx.font = '6px Righteous, sans-serif'; ctx.strokeText(p.text, x, y + 8); ctx.fillStyle = '#fff'; ctx.fillText(p.text, x, y + 8); }
       ctx.globalAlpha = 1;
+    }
+    // the hole's name pops in at the start
+    if (clock < 1.8) {
+      const k = clock / 1.8, pop = k < .15 ? k / .15 * 1.15 : k < .25 ? 1.15 - (k - .15) / .1 * .15 : 1;
+      ctx.globalAlpha = k > .8 ? (1 - k) / .2 : 1;
+      ctx.save(); ctx.translate(FW / 2, FH * .45); ctx.scale(pop, pop);
+      ctx.fillStyle = 'rgba(91,44,111,.9)'; ctx.beginPath(); ctx.roundRect(-38, -12, 76, 24, 8); ctx.fill();
+      ctx.fillStyle = '#ffd34d'; ctx.font = '9px Righteous, sans-serif'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.fillText(hole.name, 0, -3);
+      ctx.fillStyle = '#fffaf0'; ctx.font = '5.5px Righteous, sans-serif'; ctx.fillText(`Par ${hole.par}`, 0, 6);
+      ctx.restore(); ctx.globalAlpha = 1;
     }
     if (!stopped) raf = requestAnimationFrame(frame);
   }
