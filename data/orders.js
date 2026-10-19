@@ -28,9 +28,10 @@ export const ORDER_STAGES = [
 // Stars each part of an order earns, and the speed bonus.
 export const ORDER_STARS = { plain: 1, simple: 2, advanced: 3, speedy: 1 };
 
-// Speed tip: served right away, a customer adds this share of the bill as a tip.
-// The tip shrinks to nothing at twice the fast time. Orders never expire, and slow is never punished.
-export const SPEED_TIP = 0.5;
+// Speed tip: served right away, a customer adds this share of the bill as a tip (1 = pays double).
+// The amount on the order card counts down as the customer waits, and the tip is gone at twice
+// the fast time. It never drops below the normal price, and orders never expire.
+export const SPEED_TIP = 1;
 
 // Orders that ask for several things pay a little extra.
 export const BIG_ORDER_BONUS = 1.25;

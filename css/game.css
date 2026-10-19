@@ -448,9 +448,13 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .reward { flex-direction: column; align-items: flex-end; gap: 1px; line-height: 1; }
 .reward .pay { display: flex; align-items: center; gap: 3px; }
 .reward .stars { font-size: .78rem; color: #c48a12; }
-.order { grid-template-rows: 38px auto 30px 4px; }
-.tipbar { grid-column: 1 / -1; height: 4px; border-radius: 2px; background: var(--panel); overflow: hidden; }
-.tipbar i { display: block; height: 100%; background: #f6b62e; border-radius: 2px; transition: width 1s linear; }
+.order { grid-template-rows: 38px auto 30px 8px; }
+/* The wait bar: drops as the customer waits; green, then gold, then orange. */
+.tipbar { grid-column: 1 / -1; height: 8px; border-radius: 4px; background: #eadfcf; overflow: hidden; box-shadow: inset 0 0 0 1px rgba(58,42,42,.08); }
+.tipbar i { display: block; height: 100%; border-radius: 4px; transition: width 1s linear, background-color .4s; background: var(--leaf); }
+.tipbar.waiting i { background: #f6b62e; }
+.tipbar.late i { background: #e8742f; }
+.pay-n { font-weight: 400; display: inline-block; }
 .need.many { gap: 3px; }
 .need.many .need-item { width: 38px; height: 38px; }
 .brand-stars { color: #f6b62e; font-size: .9rem; letter-spacing: 1px; }

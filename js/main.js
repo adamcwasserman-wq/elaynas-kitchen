@@ -254,6 +254,7 @@ const payFor = o => Math.round(o.reward * (1 + perks().orderBonus));
 const tipShare = o => Math.max(0, 1 - o.age / (o.fast * 2000));
 const tipFor = o => Math.round(payFor(o) * SPEED_TIP * (1 + perks().tipBonus) * tipShare(o));
 const isSpeedy = o => o.age <= o.fast * 1000;
+const tipClass = o => { const t = tipShare(o); return t > 0.6 ? 'fresh' : t > 0.25 ? 'waiting' : t > 0 ? 'late' : 'done'; };
 
 // What an order card shows. A single dish shows its two foods; anything else shows each thing.
 function slotsOf(o) {
@@ -799,10 +800,10 @@ function renderOrders() {
     }).join('');
     return `<div class="order${ready ? ' ready' : ''}" data-o="${oi}">
       <div class="cust">${use(`cust-${o.customer}`, cust.name)}</div>
-      <div class="reward"><span class="pay">${ICONS.coin}${payFor(o)}</span><span class="stars">★${o.stars}</span></div>
+      <div class="reward"><span class="pay">${ICONS.coin}<b class="pay-n">${payFor(o) + tipFor(o)}</b></span><span class="stars">★${o.stars}</span></div>
       <div class="need${slots.length > 2 ? ' many' : ''}">${need}</div>
       ${ready ? `<button class="serve" data-serve="${oi}">Serve</button>` : `<div class="cust-name">${orderName(o)}</div>`}
-      <div class="tipbar" title="Speed tip"><i style="width:${Math.round(tipShare(o) * 100)}%"></i></div>
+      <div class="tipbar ${tipClass(o)}" title="Pay drops as the customer waits"><i style="width:${Math.round(tipShare(o) * 100)}%"></i></div>
     </div>`;
   }).join('');
 }
@@ -1418,10 +1419,20 @@ function boot() {
 
   setInterval(() => {
     if (document.visibilityState === 'visible' && $('#game').hidden) {
+      // Customers wait: the bar drops and the amount they'll pay counts down toward the normal price.
       S.orders.forEach((o, oi) => {
+        const before = payFor(o) + tipFor(o);
         o.age += 1000;
-        const bar = $(`.order[data-o="${oi}"] .tipbar i`);
-        if (bar) bar.style.width = `${Math.round(tipShare(o) * 100)}%`;
+        const card = $(`.order[data-o="${oi}"]`);
+        if (!card) return;
+        const bar = card.querySelector('.tipbar');
+        bar.className = `tipbar ${tipClass(o)}`;
+        bar.querySelector('i').style.width = `${Math.round(tipShare(o) * 100)}%`;
+        const now = payFor(o) + tipFor(o), n = card.querySelector('.pay-n');
+        if (n && now !== before) {
+          n.textContent = now;
+          if (!reduceMotion) n.animate([{ color: '#e2412f', transform: 'scale(1.15)' }, { color: 'inherit', transform: 'none' }], { duration: 450 });
+        }
       });
     }
     if (tickCharges()) { renderAll(); save(); } else renderHeader();
