@@ -559,3 +559,7 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .fx-pop { transform-box: fill-box; transform-origin: bottom center; animation: pop 1.4s ease-out infinite alternate; }
 @keyframes pop { from { transform: scale(0); } to { transform: scale(1); } }
 @media (prefers-reduced-motion: reduce) { .fx-burst, .fx-parade, .fx-bob, .fx-fall, .fx-pop { animation: none; } .fx-parade { transform: translateX(300px); } }
+.upg .pips { display: inline-flex; gap: 4px; margin-left: 8px; vertical-align: 1px; font-size: 0; }
+.upg .pips i { display: block; flex: none; width: 11px; height: 11px; box-sizing: border-box; border-radius: 50%; border: 2px solid var(--eggplant); }
+.upg .pips i.on { background: var(--eggplant); }
+.upg-buy { line-height: 1.15; }

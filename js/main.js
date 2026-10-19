@@ -57,7 +57,7 @@ let lastAction = Date.now();
 
 // ---------- cities ----------
 // Each city keeps these for itself; everything else (dollars, gems, badges, recipes) is shared.
-const CITY_KEYS = ['board', 'orders', 'orderSeq', 'served', 'producers', 'upgrades', 'choices', 'decor', 'cityStars', 'starLevel', 'complaints'];
+const CITY_KEYS = ['board', 'orders', 'orderSeq', 'served', 'producers', 'upLv', 'choices', 'decor', 'cityStars', 'starLevel', 'complaints'];
 const cityOf = id => CITIES.find(c => c.id === id) || CITIES[0];
 const city = () => cityOf(S?.city);
 
@@ -68,7 +68,7 @@ function newCityState(id) {
   c.starts.forEach((p, n) => { board[idx(2 + n, 3)] = { producer: p }; });
   const first = PRODUCERS[c.starts[0]].makes[0];
   board[idx(1, 4)] = { chain: first.chain, tier: 1 };
-  return { board, orders: [], orderSeq: 0, served: 0, producers: [...c.starts], upgrades: [], choices: {}, decor: [], cityStars: 0, starLevel: 0, complaints: 0 };
+  return { board, orders: [], orderSeq: 0, served: 0, producers: [...c.starts], upLv: {}, choices: {}, decor: [], cityStars: 0, starLevel: 0, complaints: 0 };
 }
 
 function travel(id) {
@@ -102,12 +102,16 @@ function restaurantBuzz() {
   for (const c of CITIES) {
     if (!S.openCities.includes(c.id)) continue;
     const d = c.id === S.city ? S : S.cityData[c.id];
-    if (d) b += (d.starLevel || 0) * RESTAURANT_BUZZ.perStar + (d.upgrades?.length || 0) * RESTAURANT_BUZZ.perUpgrade;
+    if (d) b += (d.starLevel || 0) * RESTAURANT_BUZZ.perStar + Object.values(d.upLv || {}).reduce((t, n) => t + n, 0) * RESTAURANT_BUZZ.perUpgrade;
   }
   return b;
 }
+// Improvements are built in stages (S.hood.stages); amenities are built once (S.hood.built).
+const stageOf = id => S.hood.stages[id] || 0;
+const stageBuzz = x => x.stages.slice(0, stageOf(x.id)).reduce((t, st) => t + st.buzz, 0);
 const hoodBuzz = () => restaurantBuzz() +
-  S.hood.built.reduce((t, id) => t + (ALL_HOOD.find(x => x.id === id)?.buzz || 0), 0) +
+  IMPROVEMENTS.reduce((t, x) => t + stageBuzz(x), 0) +
+  S.hood.built.reduce((t, id) => t + (AMENITIES.find(x => x.id === id)?.buzz || 0), 0) +
   Object.keys(S.hood.hosted).reduce((t, id) => t + (EVENTS.find(e => e.id === id)?.firstBuzz || 0), 0);
 const hoodLevelFor = b => BUZZ_LEVELS.reduce((l, x, i) => (b >= x.at ? i : l), 0);
 const hoodBonus = () => BUZZ_LEVELS[S.hood.level]?.bonus || 0;
@@ -121,7 +125,8 @@ function hoodScene(focus = null, event = null) {
     stars: c.id === S.city ? S.starLevel : (S.cityData[c.id]?.starLevel || 0), here: c.id === S.city, label: 'For lease',
   })).concat(COMING_SOON.map(c => ({ slot: c.slot, open: false, label: 'Coming soon' })));
   return neighbourhoodSvg({
-    name: S.hood.name, built: new Set(S.hood.built), level: S.hood.level, shops, focus, event,
+    name: S.hood.name, built: new Set(S.hood.built), stages: S.hood.stages, level: S.hood.level, shops, focus, event,
+    focusStage: focus && IMPROVEMENTS.some(x => x.id === focus) ? Math.min(3, stageOf(focus) + 1) : 0,
     choices: { trees: hoodChoice('trees').colour, flowers: hoodChoice('flowers').colour, mural: hoodChoice('mural').name },
     people: 2 + Math.floor(hoodBuzz() / 90),
   });
@@ -142,7 +147,21 @@ function checkHood() {
 }
 
 let hoodFocus = null;
-function hoodRow(x, kind) {
+// An improvement row: three pips for its stages, and a button for the next one.
+function improveRow(x) {
+  const n = stageOf(x.id), next = x.stages[n], top = !next;
+  const can = !top && S.dollars >= next.cost;
+  const pips = `<span class="pips">${x.stages.map((_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+  const right = top ? `<span class="upg-done">${ICONS.check}</span>`
+    : `<button class="btn primary upg-buy" data-hood-build="${x.id}"${can ? '' : ' disabled'}>${n ? 'Upgrade' : 'Build'}<br>$${next.cost.toLocaleString()}</button>`;
+  const note = top ? `${x.stages[2].name}. ${x.stages[2].about}`
+    : `${n ? `Now: ${x.stages[n - 1].name}. Next: ` : ''}${next.name}. ${next.about} +${next.buzz} buzz.`;
+  const swatches = n && x.choice ? `<div class="swatches">${HOOD_CHOICES[x.choice].map(c =>
+    `<button class="swatch${hoodChoice(x.choice).colour === c.colour ? ' on' : ''}" data-hood-choice="${x.choice}" data-colour="${c.colour}" style="background:${c.colour}" aria-label="${c.name}"></button>`).join('')}</div>` : '';
+  return `<li class="upg${top ? ' done' : can ? ' next' : ''}${hoodFocus === x.id ? ' focused' : ''}" data-hood-focus="${x.id}">` +
+    `<div class="upg-text"><b>${x.name} ${pips}</b><span>${note}</span>${swatches}</div>${right}</li>`;
+}
+function hoodRow(x) {
   const built = S.hood.built.includes(x.id), locked = x.needs && S.hood.level < x.needs;
   const can = !built && !locked && S.dollars >= x.cost;
   const right = built ? `<span class="upg-done">${ICONS.check}</span>`
@@ -160,8 +179,10 @@ function renderHood() {
   $('#hood-name').value = S.hood.name;
   $('#hood-art').innerHTML = hoodScene(hoodFocus, S.hood.event?.id || null);
   const f = ALL_HOOD.find(x => x.id === hoodFocus);
+  const fName = !f ? '' : !f.stages ? f.name : f.stages[Math.min(2, stageOf(f.id))].name;
+  const fBuilt = f && (f.stages ? stageOf(f.id) >= 3 : S.hood.built.includes(f.id));
   $('#hood-caption').textContent = !f ? 'Tap anything below to see where it goes. Tap a shop to visit it.'
-    : S.hood.built.includes(f.id) ? `${f.name}, outlined in purple.` : `Preview: ${f.name}, outlined in purple.`;
+    : fBuilt ? `${fName}, outlined in purple.` : `Preview: ${fName}, outlined in purple.`;
   const pct = next ? Math.min(100, Math.round((b - L.at) / (next.at - L.at) * 100)) : 100;
   $('#hood-buzz').innerHTML = `<div class="buzz-top"><b>${L.name}</b><span>${(b * VISITORS_PER_BUZZ).toLocaleString()} visitors a day</span></div>` +
     `<div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>` +
@@ -177,7 +198,7 @@ function renderHood() {
     const note = open ? `${c.cuisine} · ${'★'.repeat(lv)}${'☆'.repeat(3 - lv)}` : `Opens when ${prev.name} reaches ${prev.opensNextAt} stars.`;
     return `<li class="${here ? 'upg next' : open ? 'upg' : 'upg later'}"><div class="upg-text"><b>${c.name}</b><span>${note}</span></div>${right}</li>`;
   }).join('') + COMING_SOON.map(c => `<li class="upg later"><div class="upg-text"><b>${c.name}</b><span>${c.cuisine} · coming in a later update.</span></div></li>`).join('');
-  $('#hood-improve').innerHTML = IMPROVEMENTS.map(x => hoodRow(x)).join('');
+  $('#hood-improve').innerHTML = IMPROVEMENTS.map(improveRow).join('');
   $('#hood-amen').innerHTML = AMENITIES.map(x => hoodRow(x)).join('');
   $('#hood-events').innerHTML = EVENTS.map(e => {
     const locked = S.hood.level < e.needs, on = S.hood.event?.id === e.id, busy = !!S.hood.event;
@@ -192,15 +213,28 @@ function renderHood() {
 function openHood() { hoodFocus = null; renderHood(); openSheet('#hood'); }
 
 function buildHood(id) {
-  const x = ALL_HOOD.find(i => i.id === id);
+  const imp = IMPROVEMENTS.find(i => i.id === id);
+  if (imp) {
+    const n = stageOf(id), st = imp.stages[n];
+    if (!st || S.dollars < st.cost) return;
+    S.dollars -= st.cost;
+    S.hood.stages[id] = n + 1;
+    hoodFocus = null;
+    buzz('serve');
+    renderHood();
+    celebrate({ art: hoodScene(), wide: true, title: `${st.name}!`, name: `+${st.buzz} buzz for ${S.hood.name}`,
+      line: st.about + (n === 0 && imp.choice ? ' Pick a style below.' : n < 2 ? ` Upgrade it again any time.` : ` That's as amazing as it gets!`) });
+    checkHood(); renderHeader(); save();
+    return;
+  }
+  const x = AMENITIES.find(i => i.id === id);
   if (!x || S.hood.built.includes(id) || (x.needs && S.hood.level < x.needs) || S.dollars < x.cost) return;
   S.dollars -= x.cost;
   S.hood.built.push(id);
   hoodFocus = id;
   buzz('serve');
   renderHood();
-  celebrate({ art: hoodScene(id), wide: true, title: `${x.name}!`, name: `+${x.buzz} buzz for ${S.hood.name}`,
-    line: x.choice ? `${x.about} Pick a style below.` : x.about });
+  celebrate({ art: hoodScene(id), wide: true, title: `${x.name}!`, name: `+${x.buzz} buzz for ${S.hood.name}`, line: x.about });
   checkHood();
   renderHeader();
   save();
@@ -276,7 +310,7 @@ function openNextCity() {
 function newGame() {
   S = {
     v: SAVE_VERSION, dollars: 0, city: 'toronto', openCities: ['toronto'], cityData: {},
-    hood: { name: HOOD.defaultName, built: [], choices: {}, level: 0, event: null, hosted: {} },
+    hood: { name: HOOD.defaultName, built: [], stages: {}, choices: {}, level: 0, event: null, hosted: {} },
     charges: CONFIG.charges.start, chargesAt: Date.now(), freeRefillAt: 0,
     tutorial: 0,
     seen: { 'bakery:1': true }, recipes: {}, badges: {},
@@ -308,7 +342,6 @@ function migrate(s) {
   s.seen ??= {};
   s.recipes ??= {};
   s.badges ??= {};
-  s.upgrades ??= [];
   // The single pantry became separate starter blocks: the bakery crate, then the dairy fridge.
   s.board = s.board.map(it => it && it.producer === 'pantry' ? { producer: 'crate' } : it);
   s.producers ??= s.board.filter(it => it && it.producer).map(it => it.producer);
@@ -337,8 +370,20 @@ function migrate(s) {
   // Cities arrived in phase 4: an older save is in Toronto.
   s.city ??= 'toronto';
   s.openCities ??= ['toronto'];
-  s.hood ??= { name: HOOD.defaultName, built: [], choices: {}, level: 0, event: null, hosted: {} };
+  s.hood ??= { name: HOOD.defaultName, built: [], stages: {}, choices: {}, level: 0, event: null, hosted: {} };
+  // Improvements gained stages: anything she already built becomes stage 1.
+  if (!s.hood.stages) {
+    s.hood.stages = {};
+    for (const id of s.hood.built) if (IMPROVEMENTS.some(x => x.id === id)) s.hood.stages[id] = 1;
+    s.hood.built = s.hood.built.filter(id => !IMPROVEMENTS.some(x => x.id === id));
+  }
   s.cityData ??= {};
+  // Restaurant upgrades gained levels: anything she already bought becomes level 1.
+  for (const d of [s, ...Object.values(s.cityData)]) {
+    if (d.upLv) continue;
+    d.upLv = Object.fromEntries((d.upgrades || []).map(id => [id, 1]));
+    delete d.upgrades;
+  }
   s.choices ??= {};
   s.served ??= 0;
   s.complaints ??= 0;
@@ -373,9 +418,7 @@ function perks() {
     chargesMax: CONFIG.charges.max,
     tipBonus: 0,
   };
-  for (const u of UPGRADES) {
-    if (!S.upgrades.includes(u.id)) continue;
-    const e = u.effect;
+  for (const u of UPGRADES) for (const { effect: e } of u.levels.slice(0, upLevel(u.id))) {
     if (e.orderBonus) p.orderBonus += e.orderBonus;
     if (e.refillSeconds) p.refillSeconds = Math.min(p.refillSeconds, e.refillSeconds);
     if (e.producerBonusChance) p.bonusChance = Math.max(p.bonusChance, e.producerBonusChance);
@@ -384,9 +427,12 @@ function perks() {
   }
   return p;
 }
-// Upgrades can be bought in any order: is there one she can afford right now?
-const upgradeCost = u => Math.round(u.cost * (city().upgradeCost || 1) / 5) * 5;
-const upgradeAffordable = () => UPGRADES.some(u => !S.upgrades.includes(u.id) && S.dollars >= upgradeCost(u));
+// Each upgrade has three levels, bought one at a time, in any order.
+const upLevel = id => S.upLv[id] || 0;
+const nextLevel = u => u.levels[upLevel(u.id)];
+const upgradeCost = st => Math.round(st.cost * (city().upgradeCost || 1) / 5) * 5;
+// Is there an upgrade she can afford right now?
+const upgradeAffordable = () => UPGRADES.some(u => nextLevel(u) && S.dollars >= upgradeCost(nextLevel(u)));
 
 // ---------- pantry charges ----------
 function tickCharges() {
@@ -991,17 +1037,18 @@ function undoSell() {
 }
 
 function buyUpgrade(id) {
-  const u = UPGRADES.find(x => x.id === id);
-  if (!u || S.upgrades.includes(u.id) || S.dollars < upgradeCost(u)) return;
-  S.dollars -= upgradeCost(u);
-  S.upgrades.push(u.id);
+  const u = UPGRADES.find(x => x.id === id), st = u && nextLevel(u);
+  if (!st || S.dollars < upgradeCost(st)) return;
+  const n = upLevel(u.id);
+  S.dollars -= upgradeCost(st);
+  S.upLv[u.id] = n + 1;
   buzz('serve');
   // Stay on the restaurant, with the new part outlined in purple.
-  restFocus = u.id;
+  restFocus = u.id; restFocusPreview = false;
   renderRestaurant();
   setTimeout(checkHood, 50);
-  celebrate({ art: restaurantPhoto(u.id), wide: true, title: 'Restaurant upgrade!', name: u.name,
-    line: u.choice ? `${u.perk} Pick a colour below.` : u.perk });
+  celebrate({ art: restaurantPhoto(u.id), wide: true, title: n ? `Level ${n + 1} upgrade!` : 'Restaurant upgrade!', name: st.name,
+    line: st.perk + (n === 0 && u.choice ? ' Pick a colour below.' : n < 2 ? ' Upgrade it again any time.' : " That's as fancy as it gets!") });
   renderHeader();
   render();
   save();
@@ -1011,13 +1058,15 @@ function buyUpgrade(id) {
 // colour as she upgrades; "focus" outlines one upgrade in purple (a preview if not bought yet).
 const choiceColour = key => CHOICES[key].find(c => c.colour === S.choices?.[key])?.colour ||
   (key === 'awning' ? city().look.awning : CHOICES[key][0].colour);
+// A focused upgrade shows its next level (or its top level once it's fully upgraded).
 function restaurantPhoto(focus = null) {
-  const has = new Set(S.upgrades);
-  if (focus) has.add(focus);
+  const lv = { ...S.upLv };
+  if (focus && UPGRADES.some(u => u.id === focus)) lv[focus] = Math.min(3, upLevel(focus) + (restFocusPreview ? 1 : 0)) || 1;
+  const has = new Set(Object.keys(lv).filter(id => lv[id] > 0));
   return restaurantSvg(has, {
-    paint: choiceColour('paint'), awning: choiceColour('awning'),
+    paint: choiceColour('paint'), awning: choiceColour('awning'), lv,
     sign: city().sign, baseWall: city().look.wall, flair: city().look.flair,
-    colour: .25 + .75 * S.upgrades.length / UPGRADES.length, focus, decor: S.decor,
+    colour: .25 + .75 * Object.keys(S.upLv).length / UPGRADES.length, focus, decor: S.decor,
   });
 }
 
@@ -1600,23 +1649,27 @@ function closeSheets() {
 document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if (e.target === s) closeSheets(); }));
 
 // The restaurant
-let restFocus = null;
+let restFocus = null, restFocusPreview = true;
 function renderRestaurant() {
   $('#rest-title').textContent = `${city().name} · ${city().cuisine}`;
   $('#rest-art').innerHTML = restaurantPhoto(restFocus);
   const fu = UPGRADES.find(u => u.id === restFocus);
+  const fShown = fu && fu.levels[Math.min(2, upLevel(fu.id) - (restFocusPreview ? 0 : 1))];
   $('#rest-caption').textContent = !fu ? 'Tap an upgrade to see where it goes.'
-    : S.upgrades.includes(fu.id) ? `${fu.name}, outlined in purple.` : `Preview: ${fu.name}, outlined in purple.`;
-  $('#rest-count').textContent = `${S.upgrades.length} of ${UPGRADES.length} upgrades`;
+    : !restFocusPreview || upLevel(fu.id) >= 3 ? `${fShown?.name || fu.name}, outlined in purple.` : `Preview: ${fShown.name}, outlined in purple.`;
+  const levels = Object.values(S.upLv).reduce((t, n) => t + n, 0);
+  $('#rest-count').textContent = `${levels} of ${UPGRADES.length * 3} upgrade levels`;
   $('#rest-list').innerHTML = UPGRADES.map(u => {
-    const done = S.upgrades.includes(u.id), can = !done && S.dollars >= upgradeCost(u);
-    const right = done ? `<span class="upg-done">${ICONS.check}</span>`
-      : `<button class="btn primary upg-buy" data-upg="${u.id}"${can ? '' : ' disabled'}>$${upgradeCost(u).toLocaleString()}</button>`;
-    const short = !done && !can ? `<em>$${(upgradeCost(u) - S.dollars).toLocaleString()} more to go</em>` : '';
-    const swatches = done && u.choice ? `<div class="swatches">${CHOICES[u.choice].map(c =>
+    const n = upLevel(u.id), st = nextLevel(u), top = !st, can = !top && S.dollars >= upgradeCost(st);
+    const pips = `<span class="pips">${u.levels.map((_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
+    const right = top ? `<span class="upg-done">${ICONS.check}</span>`
+      : `<button class="btn primary upg-buy" data-upg="${u.id}"${can ? '' : ' disabled'}>${n ? 'Upgrade' : 'Buy'}<br>$${upgradeCost(st).toLocaleString()}</button>`;
+    const short = !top && !can ? `<em>$${(upgradeCost(st) - S.dollars).toLocaleString()} more to go</em>` : '';
+    const note = top ? `${u.levels[2].name}. All 3 levels done!` : `${n ? `Now: ${u.levels[n - 1].name}. Next: ` : ''}${st.name}. ${st.perk}`;
+    const swatches = n && u.choice ? `<div class="swatches">${CHOICES[u.choice].map(c =>
       `<button class="swatch${choiceColour(u.choice) === c.colour ? ' on' : ''}" data-choice="${u.choice}" data-colour="${c.colour}" style="background:${c.colour}" aria-label="${c.name}"></button>`).join('')}</div>` : '';
-    return `<li class="upg${done ? ' done' : can ? ' next' : ''}${restFocus === u.id ? ' focused' : ''}" data-focus="${u.id}">` +
-      `<div class="upg-text"><b>${u.name}</b><span>${u.perk}</span>${short}${swatches}</div>${right}</li>`;
+    return `<li class="upg${top ? ' done' : can ? ' next' : ''}${restFocus === u.id ? ' focused' : ''}" data-focus="${u.id}">` +
+      `<div class="upg-text"><b>${u.name} ${pips}</b><span>${note}</span>${short}${swatches}</div>${right}</li>`;
   }).join('');
 }
 function openRestaurant() {
@@ -1629,7 +1682,7 @@ $('#rest-list').addEventListener('click', e => {
   if (sw) {
     S.choices ??= {};
     S.choices[sw.dataset.choice] = sw.dataset.colour;
-    restFocus = sw.dataset.choice;
+    restFocus = sw.dataset.choice; restFocusPreview = false;
     buzz('tap');
     renderRestaurant();
     save();
@@ -1639,6 +1692,7 @@ $('#rest-list').addEventListener('click', e => {
   const li = e.target.closest('li[data-focus]');
   if (!li) return;
   restFocus = restFocus === li.dataset.focus ? null : li.dataset.focus;
+  restFocusPreview = true;
   buzz('tap');
   renderRestaurant();
 }); 

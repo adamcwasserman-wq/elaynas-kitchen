@@ -1101,6 +1101,9 @@ export function restaurantSvg(has, opts = {}) {
     return opts.focus === id ? `<g style="${glow}">${inner}</g>` : `<g>${inner}</g>`;
   };
   const when = (id, fn) => has.has(id) ? part(id, fn()) : '';
+  // Each upgrade has three levels (opts.lv); "at" draws the extras a level adds.
+  const L = id => opts.lv?.[id] || (has.has(id) ? 1 : 0);
+  const at = (id, n, fn) => L(id) >= n ? part(id, fn()) : '';
   const lit = has.has('oven');
   let s = part('base', fill(C(336, 34, 26), '#f7c873'));
   s += when('oven', () => fill(R(298, 14, 22, 34, 3), '#c9372a') + fill(R(296, 12, 26, 6, 2), '#a92b1d') +
@@ -1114,10 +1117,20 @@ export function restaurantSvg(has, opts = {}) {
     }
     return r;
   });
+  s += at('oven', 2, () => fill(R(295, 10, 28, 4, 2), '#b5773a') + fill(C(300, -2, 4), '#fff', { opacity: .55 }) + fill(C(322, -1, 4.5), '#fff', { opacity: .5 }));
+  s += at('oven', 3, () => fill(C(309, 30, 7), K.gold) + fill(EL(309, 31, 4.5, 2.6), '#c98a4a') + line('M306,30 L307,32 M309,29 L310,31 M312,30 L313,32', '#8a5a2a', .8));
+  s += at('rooftop', 2, () => E('path', { d: 'M80,34 L80,14 Q98,0 116,14 L116,34', fill: 'none', stroke: '#b5773a', 'stroke-width': 2.4 }) +
+    [[80, 26], [80, 18], [86, 10], [98, 6], [110, 10], [116, 18], [116, 26]].map(([x, y], i) => fill(P(leaf(x, y, i * 50, 7, 3)), K.leaf) + (i % 2 ? tulip(x, y - 1, .3, '#8b55a6') : '')).join(''));
+  s += at('rooftop', 3, () => [272, 281, 290].map((x, i) => line(`M${x},34 L${x},${12 - i * 2}`, K.leaf, 1.6) +
+    [0, 72, 144, 216, 288].map(a => fill(EL(x + Math.cos(a * Math.PI / 180) * 4, 10 - i * 2 + Math.sin(a * Math.PI / 180) * 4, 3, 1.6, a), '#f6c33e')).join('') + fill(C(x, 10 - i * 2, 2.4), '#7a4b3a')).join('') +
+    fill(EL(132, 22, 3, 2), '#8b55a6') + fill(EL(127, 20, 2.4, 1.6), '#e8475f'));
   s += part('base', fill(R(-10, 184, 420, 40), '#e3c79a'));
   s += has.has('paint') ? part('paint', body(R(70, 56, 260, 130), wallColour, -16, 0, .14) + fill(R(70, 176, 260, 10), '#000', { opacity: .08 }))
     : part('base', body(R(70, 56, 260, 130), wallColour, -16, 0, .14));
+  s += at('paint', 3, () => [...Array(26)].map((_, i) => fill(R(70 + i * 10, 176, 10, 10), [K.teal, '#fff3dc', K.tulip, '#fff3dc'][i % 4], { opacity: .85 })).join('') +
+    fill(R(70, 56, 6, 120), K.gold, { opacity: .8 }) + fill(R(324, 56, 6, 120), K.gold, { opacity: .8 }));
   s += part('base', fill(R(58, 44, 284, 20, 4), K.eggplant));
+  s += at('paint', 2, () => [...Array(23)].map((_, i) => fill(R(64 + i * 12, 63, 6, 4), '#fff3dc')).join(''));
   s += when('bunting', () => {
     let b = line('M60,48 Q130,60 200,50 Q270,60 340,48', K.ink, 1.2);
     for (let i = 0; i < 14; i++) {
@@ -1126,6 +1139,16 @@ export function restaurantSvg(has, opts = {}) {
     }
     return b;
   });
+  s += at('bunting', 2, () => {
+    let b = line('M70,56 Q135,66 200,58 Q265,66 330,56', K.ink, .9);
+    for (let i = 0; i < 13; i++) {
+      const x = 78 + i * 20, y = 58 + Math.sin((i / 12) * Math.PI) * 5;
+      b += fill(P(`M${x - 4},${y} L${x + 4},${y} L${x},${y + 7} Z`), ['#f6b62e', '#6cc6e0', '#8b55a6'][i % 3]);
+    }
+    return b;
+  });
+  s += at('bunting', 3, () => [60, 340].map(x => line(`M${x},44 L${x},16`, '#7a4b3a', 2) +
+    fill(P(`M${x},16 L${x + (x < 200 ? 18 : -18)},21 L${x},26 Z`), x < 200 ? K.tulip : '#f6b62e')).join(''));
   // A local touch: paper flags in Mexico City, vines in Rome.
   if (opts.flair === 'papel') {
     let f = line('M58,42 Q130,52 200,44 Q270,52 342,42', K.ink, 1);
@@ -1152,6 +1175,9 @@ export function restaurantSvg(has, opts = {}) {
     }
     return a + fill(R(76, 66, 248, 8, 3), awn) + fill(R(70, 100, 260, 7), K.shadow, { opacity: .14 });
   });
+  s += at('awning', 3, () => [...Array(5)].map((_, i) => tulip(80 + (i * 2 + 1) * 24 + 12, 86, .5, K.tulip)).join(''));
+  s += at('awning', 2, () => fill(R(74, 64, 252, 4, 2), K.gold) +
+    [...Array(10)].map((_, i) => line(`M${92 + i * 24},${101} L${92 + i * 24},${106}`, K.goldDark, 1) + fill(C(92 + i * 24, 107, 2.2), K.gold)).join(''));
   for (const x of [92, 252]) {
     let w = fill(R(x, 112, 76, 56, 4), lit ? '#ffd77a' : '#bfe0e6');
     if (lit) w += fill(R(x + 8, 118, 60, 44, 3), '#fff2b8', { opacity: .75 });
@@ -1166,8 +1192,15 @@ export function restaurantSvg(has, opts = {}) {
       fill(R(x + 12, 146, 18, 12, 2), '#fff1cf') + fill(R(x + 12, 144, 18, 4, 2), '#d7263d') +
       fill(EL(x + 40, 152, 9, 6), '#e29a45') + fill(EL(x + 40, 149, 7, 3), '#5a3324') +
       fill(R(x + 52, 148, 12, 10, 2), '#f9d6e2') + fill(C(x + 58, 146, 3), K.tulip));
+    if (x === 92) s += at('display', 2, () => fill(R(x + 37, 140, 6, 6), '#b5773a') + fill(R(x + 30, 132, 20, 8, 2), '#fff1cf') + fill(R(x + 33, 124, 14, 8, 2), '#f9d6e2') +
+      fill(R(x + 36, 118, 8, 6, 2), '#fff1cf') + fill(C(x + 40, 117, 2.2), '#d7263d'));
+    if (x === 92) s += at('display', 3, () => fill(R(x + 4, 114, 68, 10, 3), K.eggplant) +
+      E('text', { x: x + 38, y: 121.5, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 7.5, fill: '#fff3dc' }, 'FRESH TODAY') +
+      [[x + 10, 132], [x + 66, 134], [x + 60, 128]].map(([sx, sy]) => fill(P(`M${sx},${sy - 4} L${sx + 1},${sy - 1} L${sx + 4},${sy} L${sx + 1},${sy + 1} L${sx},${sy + 4} L${sx - 1},${sy + 1} L${sx - 4},${sy} L${sx - 1},${sy - 1} Z`), '#fff')).join(''));
     if (x === 252) s += when('neon', () => fill(R(x + 12, 118, 52, 18, 9), '#3d2a44') +
       E('text', { x: x + 38, y: 132, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 13, fill: '#ff8fb0' }, 'OPEN'));
+    if (x === 252) s += at('neon', 2, () => E('rect', { x: x + 2, y: 114, width: 72, height: 52, rx: 4, fill: 'none', stroke: '#ff8fb0', 'stroke-width': 2, style: 'filter:drop-shadow(0 0 2px #ff8fb0)' }));
+    if (x === 252) s += at('neon', 3, () => E('path', { d: `M${x + 38},162 C${x + 22},150 ${x + 26},140 ${x + 38},148 C${x + 50},140 ${x + 54},150 ${x + 38},162 Z`, fill: 'none', stroke: '#6cc6e0', 'stroke-width': 2, style: 'filter:drop-shadow(0 0 2px #6cc6e0)' }));
     s += part('base', shine(P(`M${x + 8},164 L${x + 30},116 L${x + 40},116 L${x + 18},164 Z`), .4) +
       line(`M${x + 38},113 L${x + 38},167 M${x + 1},140 L${x + 75},140`, '#fff3dc', 3));
     if (has.has('tulips')) {
@@ -1175,6 +1208,13 @@ export function restaurantSvg(has, opts = {}) {
         const tx = x + 8 + j * 15;
         return line(`M${tx},162 L${tx},170`, K.leaf, 2.2) + tulip(tx, 155, .72, j % 2 ? '#8b55a6' : K.tulip);
       }).join(''));
+      s += at('tulips', 2, () => [0, 1, 2, 3].map(j => {
+        const tx = x + 15 + j * 15;
+        return tulip(tx, 160, .55, j % 2 ? '#f6c33e' : '#ff9ab3') + E('path', { d: `M${tx},180 q-3,5 0,9`, fill: 'none', stroke: K.leaf, 'stroke-width': 1.6 }) + fill(C(tx - 1.5, 185, 2), K.leaf);
+      }).join(''));
+      s += at('tulips', 3, () => [[x + 6, 146, '#f6b62e'], [x + 70, 150, '#6cc6e0']].map(([bx, by, c]) =>
+        fill(EL(bx - 3, by, 3.4, 2.4, -30), c) + fill(EL(bx + 3, by, 3.4, 2.4, 30), c) + line(`M${bx},${by - 2} L${bx},${by + 2}`, K.ink, 1)).join('') +
+        E('rect', { x: x - 4, y: 166, width: 84, height: 14, rx: 3, fill: 'none', stroke: K.gold, 'stroke-width': 1.6 }));
     } else {
       s += part('base', fill(R(x - 4, 166, 84, 5, 2), '#e3c79a'));
     }
@@ -1184,6 +1224,11 @@ export function restaurantSvg(has, opts = {}) {
   s += when('trees', () => fill(R(178, 184, 44, 6, 2), K.tulip) + [174, 226].map(tx =>
     fill(P(`M${tx - 7},172 L${tx + 7},172 L${tx + 5},186 L${tx - 5},186 Z`), '#c9772b') +
     line(`M${tx},172 L${tx},160`, '#7a4b3a', 2) + fill(C(tx, 154, 9), K.leaf) + fill(C(tx - 3, 151, 3), '#7cc46e')).join(''));
+  s += at('trees', 2, () => [174, 226].map(tx => fill(C(tx, 151, 12), K.leaf) + fill(C(tx - 4, 147, 4), '#7cc46e') +
+    [[-6, -4], [5, -7], [7, 3], [-3, 6], [0, -1]].map(([dx, dy]) => fill(C(tx + dx, 151 + dy, 2), '#f6b3c8')).join('')).join(''));
+  s += at('trees', 3, () => [174, 226].map(tx => [0, 60, 120, 180, 240, 300].map(a =>
+    fill(C(tx + Math.cos(a * Math.PI / 180) * 11, 151 + Math.sin(a * Math.PI / 180) * 11, 1.8), '#ffd34d') + fill(C(tx + Math.cos(a * Math.PI / 180) * 11, 151 + Math.sin(a * Math.PI / 180) * 11, 4), '#ffd34d', { opacity: .3 })).join('') +
+    fill(R(tx - 7, 177, 14, 3), K.gold)).join(''));
   s += when('lights', () => {
     let wire = 'M74,104';
     for (let i = 0; i < 8; i++) wire += ` Q${80 + i * 32},112 ${106 + i * 32},104`;
@@ -1191,8 +1236,18 @@ export function restaurantSvg(has, opts = {}) {
     for (let i = 0; i < 8; i++) l += fill(C(90 + i * 32, 109, 6), '#ffd34d', { opacity: .35 }) + fill(C(90 + i * 32, 109, 2.8), '#ffd34d');
     return l;
   });
+  s += at('lights', 2, () => [...Array(8)].map((_, i) => fill(C(106 + i * 32, 105, 2.4), ['#e8475f', '#6cc6e0', '#8b55a6', '#5fb34a'][i % 4])).join(''));
+  s += at('lights', 3, () => {
+    let l = line('M70,104 Q40,118 10,112', K.ink, 1) + line('M330,104 Q350,112 366,104', K.ink, 1);
+    for (const [x, y] of [[60, 109], [44, 113], [26, 114], [342, 107], [356, 107]]) l += fill(C(x, y, 7), '#ffd34d', { opacity: .3 }) + fill(C(x, y, 2.6), '#ffd34d');
+    for (let i = 0; i < 8; i++) l += fill(C(90 + i * 32, 109, 10), '#ffd34d', { opacity: .18 });
+    return l;
+  });
   s += when('bench', () => fill(R(8, 160, 52, 6, 2), '#b5773a') + fill(R(8, 170, 52, 5, 2), '#c98a4a') +
     fill(R(12, 175, 4, 10), '#7a4b3a') + fill(R(52, 175, 4, 10), '#7a4b3a'));
+  s += at('bench', 3, () => line('M34,160 L34,108', '#3a3a3a', 2.6) + fill(R(29, 100, 10, 10, 2), K.eggplant) + fill(C(34, 106, 3.4), '#ffd34d') +
+    fill(C(34, 106, 9), '#ffd34d', { opacity: .3 }) + fill(EL(42, 118, 5, 3.4), '#b5773a') + tulip(40, 114, .35, K.tulip) + tulip(45, 114, .35, '#8b55a6'));
+  s += at('bench', 2, () => fill(R(12, 166, 18, 5, 2), K.tulip) + fill(R(36, 166, 18, 5, 2), K.teal) + fill(R(14, 154, 12, 7, 3), '#f6c33e') + fill(R(40, 154, 12, 7, 3), '#ff9ab3'));
   const decor = new Set(opts.decor || []);
   const deco = (id, fn) => decor.has(id) ? part(`decor-${id}`, fn()) : '';
   s += deco('hanging', () => [62, 338].map(x => line(`M${x},64 L${x},80`, K.ink, 1.2) +
@@ -1208,17 +1263,23 @@ export function restaurantSvg(has, opts = {}) {
     [0, 1, 2, 3].map(i => fill(P(`M366,100 L${338 + i * 14},124 L${352 + i * 14},124 Z`), i % 2 ? '#fff3dc' : K.tulip)).join('') +
     fill(EL(366, 160, 20, 4.5), K.white) + line('M366,160 L366,184', K.ink, 2) +
     fill(R(340, 160, 8, 24, 2), K.teal) + fill(R(384, 160, 8, 24, 2), K.teal));
+  s += at('patio', 2, () => fill(R(332, 178, 68, 8, 2), '#b5773a') + [338, 350, 362, 374, 386, 396].map((x, i) => fill(C(x, 176, 4.4), K.leaf) + (i % 2 ? tulip(x, 172, .35, K.tulip) : '')).join(''));
+  s += at('patio', 3, () => [338, 345, 352, 359, 366, 373, 380, 387, 394].map((x, i) => fill(C(x, 125, 1.8), ['#ffd34d', '#e8475f', '#6cc6e0'][i % 3]) + fill(C(x, 125, 4), '#ffd34d', { opacity: .25 })).join('') +
+    fill(R(336, 148, 6, 12, 2), '#c96a3a') + tulip(339, 145, .4, '#8b55a6'));
   return `<svg viewBox="0 -4 400 204" role="img" aria-label="Elayna's restaurant">${s}</svg>`;
 }
 
 // ---------- Elayna's neighbourhood ----------
-// o: { name, built: Set of improvement ids, choices, shops: [{ slot, open, sign, wall, awning, stars, here, label }],
+// o: { name, built: Set of amenity ids, stages: { improvement id: 1 to 3 }, focusStage, choices, shops: [{ slot, open, sign, wall, awning, stars, here, label }],
 //      level (0 to 5), people, focus, event }
 export function neighbourhoodSvg(o) {
   const has = o.built, ch = o.choices || {};
   const glow = 'filter:drop-shadow(0 0 1.5px #5b2c6f) drop-shadow(0 0 1.5px #5b2c6f) drop-shadow(0 0 6px #b57fd0)';
   const part = (id, inner) => (o.focus === id ? `<g style="${glow}">${inner}</g>` : inner);
   const when = (id, fn) => (has.has(id) || o.focus === id) ? part(id, fn()) : '';
+  // Improvements have stages; a focused one previews its next stage.
+  const stageOf = id => o.focus === id ? Math.max(o.stages?.[id] || 0, o.focusStage || 1) : (o.stages?.[id] || 0);
+  const staged = (id, fn) => { const n = stageOf(id); return n ? part(id, fn(n)) : ''; };
   const grey = Math.max(0, 0.7 - o.level * 0.14); // the street gets more colourful as it gets busier
   const treeCol = ch.trees || '#e8742f', flowerCol = ch.flowers || '#e8475f', mural = ch.mural || 'Tulips';
   let s = fill(R(0, 0, 400, 300), '#cfeaf2') + fill(C(366, 24, 15), '#f7c873');
@@ -1252,44 +1313,119 @@ export function neighbourhoodSvg(o) {
   const lx = slotX(3);
   row += fill(R(lx, 92, 72, 58), '#c9836a') + [100, 112, 124, 136].map(y => line(`M${lx},${y} L${lx + 72},${y}`, '#b5705a', 1.2)).join('');
   s += grey ? `<g style="filter:grayscale(${grey.toFixed(2)})">${row}</g>` : row;
-  s += when('mural', () => {
-    let m = fill(R(lx + 4, 96, 64, 40, 3), '#fff3dc');
-    if (mural === 'Eggplants') for (const [x, y] of [[lx + 18, 116], [lx + 36, 112], [lx + 54, 118]]) m += fill(EL(x, y, 7, 11, 20), K.eggplant) + fill(EL(x + 3, y - 10, 4, 2, 20), K.leaf);
-    else if (mural === 'Food friends') for (const [id, x] of [['tomato', lx + 6], ['eggplant', lx + 26], ['lemon', lx + 46]]) m += `<use href="#cust-${id}" x="${x}" y="${100}" width="20" height="20"/>`;
-    else for (let i = 0; i < 5; i++) m += line(`M${lx + 12 + i * 12},${132} L${lx + 12 + i * 12},${120}`, K.leaf, 1.6) + tulip(lx + 12 + i * 12, 113, .5, i % 2 ? '#8b55a6' : K.tulip);
-    return m + E('rect', { x: lx + 4, y: 96, width: 64, height: 40, rx: 3, fill: 'none', stroke: '#f6b62e', 'stroke-width': 2 });
+  // ----- improvements: each has three stages (1 basic, 2 better, 3 amazing) -----
+  s += staged('mural', n => {
+    const [mx, my, mw, mh] = n === 1 ? [lx + 18, 100, 36, 26] : n === 2 ? [lx + 4, 96, 64, 40] : [lx + 1, 93, 70, 54];
+    let m = fill(R(mx, my, mw, mh, 3), '#fff3dc');
+    const cx = mx + mw / 2, cy = my + mh / 2;
+    if (mural === 'Eggplants') for (const dx of n === 1 ? [0] : [-18, 0, 18]) m += fill(EL(cx + dx, cy + 2, 6, 9, 20), K.eggplant) + fill(EL(cx + dx + 3, cy - 7, 3.5, 1.8, 20), K.leaf);
+    else if (mural === 'Food friends') for (const [id, dx] of (n === 1 ? [['tomato', 0]] : [['tomato', -20], ['eggplant', 0], ['lemon', 20]])) m += `<use href="#cust-${id}" x="${cx + dx - 9}" y="${cy - 9}" width="18" height="18"/>`;
+    else for (let i = 0; i < (n === 1 ? 2 : 5); i++) { const x = cx + (i - (n === 1 ? .5 : 2)) * 12; m += line(`M${x},${my + mh - 4} L${x},${cy + 2}`, K.leaf, 1.6) + tulip(x, cy - 4, .5, i % 2 ? '#8b55a6' : K.tulip); }
+    m += E('rect', { x: mx, y: my, width: mw, height: mh, rx: 3, fill: 'none', stroke: '#f6b62e', 'stroke-width': 2 });
+    if (n === 3) for (let i = 0; i <= 8; i++) m += fill(C(mx + i * mw / 8, my - 2, 2), ['#ffd34d', '#e8475f', '#8b55a6'][i % 3]) + fill(C(mx + i * mw / 8, my + mh + 2, 2), ['#8b55a6', '#ffd34d', '#e8475f'][i % 3]);
+    return m;
   });
-  s += has.has('garden') || o.focus === 'garden'
-    ? part('garden', fill(R(lx, 138, 72, 12), '#7a5a3c') + [0, 1, 2, 3, 4, 5, 6].map(i => line(`M${lx + 6 + i * 10},146 L${lx + 6 + i * 10},140`, K.leaf, 1.4) + tulip(lx + 6 + i * 10, 137, .38, i % 2 ? flowerCol : K.tulip)).join(''))
+  const gardenN = stageOf('garden');
+  s += gardenN
+    ? part('garden', (() => {
+      let g = fill(R(lx, 138, 72, 12), '#7a5a3c');
+      const count = gardenN === 1 ? 3 : 7;
+      for (let i = 0; i < count; i++) { const x = gardenN === 1 ? lx + 26 + i * 10 : lx + 6 + i * 10; g += line(`M${x},146 L${x},140`, K.leaf, 1.4) + tulip(x, 137, .38, i % 2 ? flowerCol : K.tulip); }
+      if (gardenN === 3) {
+        g += E('path', { d: `M${lx + 14},150 L${lx + 14},120 Q${lx + 36},96 ${lx + 58},120 L${lx + 58},150`, fill: 'none', stroke: '#5fb34a', 'stroke-width': 4 });
+        for (const [x, y] of [[lx + 14, 128], [lx + 22, 112], [lx + 36, 106], [lx + 50, 112], [lx + 58, 128]]) g += tulip(x, y, .35, flowerCol);
+        g += fill(EL(lx + 8, 116, 3, 2), '#f6b62e') + fill(EL(lx + 64, 110, 3, 2), '#e8475f');
+      }
+      return g;
+    })())
     : fill(R(lx, 140, 72, 10), '#b9a07a') + line(`M${lx},138 L${lx + 72},138`, '#8a8076', 1.4, { 'stroke-dasharray': '3 3' });
   // ----- sidewalk -----
   s += fill(R(0, 150, 400, 18), '#e8dcc6') + fill(R(0, 166, 400, 3), '#cbbfa8');
   // ----- road -----
   s += fill(R(0, 169, 400, 36), '#8f8a86') + line('M0,187 L400,187', '#fff3dc', 2, { 'stroke-dasharray': '12 10' });
-  s += when('bikes', () => fill(R(0, 170, 400, 6), '#5fb34a', { opacity: .85 }) + [60, 200, 340].map(x => E('text', { x, y: 175.5, 'text-anchor': 'middle', 'font-size': 6, fill: '#fff' }, 'BIKE')).join('') +
-    [346, 356].map(x => E('path', { d: `M${x},165 l0,-8 a3,3 0 0,1 6,0 l0,8`, fill: 'none', stroke: '#5a5a5a', 'stroke-width': 1.4 })).join(''));
-  s += when('streetcar', () => fill(R(186, 140, 40, 26, 3), '#bfe0e6', { opacity: .7 }) + fill(R(184, 136, 44, 5, 2), K.ink) + fill(R(192, 156, 28, 4), '#b5773a') +
-    fill(R(100, 172, 120, 26, 6), '#e2312f') + fill(R(100, 192, 120, 4), '#fff') + [110, 130, 150, 170, 190].map(x => fill(R(x, 177, 14, 9, 2), '#bfe0e6')).join('') +
-    line('M100,170 L90,160 L230,160', '#5a5a5a', 1));
-  s += when('trees', () => [30, 130, 270, 370].map(x => fill(R(x - 2, 136, 4, 16), '#7a4b3a') + fill(C(x, 130, 12), treeCol) + fill(C(x - 5, 126, 5), '#fff', { opacity: .25 })).join(''));
-  s += when('lamps', () => [80, 320].map(x => line(`M${x},164 L${x},128`, '#3a3a3a', 2.4) + fill(C(x, 126, 4.5), '#ffd34d') + fill(C(x, 126, 9), '#ffd34d', { opacity: .3 })).join(''));
-  s += when('benches', () => [104, 294].map(x => fill(R(x - 12, 156, 24, 3, 1), '#b5773a') + fill(R(x - 12, 152, 24, 3, 1), '#c98a4a') + fill(R(x + 14, 152, 9, 10, 2), '#c96a3a') + fill(C(x + 18.5, 150, 4), K.leaf)).join(''));
-  s += when('lights', () => {
-    let l = line('M0,130 Q50,146 100,132 T200,132 T300,132 T400,130', K.ink, 1);
-    for (let x = 10; x < 400; x += 20) l += fill(C(x, 136 + Math.sin(x / 32) * 3, 2.4), ['#ffd34d', '#e8475f', '#8b55a6', '#5fb34a'][Math.floor(x / 20) % 4]);
+  const rack = x => E('path', { d: `M${x},165 l0,-8 a3,3 0 0,1 6,0 l0,8`, fill: 'none', stroke: '#5a5a5a', 'stroke-width': 1.4 });
+  s += staged('bikes', n => (n >= 2 ? fill(R(0, 170, 400, 6), '#5fb34a', { opacity: .85 }) + [60, 200, 340].map(x => E('text', { x, y: 175.5, 'text-anchor': 'middle', 'font-size': 6, fill: '#fff' }, 'BIKE')).join('') : '') +
+    [346, 356].map(rack).join('') +
+    (n === 3 ? fill(R(232, 152, 34, 4, 1), K.teal) + [236, 248, 260].map(x => E('circle', { cx: x, cy: 161, r: 3.4, fill: 'none', stroke: K.teal, 'stroke-width': 1.4 }) + E('circle', { cx: x + 6, cy: 161, r: 3.4, fill: 'none', stroke: K.teal, 'stroke-width': 1.4 })).join('') : ''));
+  s += staged('streetcar', n => {
+    if (n === 1) return line('M206,164 L206,140', '#5a5a5a', 2) + fill(R(198, 132, 16, 10, 2), K.teal) + E('text', { x: 206, y: 139.5, 'text-anchor': 'middle', 'font-size': 6, fill: '#fff' }, 'BUS');
+    const shelter = n === 3
+      ? fill(R(178, 136, 56, 30, 3), '#bfe0e6', { opacity: .7 }) + fill(R(176, 131, 60, 6, 2), K.ink) + [182, 194, 206, 218, 230].map(x => fill(C(x, 129, 4), K.leaf)).join('') + fill(R(190, 156, 32, 4), '#b5773a')
+      : fill(R(186, 140, 40, 26, 3), '#bfe0e6', { opacity: .7 }) + fill(R(184, 136, 44, 5, 2), K.ink) + fill(R(192, 156, 28, 4), '#b5773a');
+    const len = n === 3 ? 220 : 120, x0 = n === 3 ? 60 : 100;
+    let car = fill(R(x0, 172, len, 26, 6), '#e2312f') + fill(R(x0, 192, len, 4), '#fff');
+    for (let x = x0 + 10; x < x0 + len - 10; x += 20) car += fill(R(x, 177, 14, 9, 2), '#bfe0e6');
+    if (n === 3) car += line(`M${x0 + len / 2},172 L${x0 + len / 2},198`, '#b8211f', 2);
+    return shelter + car + line(`M${x0},170 L${x0 - 10},160 L${x0 + len + 10},160`, '#5a5a5a', 1);
+  });
+  s += staged('trees', n => [30, 130, 270, 370].map(x => n === 1
+    ? fill(R(x - 1, 142, 2, 10), '#7a4b3a') + fill(C(x, 139, 6), treeCol)
+    : fill(R(x - 2, 136, 4, 16), '#7a4b3a') + fill(C(x, n === 3 ? 126 : 130, n === 3 ? 16 : 12), treeCol) + fill(C(x - 5, n === 3 ? 121 : 126, 5), '#fff', { opacity: .25 }) +
+      (n === 3 ? fill(EL(x, 160, 12, 4), '#7a5a3c') + [-8, -3, 2, 7].map(d => fill(C(x + d, 158, 2.2), [K.tulip, '#f6b62e', '#8b55a6', K.tulip][(d + 8) % 4])).join('') : '')).join(''));
+  s += staged('lamps', n => (n === 3 ? [30, 80, 170, 240, 320, 380] : [80, 320]).map(x => line(`M${x},164 L${x},128`, '#3a3a3a', 2.4) +
+    (n === 1 ? fill(R(x - 3, 124, 6, 6, 1), '#eadfcf') : fill(C(x, 126, 4.5), '#ffd34d') + fill(C(x, 126, 9), '#ffd34d', { opacity: .3 })) +
+    (n === 2 ? fill(EL(x + 6, 138, 4, 3), '#b5773a') + fill(C(x + 6, 135, 2.4), K.tulip) : '') +
+    (n === 3 ? fill(R(x - 4, 120, 8, 4, 2), K.eggplant) + fill(C(x, 126, 13), '#ffd34d', { opacity: .18 }) : '')).join(''));
+  s += staged('benches', n => (n === 1 ? [104] : [104, 294]).map(x => fill(R(x - 12, 156, 24, 3, 1), '#b5773a') + fill(R(x - 12, 152, 24, 3, 1), '#c98a4a') +
+    (n >= 2 ? fill(R(x + 14, 152, 9, 10, 2), '#c96a3a') + fill(C(x + 18.5, 150, 4), K.leaf) : '') +
+    (n === 3 ? line(`M${x},152 L${x},134`, '#7a4b3a', 1.4) + fill(P(`M${x - 16},136 Q${x},122 ${x + 16},136 Z`), x < 200 ? K.tulip : K.teal) + fill(R(x - 22, 152, 8, 10, 2), '#c96a3a') + fill(C(x - 18, 150, 4), '#8b55a6') : '')).join(''));
+  s += staged('lights', n => {
+    let l = '';
+    const strings = n === 3 ? [[130, 146, 132], [118, 128, 120]] : [[130, 146, 132]];
+    for (const [a, b, c] of strings) {
+      l += line(`M0,${a} Q50,${b} 100,${c} T200,${c} T300,${c} T400,${a}`, K.ink, 1);
+      const step = n === 1 ? 50 : 20;
+      for (let x = 10; x < 400; x += step) {
+        const y = c + 4 + Math.sin(x / 32) * 3 - (a === 130 ? 0 : 12);
+        l += fill(C(x, y, 2.4), ['#ffd34d', '#e8475f', '#8b55a6', '#5fb34a'][Math.floor(x / 20) % 4]) + (n === 3 ? fill(C(x, y, 6), '#ffd34d', { opacity: .2 }) : '');
+      }
+    }
     return l;
   });
-  s += when('arch', () => fill(R(146, 112, 8, 93), '#b5773a') + fill(R(246, 112, 8, 93), '#b5773a') + fill(R(138, 104, 124, 18, 6), K.eggplant) +
-    E('text', { x: 200, y: 117, 'text-anchor': 'middle', 'font-size': Math.min(11, 190 / Math.max(8, o.name.length)).toFixed(1), 'font-family': 'Righteous, sans-serif', fill: '#fff3dc' }, o.name) +
-    tulip(144, 100, .45, K.tulip) + tulip(256, 100, .45, K.tulip));
+  s += staged('arch', n => {
+    const fsz = Math.min(11, 190 / Math.max(8, o.name.length)).toFixed(1);
+    if (n === 1) return line('M60,164 L60,130', '#7a4b3a', 2.6) + fill(R(22, 118, 76, 16, 4), K.eggplant) +
+      E('text', { x: 60, y: 129, 'text-anchor': 'middle', 'font-size': Math.min(9, 130 / Math.max(8, o.name.length)).toFixed(1), 'font-family': 'Righteous, sans-serif', fill: '#fff3dc' }, o.name);
+    let a = fill(R(146, 112, 8, 93), '#b5773a') + fill(R(246, 112, 8, 93), '#b5773a') + fill(R(138, 104, 124, 18, 6), K.eggplant) +
+      E('text', { x: 200, y: 117, 'text-anchor': 'middle', 'font-size': fsz, 'font-family': 'Righteous, sans-serif', fill: '#fff3dc' }, o.name) +
+      tulip(144, 100, .45, K.tulip) + tulip(256, 100, .45, K.tulip);
+    if (n === 3) {
+      for (let i = 0; i <= 12; i++) a += fill(C(140 + i * 10, 103, 2), ['#ffd34d', '#e8475f', '#8b55a6'][i % 3]);
+      a += line('M200,104 L200,88', '#7a4b3a', 1.4) + fill(P('M200,88 L214,92 L200,96 Z'), K.tulip);
+      a += [150, 250].map(x => fill(R(x - 9, 196, 18, 9, 2), '#c96a3a') + [x - 5, x, x + 5].map(t => tulip(t, 192, .35, '#8b55a6')).join('')).join('');
+    }
+    return a;
+  });
   // ----- plaza -----
   s += fill(R(0, 205, 400, 33), '#efe3cc') + [40, 120, 200, 280, 360].map(x => line(`M${x},205 L${x},238`, '#e2d4b8', 1)).join('');
-  s += when('market', () => [12, 44, 76].map((x, i) => fill(R(x, 220, 26, 14, 2), '#c98a4a') + fill(P(`M${x - 2},220 L${x + 28},220 L${x + 24},210 L${x + 2},210 Z`), i % 2 ? '#fff3dc' : ['#e8475f', '#2f8a8f', '#f6b62e'][i]) +
-    fill(C(x + 7, 219, 3), K.tomato) + fill(C(x + 15, 219, 3), '#ffd23f') + fill(C(x + 21, 219, 3), K.leaf)).join(''));
-  s += when('fountain', () => fill(EL(170, 228, 24, 7), '#a9a39b') + fill(EL(170, 226, 20, 5.5), '#7cc3d6') + fill(R(167, 210, 6, 16), '#a9a39b') + fill(EL(170, 210, 9, 3), '#a9a39b') +
-    E('path', { d: 'M170,208 Q162,198 156,222 M170,208 Q178,198 184,222', fill: 'none', stroke: '#bfe6f2', 'stroke-width': 2 }));
-  s += when('stage', () => fill(R(250, 216, 70, 16, 2), '#b5773a') + fill(P('M246,216 L324,216 L314,198 L256,198 Z'), K.eggplant) + fill(R(250, 198, 3, 18), '#7a4b3a') + fill(R(317, 198, 3, 18), '#7a4b3a') +
-    E('text', { x: 285, y: 210, 'text-anchor': 'middle', 'font-size': 9, fill: '#f6b62e' }, '♪ ♫ ♪'));
+  s += staged('market', n => {
+    const stalls = n === 1 ? [44] : [12, 44, 76];
+    let m = stalls.map((x, i) => fill(R(x, 220, 26, 14, 2), '#c98a4a') + fill(P(`M${x - 2},220 L${x + 28},220 L${x + 24},210 L${x + 2},210 Z`), (n === 1 ? 0 : i) % 2 ? '#fff3dc' : ['#e8475f', '#2f8a8f', '#f6b62e'][n === 1 ? 0 : i]) +
+      fill(C(x + 7, 219, 3), K.tomato) + fill(C(x + 15, 219, 3), '#ffd23f') + fill(C(x + 21, 219, 3), K.leaf)).join('');
+    if (n === 3) {
+      m += line('M8,208 Q55,216 104,208', K.ink, .8) + [14, 26, 38, 50, 62, 74, 86, 98].map((x, i) => fill(P(`M${x - 4},${210 + (i % 2)} L${x + 4},${210 + (i % 2)} L${x},${216 + (i % 2)} Z`), [K.tulip, '#f6b62e', '#6cc6e0'][i % 3])).join('');
+      m += fill(R(108, 222, 20, 12, 2), '#7a5a3c') + [111, 116, 121, 126].map((x, i) => tulip(x, 219, .35, [K.tulip, '#8b55a6', '#f6c33e', K.tulip][i])).join('');
+    }
+    return m;
+  });
+  s += staged('fountain', n => {
+    if (n === 1) return fill(R(166, 216, 8, 18, 2), '#a9a39b') + fill(EL(170, 216, 7, 3), '#a9a39b') + E('path', { d: 'M170,214 Q174,206 178,214', fill: 'none', stroke: '#6cc6e0', 'stroke-width': 1.6 });
+    const r = n === 3 ? 32 : 24;
+    let f = fill(EL(170, 228, r, 7), '#a9a39b') + fill(EL(170, 226, r - 4, 5.5), '#7cc3d6') + fill(R(167, 210, 6, 16), '#a9a39b') + fill(EL(170, 210, 9, 3), '#a9a39b') +
+      E('path', { d: 'M170,208 Q162,198 156,222 M170,208 Q178,198 184,222', fill: 'none', stroke: '#bfe6f2', 'stroke-width': 2 });
+    if (n === 3) f += E('path', { d: 'M150,226 Q146,212 142,226 M190,226 Q194,212 198,226 M170,206 L170,192', fill: 'none', stroke: '#6cc6e0', 'stroke-width': 2 }) + [[160, 200], [182, 198], [170, 190]].map(([x, y]) => fill(C(x, y, 1.6), '#fff')).join('');
+    return f;
+  });
+  s += staged('stage', n => {
+    if (n === 1) return fill(R(276, 224, 18, 10, 2), '#b5773a') + `<use href="#cust-mushroom" x="276" y="206" width="18" height="18"/>` +
+      E('text', { x: 300, y: 214, 'font-size': 9, fill: '#f6b62e' }, '♪');
+    let st = fill(R(250, 216, 70, 16, 2), '#b5773a') + fill(P('M246,216 L324,216 L314,198 L256,198 Z'), K.eggplant) + fill(R(250, 198, 3, 18), '#7a4b3a') + fill(R(317, 198, 3, 18), '#7a4b3a') +
+      E('text', { x: 285, y: 210, 'text-anchor': 'middle', 'font-size': 9, fill: '#f6b62e' }, '♪ ♫ ♪');
+    if (n === 3) st += fill(R(242, 192, 86, 4, 1), '#3a3a3a') + [254, 272, 290, 308].map((x, i) => fill(C(x, 197, 2.6), ['#ffd34d', '#e8475f', '#6cc6e0', '#8b55a6'][i])).join('') +
+      fill(R(240, 214, 8, 18, 2), '#3a3a3a') + fill(R(322, 214, 8, 18, 2), '#3a3a3a') + fill(C(244, 220, 2.4), '#777') + fill(C(326, 220, 2.4), '#777') +
+      `<use href="#cust-lemon" x="276" y="200" width="16" height="16"/>`;
+    return st;
+  });
   s += when('washrooms', () => fill(R(350, 208, 40, 26, 3), '#d6eef4') + fill(R(348, 204, 44, 6, 2), K.teal) + fill(R(356, 216, 10, 18, 1), K.teal) + fill(R(374, 216, 10, 18, 1), K.tulip) +
     fill(C(361, 212, 2), '#fff') + fill(C(379, 212, 2), '#fff'));
   // ----- park strip -----
