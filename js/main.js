@@ -16,7 +16,7 @@ import { BADGES, BADGE_REWARD, BADGE_TIER_NAMES } from '../data/badges.js';
 import { UPGRADES, LEVEL_NEEDS, themeFor } from '../data/restaurant.js';
 import { CUSTOMERS } from '../data/customers.js';
 import { VIPS, VIP_RULES } from '../data/vips.js';
-import { ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS, COMPLAINTS } from '../data/orders.js';
+import { ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS, COMPLAINTS, MAX_WANTS } from '../data/orders.js';
 import { buildSprite, use, ICONS, badgeSvg, restaurantSvg } from './art.js';
 import { islandSvg, islandGeom, isoPoint, isoTile, isLand, fromCentre } from './island.js';
 import { ISLAND, PIECES, ISLAND_DECOR } from '../data/island.js';
@@ -645,6 +645,13 @@ function migrate(s) {
   }
   s.cityData ??= {};
   s.missions ??= {};
+  // Customers now ask for two things at most: trim any bigger orders already waiting (pay and stars shrink to match).
+  for (const d of [s, ...Object.values(s.cityData)]) for (const o of d.orders || []) {
+    if (!o.wants || o.wants.length <= MAX_WANTS) continue;
+    o.reward = Math.round(o.reward * MAX_WANTS / o.wants.length);
+    o.wants = o.wants.slice(0, MAX_WANTS);
+    o.stars = o.wants.reduce((t, w) => t + wantStars(w), 0);
+  }
   // Money split in two: each restaurant has its own tip jar, and the neighbourhood has BIA dollars.
   // Half of what she had goes to the fund; the rest stays in the tip jar where she is.
   if (s.hood.bia === undefined) {
@@ -787,7 +794,7 @@ function makeOrder() {
     wants = firsts[S.orderSeq].map(w => ({ ...w }));
   } else {
     const stage = currentStage();
-    const count = randInt(...stage.wants);
+    const count = Math.min(MAX_WANTS, randInt(...stage.wants));
     const avoid = new Set();
     wants = [];
     for (let k = 0; k < count; k++) {
@@ -870,7 +877,7 @@ function vipOrder(v, stage) {
     o = orderFor([{ dish: pick(classics).id }], { ...base, fast: stage.fastSeconds * 2 });
   } else if (v.kind === 'party') {
     const avoid = new Set(), wants = [];
-    for (let k = 0; k < 3; k++) { const w = pickWant(stage, avoid); avoid.add(keyOf(w)); wants.push(w); }
+    for (let k = 0; k < MAX_WANTS; k++) { const w = pickWant(stage, avoid); avoid.add(keyOf(w)); wants.push(w); }
     o = orderFor(wants, { ...base, fast: stage.fastSeconds * 2 });
     o.reward = wants.reduce((t, w) => t + wantValue(w), 0); // the VIP's double pay replaces the big order bonus
   }

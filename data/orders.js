@@ -16,14 +16,17 @@ export const FIRST_ORDERS = [
 // untilStars: this stage lasts until the restaurant has this many stars.
 // plainTiers: levels a plain item can be. dishChance: how often an order is a dish.
 // dishLevels: which recipes can be asked for ("simple" uses foods up to level 3, "advanced" goes higher).
-// wants: how many things one order asks for. fastSeconds: serve within this time for the speed bonus.
+// wants: how many things one order asks for (never more than MAX_WANTS). fastSeconds: serve within this time for the speed bonus.
 // customers: how many customers are waiting at once (it starts with one and grows).
 export const ORDER_STAGES = [
   { name: 'Basics', untilStars: 8, customers: 1, plainTiers: [1, 3], dishChance: 0, dishLevels: [], wants: [1, 1], fastSeconds: 75 },
   { name: 'Simple recipes', untilStars: 40, customers: 2, plainTiers: [2, 4], dishChance: 0.6, dishLevels: ['simple'], wants: [1, 1], fastSeconds: 150 },
   { name: 'Advanced recipes', untilStars: 100, customers: 3, plainTiers: [3, 5], dishChance: 0.7, dishLevels: ['simple', 'advanced', 'advanced'], wants: [1, 1], fastSeconds: 210 },
-  { name: 'Big orders', untilStars: Infinity, customers: 3, plainTiers: [3, 5], dishChance: 0.6, dishLevels: ['simple', 'advanced'], wants: [2, 3], fastSeconds: 300 },
+  { name: 'Big orders', untilStars: Infinity, customers: 3, plainTiers: [3, 5], dishChance: 0.6, dishLevels: ['simple', 'advanced'], wants: [1, 2], fastSeconds: 300 },
 ];
+
+// No customer ever asks for more than this many things (VIPs included). More got too hard to juggle.
+export const MAX_WANTS = 2;
 
 // Stars each part of an order earns, and the speed bonus.
 export const ORDER_STARS = { plain: 1, simple: 2, advanced: 3, speedy: 1 };

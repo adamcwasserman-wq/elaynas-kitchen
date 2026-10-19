@@ -6,7 +6,7 @@
 //   puzzle   Penny can't decide. She names three foods she likes and loves any dish made from two of them.
 //   critic   Monsieur Croissant writes a review: one, two or three golden spoons, by how fast he's served.
 //   gift     Bubbie wants one of Elayna's own recipes, and leaves a wild card on the board as a thank you.
-//   party    Pina orders for a whole party: three things at once, and pays double.
+//   party    Pina orders for a whole party: two things at once, and pays double.
 //
 // pay: times the normal price. gems: gems on top. stars: extra stars on top of the order's own.
 // intro: shown once, the first time each VIP walks in. about: shown when she taps the VIP's picture.
@@ -42,8 +42,8 @@ export const VIPS = [
   {
     id: 'party', name: 'Pina', kind: 'party', title: 'The party planner',
     pay: 2, gems: 3, stars: 2,
-    intro: 'Pina is throwing a party and orders three things at once. Big order, double pay!',
-    about: 'Pina orders for a party: three things at once, for double pay.',
+    intro: 'Pina is throwing a party and orders two things at once. Big order, double pay!',
+    about: 'Pina orders for a party: two things at once, for double pay.',
   },
 ];
 
