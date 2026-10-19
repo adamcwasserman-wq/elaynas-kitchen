@@ -335,6 +335,8 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .upg-done { width: 30px; height: 30px; flex: none; }
 .upg-done svg { width: 100%; height: 100%; }
 .upg-cost { font-family: var(--display); font-size: 1rem; color: var(--muted); }
+.upg-cost:has(br) { font-size: .82rem; text-align: center; line-height: 1.25; flex: none; }
+.upg-what { display: block; color: var(--teal, #2f8a8f); font-weight: 700; font-size: .74rem; letter-spacing: .02em; text-transform: uppercase; margin: 1px 0 2px; }
 .upg-buy { min-height: 44px; padding: 0 14px; font-family: var(--display); font-weight: 400; }
 .recipe-art { width: 56px; height: 56px; flex: none; border-radius: 12px; padding: 3px; }
 .recipe-art svg { width: 100%; height: 100%; display: block; }

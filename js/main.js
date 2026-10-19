@@ -13,7 +13,7 @@ import { CHAINS, PRODUCERS, ORDER_VALUE, SELL_VALUE } from '../data/items.js';
 import { CITIES, COMING_SOON } from '../data/cities.js';
 import { RECIPES, RENAMED_DISHES, RECIPE_DISCOVERY_REWARD, recipeLevel, recipeCity } from '../data/recipes.js';
 import { BADGES, BADGE_REWARD, BADGE_TIER_NAMES } from '../data/badges.js';
-import { UPGRADES, CHOICES } from '../data/restaurant.js';
+import { UPGRADES, LEVEL_NEEDS, themeFor } from '../data/restaurant.js';
 import { CUSTOMERS } from '../data/customers.js';
 import { VIPS, VIP_RULES } from '../data/vips.js';
 import { ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS, COMPLAINTS } from '../data/orders.js';
@@ -121,7 +121,7 @@ const hoodChoice = key => HOOD_CHOICES[key].find(c => c.colour === S.hood.choice
 
 function hoodScene(focus = null, event = null) {
   const shops = CITIES.map(c => ({
-    slot: c.slot, open: S.openCities.includes(c.id), sign: c.sign, wall: c.look.wall, awning: c.look.awning,
+    slot: c.slot, open: S.openCities.includes(c.id), sign: c.sign, wall: c.look.wall, awning: c.look.awning, style: themeFor(c.id).style,
     stars: c.id === S.city ? S.starLevel : (S.cityData[c.id]?.starLevel || 0), here: c.id === S.city, label: 'For lease',
   })).concat(COMING_SOON.map(c => ({ slot: c.slot, open: false, label: 'Coming soon' })));
   return neighbourhoodSvg({
@@ -412,27 +412,37 @@ function save() {
 // ---------- restaurant upgrades change the numbers ----------
 function perks() {
   const p = {
-    orderBonus: 0,
     refillSeconds: CONFIG.charges.refillSeconds,
-    bonusChance: CONFIG.producerBonusChance,
     chargesMax: CONFIG.charges.max,
-    tipBonus: 0,
+    bonusChance: CONFIG.producerBonusChance,
+    orderBonus: 0, patience: 0, doubleDrop: 0, luckyMerge: 0, hearts: 0, tipBonus: 0, dishBonus: 0,
+    vipChance: 0, vipGems: 0, starChance: 0, gemChance: 0, wildEvery: 0,
   };
   for (const u of UPGRADES) for (const { effect: e } of u.levels.slice(0, upLevel(u.id))) {
-    if (e.orderBonus) p.orderBonus += e.orderBonus;
-    if (e.refillSeconds) p.refillSeconds = Math.min(p.refillSeconds, e.refillSeconds);
-    if (e.producerBonusChance) p.bonusChance = Math.max(p.bonusChance, e.producerBonusChance);
-    if (e.chargesMax) p.chargesMax += e.chargesMax;
-    if (e.tipBonus) p.tipBonus += e.tipBonus;
+    for (const [k, v] of Object.entries(e)) {
+      if (k === 'starterBonus') p.bonusChance += v;
+      else if (k === 'wildEvery') p.wildEvery = p.wildEvery ? Math.min(p.wildEvery, v) : v;
+      else p[k] += v;
+    }
   }
   return p;
 }
+// Hearts: complaints allowed before the round starts over (the bench adds more).
+const maxHearts = () => COMPLAINTS.max + perks().hearts;
 // Each upgrade has three levels, bought one at a time, in any order.
 const upLevel = id => S.upLv[id] || 0;
 const nextLevel = u => u.levels[upLevel(u.id)];
 const upgradeCost = st => Math.round(st.cost * (city().upgradeCost || 1) / 5) * 5;
+// The ladder: level 2 opens at a 1-star rating, level 3 at 2 stars.
+const levelOpen = u => S.starLevel >= LEVEL_NEEDS[upLevel(u.id)];
+// The stars a restaurant needs before level n + 1 opens.
+const levelGoal = n => city().starGoals[LEVEL_NEEDS[n] - 1] || 0;
+// Each restaurant names (and draws) its upgrades its own way.
+const theme = () => themeFor(S.city);
+const upName = u => theme().upgrades[u.id]?.name || u.id;
+const levelName = (u, n) => theme().upgrades[u.id]?.levels[n] || upName(u);
 // Is there an upgrade she can afford right now?
-const upgradeAffordable = () => UPGRADES.some(u => nextLevel(u) && S.dollars >= upgradeCost(nextLevel(u)));
+const upgradeAffordable = () => UPGRADES.some(u => nextLevel(u) && levelOpen(u) && S.dollars >= upgradeCost(nextLevel(u)));
 
 // ---------- pantry charges ----------
 function tickCharges() {
@@ -533,7 +543,7 @@ function dishChoices(stage, opts = {}) {
 // Now and then a new customer is a VIP. Only one waits at a time, with a few regulars in between.
 function maybeVip() {
   if (cityStars() < VIP_RULES.afterStars || (S.sinceVip || 0) < VIP_RULES.gap) return null;
-  if (S.orders.some(o => o.vip) || Math.random() >= VIP_RULES.chance) return null;
+  if (S.orders.some(o => o.vip) || Math.random() >= VIP_RULES.chance + perks().vipChance) return null;
   const stage = currentStage();
   const made = VIPS.map(v => [v, vipOrder(v, stage)]).filter(([, o]) => o);
   if (!made.length) return null;
@@ -645,7 +655,13 @@ function fillOrders() {
 }
 const wantName = w => w.dish ? recipeOf(w.dish).name : nameOf(w);
 const orderName = o => o.likes ? `Likes ${o.likes.map(nameOf).join(', ')}` : o.wants.map(wantName).join(' + ');
-const payFor = o => Math.round(o.reward * (1 + perks().orderBonus + hoodBonus() + eventBonus()));
+// How much of an order's price is dishes (dishes pay more with the window display upgrade).
+const dishShare = o => {
+  if (o.likes) return 1;
+  const all = o.wants.reduce((t, w) => t + wantValue(w), 0);
+  return all ? o.wants.filter(w => w.dish).reduce((t, w) => t + wantValue(w), 0) / all : 0;
+};
+const payFor = o => { const p = perks(); return Math.round(o.reward * (1 + p.orderBonus + p.dishBonus * dishShare(o) + hoodBonus() + eventBonus())); };
 // The speed tip: full when the order is new, nothing at twice its fast time.
 const tipShare = o => Math.max(0, 1 - o.age / (o.fast * 2000));
 // Zip and the critic don't tip: Zip's pay is already doubled, and the critic's reward is his review.
@@ -671,8 +687,8 @@ function complain(oi) {
   if (orderPick?.o === oi) orderPick = null;
   S.orders[oi] = makeOrder();
   buzz('nope');
-  if (S.complaints >= COMPLAINTS.max) { failRound(cust); return; }
-  const left = COMPLAINTS.max - S.complaints;
+  if (S.complaints >= maxHearts()) { failRound(cust); return; }
+  const left = maxHearts() - S.complaints;
   toast(`${cust.name} waited too long and left. ${left} more complaint${left === 1 ? '' : 's'} and the round starts over.`);
   renderAll();
   shake($('#brand'));
@@ -691,7 +707,7 @@ function failRound(cust) {
   fillOrders();
   celebrate({
     art: `<div class="cele-emoji">${use(`cust-${cust.id}`)}</div>`, title: 'Rough shift!',
-    name: `${COMPLAINTS.max} customers left unhappy`,
+    name: `${maxHearts()} customers left unhappy`,
     line: `This round starts over${lost ? `, back to ${floor} stars` : ''}. Your food is still on the board. Serve faster to keep your hearts!`,
   });
   renderAll();
@@ -769,10 +785,17 @@ function produce(i) {
   }
   S.board[spot] = { chain: pick.chain, tier };
   S.stats.produced++;
+  // Two for one: now and then a tap gives a second food.
+  let spot2 = -1;
+  if (Math.random() < perks().doubleDrop) {
+    spot2 = nearestEmpty(i);
+    if (spot2 >= 0) { S.board[spot2] = { chain: pick.chain, tier: pick.tier }; S.stats.produced++; }
+  }
   buzz('tap');
   discover(S.board[spot], spot);
   renderAll();
   fly(i, spot, true);
+  if (spot2 >= 0) { fly(i, spot2, true); floatText('Two for one!', cellEl(spot2)); }
   advanceTutorial('produce');
   save();
 }
@@ -802,7 +825,10 @@ function dropOn(from, to) {
     }
   }
   if (canMerge(a, b)) {
-    S.board[to] = { chain: a.chain, tier: a.tier + 1 };
+    // A lucky merge jumps up two levels.
+    const lucky = a.tier + 2 <= maxTier(a.chain) && Math.random() < perks().luckyMerge;
+    S.board[to] = { chain: a.chain, tier: a.tier + (lucky ? 2 : 1) };
+    if (lucky) setTimeout(() => floatText('Lucky merge!', cellEl(to)), 50);
     S.board[from] = null;
     S.stats.merges++;
     sel = to;
@@ -912,7 +938,9 @@ function serve(oi) {
   const speedy = !v && isSpeedy(order);
   const tip = tipFor(order);
   const pay = payFor(order) + tip;
-  const stars = starsFor(order) + (speedy ? ORDER_STARS.speedy : 0) + eventTurn();
+  const p = perks();
+  const luckyStar = Math.random() < p.starChance ? 1 : 0;
+  const stars = starsFor(order) + (speedy ? ORDER_STARS.speedy : 0) + eventTurn() + luckyStar;
   flyAway(taken, $(`.order[data-o="${oi}"]`));
   for (const i of taken) S.board[i] = null;
   if (taken.includes(sel)) sel = -1;
@@ -922,8 +950,9 @@ function serve(oi) {
   S.served++;
   buzz('serve');
   floatText(`+$${pay}${tip ? ' with tip' : ''}`, $('#money'));
-  addStars(stars, speedy);
+  addStars(stars, speedy, luckyStar);
   if (v) vipThanks(order, v);
+  upgradeGifts(p);
   S.orders[oi] = makeOrder();
   if (fillOrders() && !v) toast('Another customer just walked in!');
   unlockProducers();
@@ -936,13 +965,25 @@ function serve(oi) {
   save();
 }
 
+// Gifts from restaurant upgrades after an order: a gem now and then, and a wild card every so often.
+function upgradeGifts(p) {
+  if (Math.random() < p.gemChance) {
+    S.gems++;
+    setTimeout(() => floatText('+1 gem tip!', $('#gems')), 500);
+  }
+  if (p.wildEvery && S.served % p.wildEvery === 0) {
+    if (placeWild()) toast('Your rooftop garden grew a wild card! Drop it on any food.', { ms: 3500 });
+    else { S.wildcards++; toast('Your rooftop garden grew a wild card. Find it in Today.', { ms: 3500 }); }
+  }
+}
+
 // What a VIP gives on top of the bill.
 function vipThanks(o, v) {
   S.stats.vips++;
-  let gems = v.gems, line;
+  let gems = v.gems + perks().vipGems, line;
   if (v.kind === 'critic') {
     const n = reviewSpoons(o);
-    gems = n * v.gems;
+    gems = n * v.gems + perks().vipGems;
     line = `${v.name} gave you a ${n} golden spoon review!`;
   } else if (v.kind === 'gift') {
     if (placeWild()) line = 'Bubbie left you a wild card. Drop it on any food!';
@@ -956,9 +997,9 @@ function vipThanks(o, v) {
 }
 
 // Stars move the restaurant toward winning. Each goal reached is a new star rating.
-function addStars(n, speedy) {
+function addStars(n, speedy, lucky = 0) {
   S.cityStars = cityStars() + n;
-  floatText(`+${n} ★${speedy ? ' speedy!' : ''}`, $('#brand'));
+  floatText(`+${n} ★${speedy ? ' speedy!' : lucky ? ' bonus!' : ''}`, $('#brand'));
   const CITY = city(), goals = CITY.starGoals;
   while (S.starLevel < goals.length && S.cityStars >= goals[S.starLevel]) {
     const lv = S.starLevel++;
@@ -972,7 +1013,7 @@ function addStars(n, speedy) {
       title: won ? `You won ${CITY.name}!` : `${lv + 1}-star restaurant!`,
       name: `${CITY.restaurant}, ${CITY.name}`,
       line: won ? 'Three stars! You can keep cooking here, or travel on.' :
-        `Customers love it. Next: ${goals[lv + 1]} stars. Orders will get a little trickier.`,
+        `Customers love it. Level ${lv + 2} upgrades are open! Next: ${goals[lv + 1]} stars. Orders will get a little trickier.`,
       reward: r.dollars, gems: r.gems,
     });
     S.complaints = 0; // a new star is a fresh round: hearts refill
@@ -1038,7 +1079,7 @@ function undoSell() {
 
 function buyUpgrade(id) {
   const u = UPGRADES.find(x => x.id === id), st = u && nextLevel(u);
-  if (!st || S.dollars < upgradeCost(st)) return;
+  if (!st || !levelOpen(u) || S.dollars < upgradeCost(st)) return;
   const n = upLevel(u.id);
   S.dollars -= upgradeCost(st);
   S.upLv[u.id] = n + 1;
@@ -1047,7 +1088,7 @@ function buyUpgrade(id) {
   restFocus = u.id; restFocusPreview = false;
   renderRestaurant();
   setTimeout(checkHood, 50);
-  celebrate({ art: restaurantPhoto(u.id), wide: true, title: n ? `Level ${n + 1} upgrade!` : 'Restaurant upgrade!', name: st.name,
+  celebrate({ art: restaurantPhoto(u.id), wide: true, title: n ? `Level ${n + 1} upgrade!` : 'Restaurant upgrade!', name: levelName(u, n),
     line: st.perk + (n === 0 && u.choice ? ' Pick a colour below.' : n < 2 ? ' Upgrade it again any time.' : " That's as fancy as it gets!") });
   renderHeader();
   render();
@@ -1056,8 +1097,9 @@ function buyUpgrade(id) {
 
 // The restaurant picture: the original building starts black and white and fills with
 // colour as she upgrades; "focus" outlines one upgrade in purple (a preview if not bought yet).
-const choiceColour = key => CHOICES[key].find(c => c.colour === S.choices?.[key])?.colour ||
-  (key === 'awning' ? city().look.awning : CHOICES[key][0].colour);
+const choiceList = key => theme().choices[key];
+const choiceColour = key => choiceList(key).find(c => c.colour === S.choices?.[key])?.colour ||
+  (key === 'awning' ? city().look.awning : choiceList(key)[0].colour);
 // A focused upgrade shows its next level (or its top level once it's fully upgraded).
 function restaurantPhoto(focus = null) {
   const lv = { ...S.upLv };
@@ -1065,7 +1107,7 @@ function restaurantPhoto(focus = null) {
   const has = new Set(Object.keys(lv).filter(id => lv[id] > 0));
   return restaurantSvg(has, {
     paint: choiceColour('paint'), awning: choiceColour('awning'), lv,
-    sign: city().sign, baseWall: city().look.wall, flair: city().look.flair,
+    sign: city().sign, baseWall: city().look.wall, style: theme().style,
     colour: .25 + .75 * Object.keys(S.upLv).length / UPGRADES.length, focus, decor: S.decor,
   });
 }
@@ -1268,7 +1310,7 @@ function renderHeader() {
   const CITY = city(), goals = CITY.starGoals, lv = S.starLevel, goal = goals[Math.min(lv, goals.length - 1)];
   const prev = lv === 0 ? 0 : goals[lv - 1];
   $('#brand-city').innerHTML = `${CITY.name} <span class="brand-stars">${'★'.repeat(lv)}${'☆'.repeat(goals.length - lv)}</span>`;
-  const hearts = '♥'.repeat(COMPLAINTS.max - (S.complaints || 0)) + '♡'.repeat(S.complaints || 0);
+  const hearts = '♥'.repeat(Math.max(0, maxHearts() - (S.complaints || 0))) + '♡'.repeat(Math.min(maxHearts(), S.complaints || 0));
   $('#brand-next').innerHTML = `${lv >= goals.length ? `${cityStars()} stars. You won ${CITY.name}!` : `${cityStars()} of ${goal} stars`} <span class="hearts" title="Complaints left before the round starts over">${hearts}</span>`;
   $('#brand-fill').style.width = `${lv >= goals.length ? 100 : Math.min(100, Math.round((cityStars() - prev) / (goal - prev) * 100))}%`;
   $('#brand-dot').hidden = !can;
@@ -1654,22 +1696,25 @@ function renderRestaurant() {
   $('#rest-title').textContent = `${city().name} · ${city().cuisine}`;
   $('#rest-art').innerHTML = restaurantPhoto(restFocus);
   const fu = UPGRADES.find(u => u.id === restFocus);
-  const fShown = fu && fu.levels[Math.min(2, upLevel(fu.id) - (restFocusPreview ? 0 : 1))];
+  const fShown = fu && levelName(fu, Math.min(2, Math.max(0, upLevel(fu.id) - (restFocusPreview ? 0 : 1))));
   $('#rest-caption').textContent = !fu ? 'Tap an upgrade to see where it goes.'
-    : !restFocusPreview || upLevel(fu.id) >= 3 ? `${fShown?.name || fu.name}, outlined in purple.` : `Preview: ${fShown.name}, outlined in purple.`;
+    : !restFocusPreview || upLevel(fu.id) >= 3 ? `${fShown}, outlined in purple.` : `Preview: ${fShown}, outlined in purple.`;
   const levels = Object.values(S.upLv).reduce((t, n) => t + n, 0);
   $('#rest-count').textContent = `${levels} of ${UPGRADES.length * 3} upgrade levels`;
   $('#rest-list').innerHTML = UPGRADES.map(u => {
-    const n = upLevel(u.id), st = nextLevel(u), top = !st, can = !top && S.dollars >= upgradeCost(st);
+    const n = upLevel(u.id), st = nextLevel(u), top = !st, open = !top && levelOpen(u);
+    const can = open && S.dollars >= upgradeCost(st);
     const pips = `<span class="pips">${u.levels.map((_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
     const right = top ? `<span class="upg-done">${ICONS.check}</span>`
+      : !open ? `<span class="upg-cost">Level ${n + 1}<br>at ${levelGoal(n)}★</span>`
       : `<button class="btn primary upg-buy" data-upg="${u.id}"${can ? '' : ' disabled'}>${n ? 'Upgrade' : 'Buy'}<br>$${upgradeCost(st).toLocaleString()}</button>`;
-    const short = !top && !can ? `<em>$${(upgradeCost(st) - S.dollars).toLocaleString()} more to go</em>` : '';
-    const note = top ? `${u.levels[2].name}. All 3 levels done!` : `${n ? `Now: ${u.levels[n - 1].name}. Next: ` : ''}${st.name}. ${st.perk}`;
-    const swatches = n && u.choice ? `<div class="swatches">${CHOICES[u.choice].map(c =>
+    const short = open && !can ? `<em>$${(upgradeCost(st) - S.dollars).toLocaleString()} more to go</em>`
+      : !top && !open ? `<em>Level ${n + 1} opens at ${levelGoal(n)} stars (${cityStars()} now).</em>` : '';
+    const note = top ? `${levelName(u, 2)}. All 3 levels done!` : `${n ? `Now: ${levelName(u, n - 1)}. Next: ` : ''}${levelName(u, n)}. ${st.perk}`;
+    const swatches = n && u.choice ? `<div class="swatches">${choiceList(u.choice).map(c =>
       `<button class="swatch${choiceColour(u.choice) === c.colour ? ' on' : ''}" data-choice="${u.choice}" data-colour="${c.colour}" style="background:${c.colour}" aria-label="${c.name}"></button>`).join('')}</div>` : '';
-    return `<li class="upg${top ? ' done' : can ? ' next' : ''}${restFocus === u.id ? ' focused' : ''}" data-focus="${u.id}">` +
-      `<div class="upg-text"><b>${u.name} ${pips}</b><span>${note}</span>${short}${swatches}</div>${right}</li>`;
+    return `<li class="upg${top ? ' done' : can ? ' next' : !open ? ' later' : ''}${restFocus === u.id ? ' focused' : ''}" data-focus="${u.id}">` +
+      `<div class="upg-text"><b>${upName(u)} ${pips}</b><small class="upg-what">${u.what}</small><span>${note}</span>${short}${swatches}</div>${right}</li>`;
   }).join('');
 }
 function openRestaurant() {
@@ -1934,11 +1979,13 @@ function boot() {
     if (document.visibilityState === 'visible' && !paused) {
       // Customers wait: the bar drops and the amount they'll pay counts down toward the normal price.
       // When a bar runs out, that customer complains and leaves.
-      const done = S.orders.findIndex(o => o.age + 1000 >= o.fast * 2000 && canComplain(o));
+      // Patient customers (the awning and bench upgrades) wait longer: their clock runs slower.
+      const step = Math.round(1000 / (1 + perks().patience));
+      const done = S.orders.findIndex(o => o.age + step >= o.fast * 2000 && canComplain(o));
       if (done >= 0) { complain(done); return; }
       S.orders.forEach((o, oi) => {
         const before = payFor(o) + tipFor(o), starsBefore = starsFor(o);
-        o.age = Math.min(o.age + 1000, o.fast * 2000);
+        o.age = Math.min(o.age + step, o.fast * 2000);
         // Zip has his own, shorter timer (see vipLeaves).
         if (o.limit && o.age >= o.limit * 1000) { vipLeaves(oi); return; }
         const card = $(`.order[data-o="${oi}"]`);

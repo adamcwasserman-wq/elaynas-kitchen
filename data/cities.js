@@ -8,7 +8,7 @@
 // firstOrders: the first few orders, set by hand (later ones are made up; see data/orders.js).
 // starGoals: stars needed for 1, 2 and 3 star ratings. opensNextAt: the star rating that opens the next city.
 // upgradeCost: upgrades cost this many times the Toronto price.
-// look: the restaurant's colours, sign and a touch of local style.
+// look: the restaurant's starting colours. Its style and upgrade names are in data/restaurant.js (THEMES).
 
 
 export const CITIES = [
@@ -25,7 +25,7 @@ export const CITIES = [
     starGoals: [40, 100, 180], opensNextAt: 2,
     starRewards: [{ gems: 3, dollars: 50 }, { gems: 5, dollars: 150 }, { gems: 15, dollars: 400 }],
     upgradeCost: 1,
-    look: { wall: '#f3ead8', awning: '#5b2c6f', flair: null },
+    look: { wall: '#f3ead8', awning: '#5b2c6f' },
   },
   {
     id: 'mexico', name: 'La Cocina', cuisine: 'Mexican', restaurant: 'La Cocina', sign: 'La Cocina', slot: 2,
@@ -40,7 +40,7 @@ export const CITIES = [
     starGoals: [50, 130, 220], opensNextAt: 2,
     starRewards: [{ gems: 4, dollars: 80 }, { gems: 6, dollars: 220 }, { gems: 18, dollars: 600 }],
     upgradeCost: 1.5,
-    look: { wall: '#f8d2b4', awning: '#e8475f', flair: 'papel' },
+    look: { wall: '#f8d2b4', awning: '#e8475f' },
   },
   {
     id: 'rome', name: 'Trattoria Elayna', cuisine: 'Italian', restaurant: 'Trattoria Elayna', sign: 'Trattoria', slot: 4,
@@ -55,7 +55,7 @@ export const CITIES = [
     starGoals: [60, 150, 250], opensNextAt: 2,
     starRewards: [{ gems: 5, dollars: 120 }, { gems: 8, dollars: 300 }, { gems: 20, dollars: 800 }],
     upgradeCost: 2,
-    look: { wall: '#f5dfae', awning: '#3f9b3c', flair: 'vines' },
+    look: { wall: '#f5dfae', awning: '#3f9b3c' },
   },
 ];
 
