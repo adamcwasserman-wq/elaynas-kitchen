@@ -54,15 +54,40 @@ export const MATCHING = {
   fullBoardGems: 1,        // ...and pays this many gems for each one that doesn't fit
 };
 
-// The gem shop. Prices are in gems.
-export const PRIZES = [
-  { id: 'food4', name: 'A level 4 food for your board', cost: 2, give: { foods: { tier: 4, count: 1 } } },
-  { id: 'wild', name: 'Wild card', cost: 2, give: { wildcards: 1 } },
-  { id: 'basket', name: 'Food basket: 3 level 3 foods', cost: 3, give: { foods: { tier: 3, count: 3 } } },
-  { id: 'cat', name: 'Window cat for the restaurant', cost: 6, give: { decor: 'cat' } },
-  { id: 'hanging', name: 'Hanging flower baskets', cost: 8, give: { decor: 'hanging' } },
-  { id: 'bike', name: 'Bicycle with a tulip basket', cost: 10, give: { decor: 'bike' } },
+// The gem shop. Prices are in gems. "kind" puts each thing on a shelf:
+//   boost   helps with her next few customers or taps (one boost at a time, see "boost")
+//   pantry  foods and wild cards for the board
+//   decor   a decoration for the restaurant she's in (each restaurant has its own; art in js/art.js)
+// "art" is the picture on the tile (an id from the sprite in js/art.js). "names" lets a decoration
+// change its name to match the restaurant's style.
+//
+// Boosts: vip    the next customer who walks in is a VIP (even before VIPs normally start)
+//         pay    customers pay this much more (0.5 = 50%) for the next "left" customers
+//         stars  each of the next "left" customers gives this many bonus stars
+//         taps   the next "taps" taps on a starter block give level 2 foods
+export const SHOP = [
+  { id: 'vip', kind: 'boost', name: 'Call a VIP', about: 'The next customer who walks in is a VIP.', cost: 3, art: 'cust-critic', boost: { vip: true, left: 1 } },
+  { id: 'happy', kind: 'boost', name: 'Happy hour', about: 'Your next 8 customers pay 50% more.', cost: 4, art: 'shop-happy', boost: { pay: 0.5, left: 8 } },
+  { id: 'stars', kind: 'boost', name: 'Star power', about: 'Your next 5 customers each give a bonus star.', cost: 4, art: 'shop-stars', boost: { stars: 1, left: 5 } },
+  { id: 'lucky', kind: 'boost', name: 'Lucky crates', about: 'Your next 15 taps give level 2 foods.', cost: 3, art: 'shop-lucky', boost: { taps: 15 } },
+
+  { id: 'kit', kind: 'pantry', name: 'Recipe kit', about: 'Both foods for a dish a customer is waiting for.', cost: 3, art: 'shop-kit', give: { kit: true } },
+  { id: 'food4', kind: 'pantry', name: 'Level 4 food', about: 'A big head start.', cost: 2, art: 'food4', give: { foods: { tier: 4, count: 1 } } },
+  { id: 'food5', kind: 'pantry', name: 'Level 5 food', about: 'One step from the top of its chain.', cost: 5, art: 'food5', give: { foods: { tier: 5, count: 1 } } },
+  { id: 'basket', kind: 'pantry', name: 'Food basket', about: 'Three level 3 foods.', cost: 3, art: 'food3', give: { foods: { tier: 3, count: 3 } } },
+  { id: 'wild', kind: 'pantry', name: 'Wild card', about: 'Drop it on any food to make a copy.', cost: 2, art: 'art-wild', give: { wildcards: 1 } },
+  { id: 'wild3', kind: 'pantry', name: 'Three wild cards', about: 'A gem cheaper than three on their own.', cost: 5, art: 'art-wild', count: 3, give: { wildcards: 3 } },
+
+  { id: 'balloons', kind: 'decor', name: 'Balloons', cost: 5, give: { decor: 'balloons' } },
+  { id: 'cat', kind: 'decor', name: 'Window cat', cost: 6, give: { decor: 'cat' } },
+  { id: 'hanging', kind: 'decor', name: 'Hanging flower baskets', cost: 8, give: { decor: 'hanging' } },
+  { id: 'bike', kind: 'decor', name: 'Bicycle with a flower basket', cost: 10, give: { decor: 'bike' } },
+  { id: 'pup', kind: 'decor', name: 'Puppy by the door', cost: 12, give: { decor: 'pup' } },
+  { id: 'cart', kind: 'decor', name: 'Snack cart', names: { deli: 'Pretzel cart', mexico: 'Paleta cart', rome: 'Gelato cart' }, cost: 15, give: { decor: 'cart' } },
 ];
+
+// Today's special: one thing in the shop is cheaper each day (it changes at midnight).
+export const SPECIAL = { off: 0.4 }; // 40% off, and always at least 1 gem off
 
 // Older saves had tickets: they turn into gems at this rate (rounded up).
 export const TICKETS_PER_GEM = 25;

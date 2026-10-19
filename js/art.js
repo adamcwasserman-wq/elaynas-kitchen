@@ -1193,16 +1193,7 @@ export function restaurantSvg(has, opts = {}) {
   s += up('lights', n => D.lights(n, ctx));
   s += up('bench', n => D.bench(n, ctx));
   const decor = new Set(opts.decor || []);
-  const deco = (id, fn) => decor.has(id) ? part(`decor-${id}`, fn()) : '';
-  s += deco('hanging', () => [62, 338].map(x => line(`M${x},64 L${x},80`, K.ink, 1.2) +
-    fill(EL(x, 84, 10, 6), '#b5773a') + fill(C(x - 5, 79, 4), K.leaf) + fill(C(x + 5, 79, 4), K.leaf) +
-    tulip(x - 4, 76, .4, K.tulip) + tulip(x + 4, 75, .4, '#8b55a6') + fill(P(`M${x - 8},86 Q${x - 10},94 ${x - 6},96`), 'none', { stroke: K.leaf, 'stroke-width': 1.6 })).join(''));
-  s += deco('cat', () => fill(EL(306, 163, 9, 6), '#e29a45') + fill(C(300, 153, 6), '#e29a45') +
-    fill(P('M295,150 L296,143 L300,148 Z'), '#e29a45') + fill(P('M305,150 L304,143 L300,148 Z'), '#e29a45') +
-    line('M314,165 Q322,160 318,152', '#e29a45', 2.6) + fill(C(298, 153, .9), K.ink) + fill(C(302, 153, .9), K.ink));
-  s += deco('bike', () => line('M110,179 L126,166 L148,166 L150,179 M126,166 L132,179 L110,179 M148,166 L144,158 M120,160 L128,160', K.teal, 2.4) +
-    [110, 150].map(x => E('circle', { cx: x, cy: 179, r: 9, fill: 'none', stroke: K.ink, 'stroke-width': 2 })).join('') +
-    fill(R(146, 150, 14, 9, 2), '#b5773a') + tulip(150, 146, .4, K.tulip) + tulip(156, 147, .4, '#8b55a6'));
+  for (const [id, d] of Object.entries(DECOR)) if (decor.has(id)) s += part(`decor-${id}`, d.draw(style));
   s += up('patio', n => D.patio(n, ctx));
   return `<svg viewBox="0 -4 400 204" role="img" aria-label="Elayna's restaurant">${s}</svg>`;
 }
@@ -1604,6 +1595,68 @@ const ROME = {
   },
 };
 
+// Decorations from the gem shop. "box" is the part of the restaurant picture a shop tile shows.
+const CART_COL = { deli: '#e8475f', mexico: '#1f9e9a', rome: '#3f9b3c' };
+export const DECOR = {
+  hanging: { box: [44, 56, 40, 46], draw: () => [62, 338].map(x => line(`M${x},64 L${x},80`, K.ink, 1.2) +
+    fill(EL(x, 84, 10, 6), '#b5773a') + fill(C(x - 5, 79, 4), K.leaf) + fill(C(x + 5, 79, 4), K.leaf) +
+    tulip(x - 4, 76, .4, K.tulip) + tulip(x + 4, 75, .4, '#8b55a6') + fill(P(`M${x - 8},86 Q${x - 10},94 ${x - 6},96`), 'none', { stroke: K.leaf, 'stroke-width': 1.6 })).join('') },
+  cat: { box: [284, 136, 44, 40], draw: () => fill(EL(306, 163, 9, 6), '#e29a45') + fill(C(300, 153, 6), '#e29a45') +
+    fill(P('M295,150 L296,143 L300,148 Z'), '#e29a45') + fill(P('M305,150 L304,143 L300,148 Z'), '#e29a45') +
+    line('M314,165 Q322,160 318,152', '#e29a45', 2.6) + fill(C(298, 153, .9), K.ink) + fill(C(302, 153, .9), K.ink) + fill(EL(300, 155.5, 1, .7), '#e8475f') },
+  bike: { box: [96, 140, 70, 52], draw: () => line('M110,179 L126,166 L148,166 L150,179 M126,166 L132,179 L110,179 M148,166 L144,158 M120,160 L128,160', K.teal, 2.4) +
+    [110, 150].map(x => E('circle', { cx: x, cy: 179, r: 9, fill: 'none', stroke: K.ink, 'stroke-width': 2 })).join('') +
+    fill(R(146, 150, 14, 9, 2), '#b5773a') + tulip(150, 146, .4, K.tulip) + tulip(156, 147, .4, '#8b55a6') },
+  balloons: { box: [14, -6, 56, 54], draw: () => {
+    let b = '';
+    for (const [x, y, c] of [[30, 8, K.tulip], [44, 1, '#f6c33e'], [52, 14, '#6cc6e0'], [38, 18, '#8b55a6']]) {
+      b += line(`M${x},${y + 8} Q${x + 6},${y + 22} 62,44`, K.ink, .7) + fill(EL(x, y, 6.5, 8), c) + fill(P(`M${x - 1.6},${y + 7.6} L${x + 1.6},${y + 7.6} L${x},${y + 10} Z`), c) + shine(EL(x - 2.4, y - 3, 1.6, 2.6, -20), .55);
+    }
+    return b;
+  } },
+  pup: { box: [58, 150, 44, 44], draw: () => line('M88,180 Q96,174 93,168', '#c98a4a', 2.6) + fill(EL(80, 181, 10, 7), '#d9a066') + fill(EL(76, 186, 4, 2.6), '#d9a066') + fill(EL(86, 186, 4, 2.6), '#d9a066') +
+    fill(C(73, 170, 7.5), '#d9a066') + fill(EL(67, 170, 3, 6, 15), '#a8743f') + fill(EL(79, 170, 3, 6, -15), '#a8743f') + fill(EL(73, 174, 3.6, 2.6), '#f3d9b5') +
+    fill(C(73, 172.6, 1.4), K.ink) + fill(C(70.4, 168.4, 1), K.ink) + fill(C(75.6, 168.4, 1), K.ink) + fill(R(68, 176.5, 10, 2.4, 1.2), '#e8475f') + fill(C(73, 179.6, 1.6), K.gold) },
+  cart: { box: [248, 140, 66, 60], draw: style => {
+    const col = CART_COL[style] || K.tulip;
+    let c = line('M260,172 L260,156 M298,172 L298,156', '#7a4b3a', 1.6) + line('M300,175 L311,165', '#7a4b3a', 2.2);
+    c += fill(P('M255,158 Q279,143 303,158 Z'), col) + [0, 1, 2].map(k => fill(P(`M${263 + k * 13},158 Q${267.5 + k * 13},${150 - (k === 1 ? 2 : 0)} ${272 + k * 13},158 Z`), '#fffaf0')).join('');
+    if (style === 'mexico') c += [0, 1, 2, 3].map(k => line(`M${266 + k * 9},172 L${266 + k * 9},168`, '#e2c08a', 1) + fill(R(263 + k * 9, 160, 6, 9, 2.5), ['#e8475f', '#f6c33e', '#5fb34a', '#f39a1e'][k])).join('');
+    else if (style === 'rome') c += [0, 1, 2].map(k => fill(P(`M${268 + k * 11},162 L${274 + k * 11},162 L${271 + k * 11},172 Z`), '#e2a24a') + fill(C(271 + k * 11, 161, 3.6), ['#f9b6c8', '#b6e39a', '#fff1cf'][k])).join('');
+    else c += [0, 1, 2].map(k => E('path', { d: `M${267 + k * 11},170 q-4,-7 0,-9 q3,-1 4,3 q1,-4 4,-3 q4,2 0,9 z`, fill: 'none', stroke: '#b5702a', 'stroke-width': 2.2 })).join('');
+    c += fill(R(256, 172, 46, 15, 3), col) + fill(R(256, 177, 46, 3), '#fffaf0', { opacity: .8 }) + fill(C(265, 191, 5), K.ink) + fill(C(293, 191, 5), K.ink) + fill(C(265, 191, 1.8), '#bdbdbd') + fill(C(293, 191, 1.8), '#bdbdbd');
+    return c;
+  } },
+};
+// One decoration on its own, for a shop tile.
+export function decorSvg(id, style = 'deli') {
+  const d = DECOR[id];
+  if (!d) return '';
+  return `<svg viewBox="${d.box.join(' ')}" aria-hidden="true">${d.draw(style)}</svg>`;
+}
+
+// Pictures for the gem shop's boosts and the recipe kit (100 x 100, like the foods).
+export const SHOP_ART = {
+  // Happy hour: a smiling sun clock with coins.
+  happy: () => ground(50, 88, 30, 5) + body(C(50, 48, 30), '#ffd34d', -7, -7, .16) + fill(C(50, 48, 23), '#fff3dc') +
+    line('M50,48 L50,32 M50,48 L62,54', K.ink, 3.2) + fill(C(50, 48, 3), K.tomato) +
+    [0, 1, 2, 3].map(k => { const a = k * Math.PI / 2; return fill(C(50 + Math.cos(a) * 18, 48 + Math.sin(a) * 18, 1.8), K.eggplant); }).join('') +
+    two(C(80, 74, 10), K.gold, K.goldDark) + E('text', { x: 80, y: 78.5, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 13, fill: '#fff3dc' }, '$') + shine(EL(30, 30, 6, 4, -40), .5),
+  // Star power: a big gold star with a smile.
+  stars: () => ground(50, 88, 28, 5) + body(P('M50,12 L60,36 L86,38 L66,55 L72,81 L50,67 L28,81 L34,55 L14,38 L40,36 Z'), K.gold, -7, -7, .18) +
+    fill(C(43, 47, 2.4), K.ink) + fill(C(57, 47, 2.4), K.ink) + line('M44,55 Q50,60 56,55', K.ink, 2.2) + fill(C(38, 53, 3), K.blush, { opacity: .6 }) + fill(C(62, 53, 3), K.blush, { opacity: .6 }) +
+    shine(EL(40, 30, 4, 7, 25), .5) + sparkle(84, 16, 6, '#f6c33e') + sparkle(16, 20, 4, '#f6c33e'),
+  // Lucky crates: a crate with a four-leaf clover and sparkles.
+  lucky: () => ground(50, 88, 32, 5) + body(R(18, 44, 64, 40, 6), '#c98a4a', -7, -7, .18) + line('M18,58 L82,58 M18,71 L82,71', '#a8743f', 2.4) +
+    [[50, 30, 0], [40, 22, 0], [60, 22, 0], [50, 14, 0]].map(([x, y]) => fill(C(x, y, 8), '#4fb04a')).join('') + fill(C(50, 22, 4), '#3f9b3c') + line('M50,30 Q52,38 56,44', '#3f9b3c', 2.6) +
+    sparkle(80, 22, 7, '#f6c33e') + sparkle(18, 30, 5, '#f6c33e') + fill(R(40, 56, 20, 16, 3), '#fff3dc') + E('text', { x: 50, y: 69, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 13, fill: K.eggplant }, '2'),
+  // Recipe kit: a little basket with a recipe card.
+  kit: () => ground(50, 88, 32, 5) + fill(R(54, 14, 26, 34, 3), '#fffaf0', { transform: 'rotate(12 67 31)' }) + line('M59,24 L75,27 M58,31 L73,34 M57,38 L69,40', '#c9b9a0', 1.6) +
+    fill(C(36, 40, 10), K.tomato) + fill(C(52, 42, 9), '#f6c33e') + fill(P(leaf(36, 31, -80, 8, 3)), K.leaf) +
+    body(P('M16,46 L84,46 L76,84 L24,84 Z'), '#c98a4a', -7, -7, .18) + line('M20,58 L80,58 M22,70 L78,70', '#a8743f', 2) + E('path', { d: 'M28,46 Q50,22 72,46', fill: 'none', stroke: '#a8743f', 'stroke-width': 3 }),
+};
+
+
 const DRAW = { deli: DELI, mexico: MEX, rome: ROME };
 
 // ---------- Elayna's neighbourhood ----------
@@ -1848,6 +1901,7 @@ export function buildSprite() {
   for (const [id, fn] of Object.entries(ITEM_ART)) add(`art-${id}`, fn);
   for (const [id, fn] of Object.entries(PRODUCER_ART)) add(`art-${id}`, fn);
   for (const [id, fn] of Object.entries(CUSTOMER_ART)) add(`cust-${id}`, fn);
+  for (const [id, fn] of Object.entries(SHOP_ART)) add(`shop-${id}`, fn);
   const host = document.createElement('div');
   host.innerHTML = `<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>${defs}</defs></svg>`;
   document.body.prepend(host.firstChild);

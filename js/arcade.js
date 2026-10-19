@@ -1,12 +1,12 @@
 // "Today": the daily gift, the daily trivia question, the mini games and the prize counter.
 // Missing a day never loses anything; everything simply refreshes on a new day.
 
-import { DAILY, TRIVIA_REWARD, SKEEBALL, MATCHING, PRIZES } from '../data/arcade.js';
+import { DAILY, TRIVIA_REWARD, SKEEBALL, MATCHING, SHOP, SPECIAL, GEMS } from '../data/arcade.js';
 import { TRIVIA } from '../data/trivia.js';
 import { playSkeeBall, playMatching } from './minigames.js';
 import { MINIGOLF, HOLES } from '../data/minigolf.js';
 import { playGolfHole, drawHolePreview } from './minigolf.js';
-import { ICONS } from './art.js';
+import { ICONS, use, decorSvg } from './art.js';
 
 const pad = n => String(n).padStart(2, '0');
 const dayKey = (d = new Date()) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
@@ -91,7 +91,7 @@ export function createArcade(api) {
       ${gameCard('skee', 'Skee ball', 'Grab a ball, flick it up the hill and into the rings. Win gems.', SKEEBALL)}
       ${gameCard('match', 'Food match', 'Flip cards to find the pairs. Win gems.', MATCHING)}
       ${golfCard()}
-      <li class="today-card"><div class="today-text"><b>Gem shop</b><span>Missions, wild cards, foods and decorations. You have ${s.gems} gems.</span></div>
+      <li class="today-card"><div class="today-text"><b>Gem shop</b><span>Boosts, foods, decorations, missions and a new special every day. You have ${s.gems} gems.</span></div>
         <button class="btn" data-today="prizes">Open</button></li>
       <li class="today-card"><div class="today-text"><b>Wild cards: ${s.wildcards}</b><span>Drop one on any food to make a copy.</span></div>
         <button class="btn" data-today="wild"${s.wildcards ? '' : ' disabled'}>Use one</button></li>`;
@@ -174,36 +174,113 @@ export function createArcade(api) {
     api.save();
   });
 
-  // ---------- prize counter ----------
-  function openPrizes() {
-    const s = S();
-    $('#prize-count').textContent = `You have ${s.gems} gems.`;
-    $('#prize-list').innerHTML = PRIZES.map(p => {
-      const owned = p.give.decor && s.decor.includes(p.give.decor);
-      return `<li class="today-card${owned ? ' done' : ''}"><div class="today-text"><b>${p.name}</b>
-        <span>${owned ? 'On your restaurant!' : `${p.cost} gems`}</span></div>
-        ${owned ? `<span class="upg-done">${ICONS.check}</span>` : `<button class="btn primary" data-prize="${p.id}"${s.gems < p.cost ? ' disabled' : ''}>Get</button>`}</li>`;
-    }).join('');
-    api.openSheet('#prizes');
-    api.renderMissions();
+  // ---------- the gem shop ----------
+  // Two tabs: the shop (today's special, boosts, pantry, decorations) and missions.
+  let shopTab = 'shop', tryDecor = null;
+  const gemTag = n => `${ICONS.gem}<b>${n}</b>`;
+  const ownedHere = p => p.kind === 'decor' && S().decor.includes(p.give.decor);
+  const itemName = p => p.names?.[api.shopStyle()] || p.name;
+  // Today's special: one thing she doesn't own yet, picked by the date, for less.
+  function special() {
+    const pool = SHOP.filter(p => !ownedHere(p));
+    if (!pool.length) return null;
+    const k = [...dayKey()].reduce((t, ch) => t * 31 + ch.charCodeAt(0), 7) >>> 0;
+    return pool[k % pool.length];
   }
-  $('#prize-list').addEventListener('click', e => {
-    const b = e.target.closest('[data-prize]');
-    if (!b) return;
-    const s = S(), p = PRIZES.find(x => x.id === b.dataset.prize);
-    if (!p || s.gems < p.cost) return;
-    // Don't take gems for foods that won't fit.
-    if (p.give.foods && api.freeCells() < p.give.foods.count) {
-      api.toast(`Make room for ${p.give.foods.count} foods on your board first.`);
+  const priceOf = p => p === special() ? Math.max(1, p.cost - Math.max(1, Math.round(p.cost * SPECIAL.off))) : p.cost;
+  function tileArt(p) {
+    if (p.kind === 'decor') return decorSvg(p.give.decor, api.shopStyle());
+    if (p.art === 'food4' || p.art === 'food5') return use(api.shopFoodArt(+p.art.slice(4)));
+    if (p.art === 'food3') return `<span class="shop-stack">${use(api.shopFoodArt(3))}${use(api.shopFoodArt(3))}${use(api.shopFoodArt(3))}</span>`;
+    if (p.count) return `<span class="shop-stack">${use(p.art)}${use(p.art)}${use(p.art)}</span>`;
+    return use(p.art);
+  }
+  function tile(p) {
+    const s = S(), owned = ownedHere(p), price = priceOf(p), deal = price < p.cost;
+    const b = api.boostOf();
+    let right;
+    if (owned) right = `<span class="shop-owned">${ICONS.check} Yours</span>`;
+    else if (p.boost && b?.id === p.id) right = '<span class="shop-owned on">On now!</span>';
+    else if (p.boost && b) right = '<span class="shop-owned">After this boost</span>';
+    else right = `<button class="shop-buy" data-buy="${p.id}"${s.gems < price ? ' disabled' : ''}>${deal ? `<s>${p.cost}</s>` : ''}${gemTag(price)}</button>`;
+    const pick = p.kind === 'decor' && tryDecor === p.give.decor;
+    return `<div class="shop-tile${owned ? ' owned' : ''}${deal ? ' deal' : ''}${pick ? ' picked' : ''}"${p.kind === 'decor' ? ` data-try="${p.give.decor}"` : ''}>
+      <span class="shop-art${p.kind === 'decor' ? ' decor' : ''}">${tileArt(p)}</span>
+      <b>${itemName(p)}</b>${p.about ? `<small>${p.about}</small>` : ''}${right}</div>`;
+  }
+  function renderShop() {
+    const s = S();
+    $('#prize-count').innerHTML = gemTag(s.gems);
+    document.querySelectorAll('.shop-tab').forEach(t => t.classList.toggle('on', t.dataset.shopTab === shopTab));
+    $('#shop-pane').hidden = shopTab !== 'shop';
+    $('#mission-pane').hidden = shopTab !== 'missions';
+    api.renderMissions();
+    $('#mission-dot').hidden = !document.querySelector('#mission-list [data-mission]');
+    const sp = special();
+    $('#shop-special').innerHTML = sp ? `<div class="shop-special"><span class="shop-ribbon">Today's special</span>
+      <span class="shop-art${sp.kind === 'decor' ? ' decor' : ''}">${tileArt(sp)}</span>
+      <div class="shop-special-text"><b>${itemName(sp)}</b><small>${sp.about || `A decoration for ${api.restaurantName()}.`} A new special every day.</small></div>
+      ${ownedHere(sp) ? '' : `<button class="shop-buy" data-buy="${sp.id}"${s.gems < priceOf(sp) ? ' disabled' : ''}><s>${sp.cost}</s>${gemTag(priceOf(sp))}</button>`}</div>` : '';
+    const b = api.boostOf();
+    $('#shop-boost-note').textContent = b ? `${api.boostLine()} Your next boost can start when this one ends.` : 'Help with your next few customers. One at a time.';
+    $('#shop-boosts').innerHTML = SHOP.filter(p => p.kind === 'boost').map(tile).join('');
+    $('#shop-pantry').innerHTML = SHOP.filter(p => p.kind === 'pantry').map(tile).join('');
+    $('#shop-decor-title').textContent = `Decorations for ${api.restaurantName()}`;
+    $('#shop-preview').innerHTML = api.restaurantPhoto(tryDecor ? `decor-${tryDecor}` : null, tryDecor && !s.decor.includes(tryDecor) ? tryDecor : null);
+    const tp = tryDecor && SHOP.find(p => p.give?.decor === tryDecor);
+    $('#shop-preview-note').textContent = !tp ? 'Tap a decoration to see it on your restaurant.'
+      : s.decor.includes(tryDecor) ? `${itemName(tp)}, outlined in purple.` : `Preview: ${itemName(tp)}, outlined in purple.`;
+    $('#shop-decor').innerHTML = SHOP.filter(p => p.kind === 'decor').map(tile).join('');
+    const chip = (name, cost, how) => `<div class="shop-chip"><b>${name}</b><span>${how}</span><i>${gemTag(cost)}</i></div>`;
+    $('#shop-abilities').innerHTML =
+      chip('Serve now', '2+', 'Tap a food in an order') + chip('Swap', GEMS.swap, 'A new customer steps up') +
+      chip('Fresh tip', GEMS.freshTip, 'Their speed tip fills back up') + chip('Level up', GEMS.levelUp, 'Tap a food on the board');
+  }
+  function openPrizes() {
+    tryDecor = null;
+    api.renderMissions();
+    shopTab = document.querySelector('#mission-list [data-mission]') ? 'missions' : 'shop';
+    renderShop();
+    api.openSheet('#prizes');
+    $('#prizes .sheet-card').scrollTop = 0;
+  }
+  $('#prizes').addEventListener('click', e => {
+    const tab = e.target.closest('[data-shop-tab]');
+    if (tab) { shopTab = tab.dataset.shopTab; api.buzz('tap'); renderShop(); return; }
+    if (e.target.closest('[data-mission]')) { setTimeout(renderShop, 0); return; } // main.js claims it
+    const b = e.target.closest('[data-buy]');
+    if (!b) {
+      const t = e.target.closest('[data-try]');
+      if (t) { tryDecor = tryDecor === t.dataset.try ? null : t.dataset.try; api.buzz('tap'); renderShop(); }
       return;
     }
-    s.gems -= p.cost;
-    give(p.give);
-    api.buzz('serve');
-    api.toast(p.give.decor ? `${p.name} added. Have a look in the restaurant!` : `${p.name}: yours!`);
-    openPrizes();
-    api.renderAll();
+    buy(SHOP.find(x => x.id === b.dataset.buy));
   });
+  function buy(p) {
+    const s = S();
+    if (!p) return;
+    const price = priceOf(p);
+    if (s.gems < price || ownedHere(p)) return;
+    // Never take gems for something that can't happen right now.
+    if (p.give?.foods && api.freeCells() < p.give.foods.count) { api.toast(`Make room for ${p.give.foods.count} food${p.give.foods.count > 1 ? 's' : ''} on your board first.`); return; }
+    if (p.boost) {
+      if (!api.startBoost(p.id)) return;
+    } else if (p.give.kit) {
+      const r = api.placeKit();
+      if (r.why) { api.toast(r.why === 'room' ? 'Make room for 2 foods on your board first.' : 'No customer is waiting for a dish right now. Try again when one is!'); return; }
+      api.toast(`Recipe kit: everything for ${r.name} is on your board!`);
+    } else give(p.give);
+    s.gems -= price;
+    api.buzz('serve');
+    if (p.kind === 'decor') {
+      tryDecor = p.give.decor;
+      api.celebrate({ art: api.restaurantPhoto(`decor-${p.give.decor}`), wide: true, title: 'New decoration!', name: itemName(p), line: `It's on ${api.restaurantName()} now. Each restaurant has its own decorations.` });
+    } else if (p.boost) api.toast(`${p.name} is on! ${p.about}`);
+    else if (!p.give.kit) api.toast(`${p.name}: yours!${p.give.wildcards ? ' Use them from Today.' : ''}`);
+    api.save();
+    renderShop();
+    api.renderAll();
+  }
 
   // ---------- playing a mini game ----------
   function startGame(kind) {
@@ -381,5 +458,5 @@ export function createArcade(api) {
     else if (e.target.closest('#game-again')) { const k = current.kind; leaveGame(); startGame(k); }
   });
 
-  return { open, openPrizes, somethingNew, dayKey };
+  return { open, openPrizes, renderShop, somethingNew, dayKey };
 }

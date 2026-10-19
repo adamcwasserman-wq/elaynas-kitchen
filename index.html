@@ -92,16 +92,33 @@
 </div>
 
 <div class="sheet" id="prizes" hidden>
-  <div class="sheet-card" role="dialog" aria-labelledby="prizes-title">
-    <h2 id="prizes-title">Gem shop</h2>
-    <h3>Missions</h3>
-    <p class="muted small" id="mission-count"></p>
-    <ul class="list" id="mission-list"></ul>
-    <h3>Spend your gems</h3>
-    <p class="muted small" id="prize-count"></p>
-    <ul class="list" id="prize-list"></ul>
-    <h3>Gem abilities</h3>
-    <p class="muted small">Tap a food in a customer's order for <b>Serve now</b>, <b>Swap</b> (a new customer) and <b>Fresh tip</b>. Tap a food on the board for <b>Level up</b>.</p>
+  <div class="sheet-card shop" role="dialog" aria-labelledby="prizes-title">
+    <div class="shop-top">
+      <h2 id="prizes-title">Gem shop</h2>
+      <span class="shop-gems" id="prize-count"></span>
+    </div>
+    <div class="shop-tabs" role="tablist">
+      <button class="shop-tab on" role="tab" data-shop-tab="shop">Shop</button>
+      <button class="shop-tab" role="tab" data-shop-tab="missions">Missions <i class="dot" id="mission-dot" hidden></i></button>
+    </div>
+    <div class="shop-pane" id="shop-pane">
+      <div id="shop-special"></div>
+      <h3>Boosts</h3>
+      <p class="muted small" id="shop-boost-note">Help with your next few customers. One at a time.</p>
+      <div class="shop-grid" id="shop-boosts"></div>
+      <h3>Pantry</h3>
+      <div class="shop-grid" id="shop-pantry"></div>
+      <h3 id="shop-decor-title">Decorations</h3>
+      <div class="rest-art shop-preview" id="shop-preview"></div>
+      <p class="muted small" id="shop-preview-note"></p>
+      <div class="shop-grid" id="shop-decor"></div>
+      <h3>Use gems while you cook</h3>
+      <div class="shop-abilities" id="shop-abilities"></div>
+    </div>
+    <div class="shop-pane" id="mission-pane" hidden>
+      <p class="muted small" id="mission-count"></p>
+      <ul class="list" id="mission-list"></ul>
+    </div>
     <button class="btn ghost" data-close>Close</button>
   </div>
 </div>

@@ -22,7 +22,7 @@ import { HOOD, BIA, IMPROVEMENTS, AMENITIES, EVENTS, HOOD_CHOICES, RESTAURANT_BU
 import { MISSIONS } from '../data/missions.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
 import { createArcade } from './arcade.js';
-import { GEMS, TICKETS_PER_GEM } from '../data/arcade.js';
+import { GEMS, TICKETS_PER_GEM, SHOP } from '../data/arcade.js';
 
 const COLS = CONFIG.board.cols;
 const ROWS = CONFIG.board.rows;
@@ -584,8 +584,9 @@ function dishChoices(stage, opts = {}) {
 
 // Now and then a new customer is a VIP. Only one waits at a time, with a few regulars in between.
 function maybeVip() {
-  if (cityStars() < VIP_RULES.afterStars || (S.sinceVip || 0) < VIP_RULES.gap) return null;
-  if (S.orders.some(o => o.vip) || Math.random() >= VIP_RULES.chance + perks().vipChance) return null;
+  const called = !!boostOf()?.boost.vip; // "Call a VIP" from the gem shop skips the usual wait
+  if (!called && (cityStars() < VIP_RULES.afterStars || (S.sinceVip || 0) < VIP_RULES.gap)) return null;
+  if (S.orders.some(o => o.vip) || (!called && Math.random() >= VIP_RULES.chance + perks().vipChance)) return null;
   const stage = currentStage();
   const made = VIPS.map(v => [v, vipOrder(v, stage)]).filter(([, o]) => o);
   if (!made.length) return null;
@@ -594,6 +595,7 @@ function maybeVip() {
   const [v, order] = pick(fresh.length ? fresh : made);
   S.orderSeq++;
   S.sinceVip = 0;
+  if (called) useBoost();
   order.id = S.orderSeq;
   if (!S.vipSeen[v.id]) {
     S.vipSeen[v.id] = true;
@@ -703,7 +705,7 @@ const dishShare = o => {
   const all = o.wants.reduce((t, w) => t + wantValue(w), 0);
   return all ? o.wants.filter(w => w.dish).reduce((t, w) => t + wantValue(w), 0) / all : 0;
 };
-const payFor = o => { const p = perks(); return Math.round(o.reward * (1 + p.orderBonus + p.dishBonus * dishShare(o) + hoodBonus() + eventBonus())); };
+const payFor = o => { const p = perks(); return Math.round(o.reward * (1 + p.orderBonus + p.dishBonus * dishShare(o) + hoodBonus() + eventBonus() + boostPay())); };
 // The speed tip: full when the order is new, nothing at twice its fast time.
 const tipShare = o => Math.max(0, 1 - o.age / (o.fast * 2000));
 // Zip and the critic don't tip: Zip's pay is already doubled, and the critic's reward is his review.
@@ -821,6 +823,7 @@ function produce(i) {
   const pick = makes.find(m => (roll -= m.weight) < 0) || makes[0];
   let tier = pick.tier;
   if (Math.random() < perks().bonusChance) tier = Math.min(tier + 1, maxTier(pick.chain));
+  if (boostOf()?.boost.taps) { tier = Math.max(tier, Math.min(2, maxTier(pick.chain))); useBoost(); }
   if (!unlimited()) {
     if (S.charges >= perks().chargesMax) S.chargesAt = Date.now();
     S.charges--;
@@ -982,7 +985,7 @@ function serve(oi) {
   const pay = payFor(order) + tip;
   const p = perks();
   const luckyStar = Math.random() < p.starChance ? 1 : 0;
-  const stars = starsFor(order) + (speedy ? ORDER_STARS.speedy : 0) + eventTurn() + luckyStar;
+  const stars = starsFor(order) + (speedy ? ORDER_STARS.speedy : 0) + eventTurn() + luckyStar + (boostOf()?.boost.stars || 0);
   flyAway(taken, $(`.order[data-o="${oi}"]`));
   for (const i of taken) S.board[i] = null;
   if (taken.includes(sel)) sel = -1;
@@ -996,6 +999,7 @@ function serve(oi) {
   addStars(stars, speedy, luckyStar);
   if (v) vipThanks(order, v);
   upgradeGifts(p);
+  if (boostOf()?.boost.left && !boostOf().boost.vip) useBoost();
   S.orders[oi] = makeOrder();
   if (fillOrders() && !v) toast('Another customer just walked in!');
   unlockProducers();
@@ -1078,7 +1082,8 @@ function skipOrder(oi) {
   S.served++;
   visitorsSpend(pay);
   for (const w of o.wants) if (w.dish) learnRecipe(recipeOf(w.dish));
-  addStars(o.stars + eventTurn(), false);
+  addStars(o.stars + eventTurn() + (boostOf()?.boost.stars || 0), false);
+  if (boostOf()?.boost.left && !boostOf().boost.vip) useBoost();
   orderPick = null;
   buzz('serve');
   floatText(`+$${pay}`, $('#money'));
@@ -1145,16 +1150,70 @@ const choiceList = key => theme().choices[key];
 const choiceColour = key => choiceList(key).find(c => c.colour === S.choices?.[key])?.colour ||
   (key === 'awning' ? city().look.awning : choiceList(key)[0].colour);
 // A focused upgrade shows its next level (or its top level once it's fully upgraded).
-function restaurantPhoto(focus = null) {
+function restaurantPhoto(focus = null, tryDecor = null) {
   const lv = { ...S.upLv };
   if (focus && UPGRADES.some(u => u.id === focus)) lv[focus] = Math.min(3, upLevel(focus) + (restFocusPreview ? 1 : 0)) || 1;
   const has = new Set(Object.keys(lv).filter(id => lv[id] > 0));
   return restaurantSvg(has, {
     paint: choiceColour('paint'), awning: choiceColour('awning'), lv,
     sign: city().sign, baseWall: city().look.wall, style: theme().style,
-    colour: .25 + .75 * Object.keys(S.upLv).length / UPGRADES.length, focus, decor: S.decor,
+    colour: .25 + .75 * Object.keys(S.upLv).length / UPGRADES.length, focus, decor: tryDecor ? [...S.decor, tryDecor] : S.decor,
   });
 }
+
+// ---------- boosts and the recipe kit, from the gem shop (data/arcade.js, SHOP) ----------
+// One boost runs at a time. S.boost = { id, left }: customers (or taps) it has left.
+const boostOf = () => (S.boost ? SHOP.find(x => x.id === S.boost.id) || null : null);
+const boostPay = () => boostOf()?.boost.pay || 0;
+function startBoost(id) {
+  const b = SHOP.find(x => x.id === id);
+  if (!b?.boost || S.boost) return false;
+  S.boost = { id, left: b.boost.left || b.boost.taps };
+  renderAll();
+  return true;
+}
+function useBoost() {
+  const b = boostOf();
+  if (!b) return;
+  if (--S.boost.left > 0) return;
+  S.boost = null;
+  setTimeout(() => toast(`${b.name} is over. There are more boosts in the gem shop.`), 700);
+}
+function boostLine() {
+  const b = boostOf(), n = S.boost?.left || 0;
+  if (!b) return '';
+  if (b.boost.vip) return `${b.name}: the next customer is a VIP!`;
+  if (b.boost.taps) return `${b.name}: ${n} more tap${n === 1 ? '' : 's'} give level 2 foods.`;
+  if (b.boost.stars) return `${b.name}: ${n} more customer${n === 1 ? '' : 's'} give a bonus star!`;
+  return `${b.name}: ${n} more customer${n === 1 ? '' : 's'} pay ${Math.round(b.boost.pay * 100)}% more!`;
+}
+// The recipe kit: both foods for a dish a customer is waiting for (one who isn't ready to serve yet).
+// Returns the recipe, or { why: 'none' | 'room' } if it can't help right now.
+function placeKit() {
+  const counts = boardCounts();
+  let r = null;
+  for (const o of S.orders) {
+    if (isReady(o, counts)) continue;
+    if (o.likes) {
+      for (const a of o.likes) for (const b of o.likes) r ||= findRecipe(a, b);
+    } else {
+      const w = o.wants.find(x => x.dish);
+      if (w) r = recipeOf(w.dish);
+    }
+    if (r) break;
+  }
+  if (!r) return { why: 'none' };
+  if (freeCells() < 2) return { why: 'room' };
+  for (const f of [r.a, r.b]) {
+    const spot = nearestEmpty(producerIndex());
+    S.board[spot] = { chain: f.chain, tier: f.tier };
+    S.seen[keyOf(f)] = true;
+  }
+  renderAll();
+  return r;
+}
+// The picture on a shop tile for foods: this restaurant's first food at that level.
+const shopFoodArt = tier => { const ch = availableChains()[0]; return `art-${CHAINS[ch].tiers[Math.min(tier, maxTier(ch)) - 1].id}`; };
 
 // ---------- missions: one-time goals that pay gems ----------
 const allCities = () => S.openCities.map(id => (id === S.city ? S : S.cityData[id])).filter(Boolean);
@@ -1184,7 +1243,8 @@ function renderMissions() {
   $('#mission-count').textContent = `${claimed} of ${MISSIONS.length} missions done.`;
   $('#mission-list').innerHTML = shown.map(m => {
     const have = Math.min(m.n, missionStat(m.stat)), done = have >= m.n;
-    return `<li class="upg${done ? ' next' : ''}"><div class="upg-text"><b>${m.name}</b><span>${done ? 'Done!' : `${have} of ${m.n}`} · ${m.gems} gems</span></div>` +
+    return `<li class="upg${done ? ' next' : ''}"><div class="upg-text"><b>${m.name}</b><span>${done ? 'Done!' : `${have} of ${m.n}`} · ${m.gems} gems</span>` +
+      `${done ? '' : `<div class="bar-track mission-bar"><div class="bar-fill" style="width:${Math.round(have / m.n * 100)}%"></div></div>`}</div>` +
       (done ? `<button class="btn primary" data-mission="${m.id}">Claim</button>` : '') + '</li>';
   }).join('') || '<li class="upg done"><div class="upg-text"><b>Every mission done!</b><span>Amazing work.</span></div></li>';
 }
@@ -1381,6 +1441,9 @@ function renderTip() {
   if (!step && S.stats.mixes === 0 && S.orders.some(o => o.wants.some(w => w.dish))) {
     text = 'Dishes need both of their foods on the board. Then tap Serve!';
   }
+  // With nothing to teach, the bar shows a gem shop boost that's running.
+  tip.classList.toggle('boost', !text && !!boostOf());
+  if (!text && boostOf()) text = boostLine();
   if (!text) { tip.hidden = true; return; }
   tip.textContent = text;
   tip.hidden = false;
@@ -2047,6 +2110,8 @@ function boot() {
   arcade = createArcade({
     getS: () => S, save, renderAll, celebrate, toast, buzz, openSheet, closeSheets,
     placeFoods, placeWild, freeCells, artPool, checkBadges, renderMissions,
+    startBoost, boostOf, boostLine, placeKit, restaurantPhoto, shopFoodArt,
+    shopStyle: () => theme().style, restaurantName: () => city().name,
   });
   $('#brand-pin').innerHTML = ICONS.pin;
   $('#charges .icon').innerHTML = ICONS.bolt;
