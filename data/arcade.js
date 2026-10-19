@@ -7,7 +7,8 @@ export const DAILY = {
   extraPlayGems: 1,                            // after that, one more play costs this many gems
 };
 
-// Gems: earned from badges, trivia, the gift and great mini game scores.
+// Gems: earned from missions, badges, the gift and the side games (trivia, skee ball, food match, mini golf).
+// Side games pay gems only, never tips.
 export const GEMS = {
   badge: [1, 3, 10],                    // for bronze, silver, gold
   refill: { gems: 3, charges: 60 },     // skip the wait for pantry charges
@@ -18,12 +19,12 @@ export const GEMS = {
   levelUp: 2,                           // "Level up": turn a food on the board into the next level
 };
 
-// Daily trivia rewards.
+// Daily trivia rewards, in gems.
 export const TRIVIA_REWARD = {
-  right: { dollars: 20, gems: 1 },
-  streakBonus: 5,          // extra dollars per day of a right-answer streak
-  streakBonusMax: 25,
-  wrong: { dollars: 5 },   // a small "thanks for playing"
+  right: { gems: 2 },
+  streakBonus: 1,          // an extra gem for each day of a right-answer streak...
+  streakBonusMax: 3,       // ...up to this many extra
+  wrong: { gems: 1 },      // a small "thanks for playing"
 };
 
 // Skee ball: grab a ball from the chute and flick it up the hill. The last ball is golden (double points).
@@ -48,10 +49,9 @@ export const MATCHING = {
     relaxed: { name: 'Relaxed', seconds: 80, rewardTimes: 1 },
     challenge: { name: 'Challenge', seconds: 45, rewardTimes: 2 },
   },
-  dollarsPerPair: 3,
-  pairsPerGem: 4,          // one gem for every 4 pairs found (times "rewardTimes")
+  pairsPerGem: 2,          // one gem for every 2 pairs found (times "rewardTimes")
   allPairsFoods: 2,        // finding every pair also drops this many level 2 foods on the board
-  fullBoardDollars: 5,     // ...and pays this many dollars for each one that doesn't fit
+  fullBoardGems: 1,        // ...and pays this many gems for each one that doesn't fit
 };
 
 // The gem shop. Prices are in gems.

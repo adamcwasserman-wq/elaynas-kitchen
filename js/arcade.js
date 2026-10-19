@@ -86,10 +86,10 @@ export function createArcade(api) {
         <span>${d.gift ? 'Opened. A new gift tomorrow!' : `$${DAILY.gift.dollars}, ${DAILY.gift.gems} gem and a wild card.`}</span></div>
         ${d.gift ? `<span class="upg-done">${ICONS.check}</span>` : '<button class="btn primary" data-today="gift">Open</button>'}</li>
       <li class="today-card${d.trivia ? ' done' : ' glow'}"><div class="today-text"><b>Daily food trivia</b>
-        <span>${d.trivia ? `Answered${s.triviaStreak > 1 ? `. ${s.triviaStreak} days in a row!` : '.'} A new question tomorrow.` : 'One question a day. Win tips and a gem.'}</span></div>
+        <span>${d.trivia ? `Answered${s.triviaStreak > 1 ? `. ${s.triviaStreak} days in a row!` : '.'} A new question tomorrow.` : 'One question a day. Win gems.'}</span></div>
         ${d.trivia ? `<span class="upg-done">${ICONS.check}</span>` : '<button class="btn primary" data-today="trivia">Play</button>'}</li>
       ${gameCard('skee', 'Skee ball', 'Grab a ball, flick it up the hill and into the rings. Win gems.', SKEEBALL)}
-      ${gameCard('match', 'Food match', 'Flip cards to find the pairs. Win tips and gems.', MATCHING)}
+      ${gameCard('match', 'Food match', 'Flip cards to find the pairs. Win gems.', MATCHING)}
       ${golfCard()}
       <li class="today-card"><div class="today-text"><b>Gem shop</b><span>Wild cards, foods and decorations. You have ${s.gems} gems.</span></div>
         <button class="btn" data-today="prizes">Open</button></li>
@@ -156,10 +156,10 @@ export function createArcade(api) {
       s.triviaLastRight = dayKey();
       s.stats.triviaRight++;
       const bonus = Math.min(TRIVIA_REWARD.streakBonusMax, TRIVIA_REWARD.streakBonus * (s.triviaStreak - 1));
-      reward = { dollars: TRIVIA_REWARD.right.dollars + bonus, gems: TRIVIA_REWARD.right.gems };
+      reward = { gems: TRIVIA_REWARD.right.gems + bonus };
     } else {
       s.triviaStreak = 0;
-      reward = { dollars: TRIVIA_REWARD.wrong.dollars };
+      reward = { gems: TRIVIA_REWARD.wrong.gems };
     }
     give(reward);
     d.trivia = right ? 'right' : 'wrong';
@@ -167,7 +167,7 @@ export function createArcade(api) {
     api.buzz(right ? 'serve' : 'tap');
     const streak = right && s.triviaStreak > 1 ? ` ${s.triviaStreak} days in a row!` : '';
     $('#trivia-result').innerHTML = `<b>${right ? 'Right!' : 'Not quite.'}${streak}</b><span>${q.fact}</span>
-      <span class="trivia-win">+$${reward.dollars}${reward.gems ? ` and ${reward.gems} gem` : ''}</span>`;
+      <span class="trivia-win">+${reward.gems} gem${reward.gems > 1 ? 's' : ''}</span>`;
     $('#trivia-result').hidden = false;
     api.checkBadges();
     api.renderAll();
@@ -247,12 +247,12 @@ export function createArcade(api) {
     } else {
       const m = MATCHING.modes[modeKey];
       win = r.all;
-      reward = { dollars: r.found * MATCHING.dollarsPerPair * m.rewardTimes, gems: Math.floor(r.found / MATCHING.pairsPerGem) * m.rewardTimes };
+      reward = { gems: Math.floor(r.found / MATCHING.pairsPerGem) * m.rewardTimes };
       let line2 = `${MATCHING.allPairsFoods} bonus foods are on your board.`;
       if (win) {
-        // Foods that don't fit are paid out as dollars instead, so nothing is lost.
+        // Foods that don't fit are paid out as gems instead, so nothing is lost.
         const missed = MATCHING.allPairsFoods - api.placeFoods(2, MATCHING.allPairsFoods);
-        if (missed) { reward.dollars += missed * MATCHING.fullBoardDollars; line2 = `Your board was full, so you got $${missed * MATCHING.fullBoardDollars} instead of ${missed} bonus foods.`; }
+        if (missed) { reward.gems += missed * MATCHING.fullBoardGems; line2 = `Your board was full, so you got ${missed * MATCHING.fullBoardGems} extra gems instead of ${missed} bonus foods.`; }
       }
       title = r.all ? 'All pairs found!' : `${r.found} pairs found`;
       line = r.all ? line2 : 'You keep everything you found.';
@@ -349,7 +349,7 @@ export function createArcade(api) {
     const best = g.best[hole.id];
     if (r.strokes != null && (best == null || r.strokes < best)) g.best[hole.id] = r.strokes;
     const opened = !wasOpen && holeOpen(i + 1);
-    const reward = { dollars: MINIGOLF.dollars[stars], gems: MINIGOLF.gems[stars] * m.gemsTimes + (r.holeInOne ? MINIGOLF.holeInOneGems : 0) };
+    const reward = { gems: MINIGOLF.gems[stars] * m.gemsTimes + (r.holeInOne ? MINIGOLF.holeInOneGems : 0) };
     if (stars >= MINIGOLF.unlockStars) s.stats.arcadeWins++;
     give(reward);
     api.checkBadges();
