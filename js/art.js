@@ -1156,31 +1156,134 @@ export function restaurantSvg(has, opts = {}) {
   return `<svg viewBox="0 -4 400 204" role="img" aria-label="Elayna's restaurant">${s}</svg>`;
 }
 
-// ---------- the world map ----------
-// pins: [{ name, x, y, state: 'here' | 'open' | 'locked' | 'soon', stars }]
-export function mapSvg(pins) {
-  let s = fill(R(0, 0, 400, 240), '#bfe0e6');
-  for (let y = 30; y < 240; y += 40) s += line(`M10,${y} q10,-5 20,0 t20,0`, '#fff', 1.4, { opacity: .6 }) + line(`M200,${y + 18} q10,-5 20,0 t20,0`, '#fff', 1.4, { opacity: .6 });
-  const land = (cx, cy, rx, ry, seed, c) => fill(P(blob(cx, cy, rx, ry, 12, .22, seed)), c);
-  s += land(96, 66, 78, 46, 3, '#c9e6a0') + land(90, 128, 34, 26, 5, '#e6d39a') + land(96, 160, 14, 12, 8, '#e6d39a') + land(140, 205, 34, 34, 9, '#c9e6a0');
-  s += land(262, 74, 44, 32, 4, '#c9e6a0') + land(276, 170, 48, 56, 6, '#e6d39a') + land(330, 120, 22, 22, 2, '#e6d39a') + land(358, 64, 44, 30, 7, '#c9e6a0');
-  for (let i = 0; i < pins.length - 1; i++) {
-    const a = pins[i], b = pins[i + 1];
-    s += line(`M${a.x},${a.y} Q${(a.x + b.x) / 2},${Math.min(a.y, b.y) - 30} ${b.x},${b.y}`, b.state === 'soon' || b.state === 'locked' ? '#9aa3b2' : K.tulip, 2.4, { 'stroke-dasharray': '2 7' });
+// ---------- Elayna's neighbourhood ----------
+// o: { name, built: Set of improvement ids, choices, shops: [{ slot, open, sign, wall, awning, stars, here, label }],
+//      level (0 to 5), people, focus, event }
+export function neighbourhoodSvg(o) {
+  const has = o.built, ch = o.choices || {};
+  const glow = 'filter:drop-shadow(0 0 1.5px #5b2c6f) drop-shadow(0 0 1.5px #5b2c6f) drop-shadow(0 0 6px #b57fd0)';
+  const part = (id, inner) => (o.focus === id ? `<g style="${glow}">${inner}</g>` : inner);
+  const when = (id, fn) => (has.has(id) || o.focus === id) ? part(id, fn()) : '';
+  const grey = Math.max(0, 0.7 - o.level * 0.14); // the street gets more colourful as it gets busier
+  const treeCol = ch.trees || '#e8742f', flowerCol = ch.flowers || '#e8475f', mural = ch.mural || 'Tulips';
+  let s = fill(R(0, 0, 400, 300), '#cfeaf2') + fill(C(366, 24, 15), '#f7c873');
+  // the skyline behind, with the CN Tower
+  s += fill(P('M0,118 L0,96 L18,96 L18,84 L34,84 L34,100 L52,100 L52,78 L66,78 L66,104 L90,104 L90,90 L110,90 L110,118 Z'), '#b9d8e2');
+  s += fill(P('M230,118 L230,92 L246,92 L246,80 L262,80 L262,98 L282,98 L282,86 L300,86 L300,118 Z'), '#b9d8e2');
+  s += fill(R(341, 18, 4, 100), '#a9cbd6') + fill(EL(343, 58, 8, 4.5), '#a9cbd6') + fill(R(342, 8, 2, 12), '#a9cbd6');
+  // ----- the row of shops -----
+  const slotX = k => 4 + k * 80;
+  let row = '';
+  for (const sh of o.shops) {
+    const x = slotX(sh.slot), w = 72;
+    if (!sh.open) {
+      row += fill(R(x, 62, w, 88, 4), '#d8d0c4') + fill(R(x - 2, 56, w + 4, 8, 3), '#a89f93');
+      row += fill(R(x + 8, 84, 24, 26, 2), '#bdb3a6') + fill(R(x + 40, 84, 24, 26, 2), '#bdb3a6');
+      row += line(`M${x + 8},${90} L${x + 32},${104} M${x + 40},${90} L${x + 64},${104}`, '#8a8076', 2.4);
+      row += fill(R(x + 14, 116, 44, 14, 3), '#fffaf0') + E('text', { x: x + 36, y: 126, 'text-anchor': 'middle', 'font-size': 8.5, 'font-family': 'Righteous, sans-serif', fill: K.ink }, sh.label || 'For lease');
+      row += fill(R(x + 28, 134, 16, 16, 2), '#a89f93');
+      continue;
+    }
+    row += body(R(x, 62, w, 88, 4), sh.wall, -8, 0, .14) + fill(R(x - 2, 56, w + 4, 8, 3), sh.awning);
+    for (let i = 0; i < 6; i++) row += fill(P(`M${x + i * 12},${76} L${x + i * 12 + 12},${76} L${x + i * 12 + 12},${86} Q${x + i * 12 + 6},${92} ${x + i * 12},${86} Z`), i % 2 ? '#fff3dc' : sh.awning);
+    row += fill(R(x + 6, 94, 26, 26, 2), '#ffd77a') + fill(R(x + 40, 94, 26, 26, 2), '#ffd77a') + line(`M${x + 19},${94} L${x + 19},${120} M${x + 53},${94} L${x + 53},${120}`, '#fff3dc', 1.6);
+    row += fill(P(`M${x + 28},150 L${x + 28},${130} Q${x + 36},${122} ${x + 44},${130} L${x + 44},150 Z`), K.teal);
+    const fs = Math.min(10, 120 / Math.max(6, sh.sign.length));
+    row += fill(R(x + 4, 63, w - 8, 12, 3), K.eggplant) + E('text', { x: x + w / 2, y: 72, 'text-anchor': 'middle', 'font-size': fs.toFixed(1), 'font-family': 'Righteous, sans-serif', fill: '#fff3dc' }, sh.sign);
+    row += fill(R(x + 18, 42, 36, 12, 6), '#fffaf0', { opacity: .9 }) + E('text', { x: x + w / 2, y: 51, 'text-anchor': 'middle', 'font-size': 9, fill: '#f6b62e' }, '★'.repeat(sh.stars) + '☆'.repeat(3 - sh.stars));
+    if (sh.here) row += fill(P(`M${x + w / 2},40 l-6,-8 a7,7 0 1,1 12,0 Z`), K.tulip) + fill(C(x + w / 2, 30, 2.6), '#fff');
   }
-  for (const p of pins) {
-    const colour = p.state === 'here' ? K.tulip : p.state === 'open' ? K.eggplant : '#b9b0a5';
-    if (p.state === 'here') s += E('circle', { cx: p.x, cy: p.y - 14, r: 16, fill: 'none', stroke: K.tulip, 'stroke-width': 2.5, opacity: .5 });
-    s += fill(EL(p.x, p.y + 1, 7, 2.4), K.shadow, { opacity: .2 });
-    const { x, y } = p;
-    s += fill(P(`M${x},${y} C${x - 6},${y - 8} ${x - 11},${y - 12} ${x - 11},${y - 19} A11 11 0 1 1 ${x + 11},${y - 19} C${x + 11},${y - 12} ${x + 6},${y - 8} ${x},${y} Z`), colour);
-    s += fill(C(p.x, p.y - 19, 6.5), '#fff') + (p.state === 'soon' ? E('text', { x: p.x, y: p.y - 15.5, 'text-anchor': 'middle', 'font-size': 10, 'font-family': 'Righteous, sans-serif', fill: '#9aa3b2' }, '?') : tulip(p.x, p.y - 19.5, .42, colour));
-    const label = `${p.name}${p.stars !== undefined ? '  ' + '★'.repeat(p.stars) + '☆'.repeat(3 - p.stars) : ''}`;
-    const w = label.length * 5.6 + 12;
-    s += fill(R(p.x - w / 2, p.y + 5, w, 15, 7.5), p.state === 'here' ? K.eggplant : '#fffaf0', { opacity: .95 });
-    s += E('text', { x: p.x, y: p.y + 16, 'text-anchor': 'middle', 'font-size': 9.5, 'font-family': 'Righteous, sans-serif', fill: p.state === 'here' ? '#fff' : K.ink }, label);
+  // the empty lot (slot 3): a brick wall that can hold the mural, and a garden
+  const lx = slotX(3);
+  row += fill(R(lx, 92, 72, 58), '#c9836a') + [100, 112, 124, 136].map(y => line(`M${lx},${y} L${lx + 72},${y}`, '#b5705a', 1.2)).join('');
+  s += grey ? `<g style="filter:grayscale(${grey.toFixed(2)})">${row}</g>` : row;
+  s += when('mural', () => {
+    let m = fill(R(lx + 4, 96, 64, 40, 3), '#fff3dc');
+    if (mural === 'Eggplants') for (const [x, y] of [[lx + 18, 116], [lx + 36, 112], [lx + 54, 118]]) m += fill(EL(x, y, 7, 11, 20), K.eggplant) + fill(EL(x + 3, y - 10, 4, 2, 20), K.leaf);
+    else if (mural === 'Food friends') for (const [id, x] of [['tomato', lx + 6], ['eggplant', lx + 26], ['lemon', lx + 46]]) m += `<use href="#cust-${id}" x="${x}" y="${100}" width="20" height="20"/>`;
+    else for (let i = 0; i < 5; i++) m += line(`M${lx + 12 + i * 12},${132} L${lx + 12 + i * 12},${120}`, K.leaf, 1.6) + tulip(lx + 12 + i * 12, 113, .5, i % 2 ? '#8b55a6' : K.tulip);
+    return m + E('rect', { x: lx + 4, y: 96, width: 64, height: 40, rx: 3, fill: 'none', stroke: '#f6b62e', 'stroke-width': 2 });
+  });
+  s += has.has('garden') || o.focus === 'garden'
+    ? part('garden', fill(R(lx, 138, 72, 12), '#7a5a3c') + [0, 1, 2, 3, 4, 5, 6].map(i => line(`M${lx + 6 + i * 10},146 L${lx + 6 + i * 10},140`, K.leaf, 1.4) + tulip(lx + 6 + i * 10, 137, .38, i % 2 ? flowerCol : K.tulip)).join(''))
+    : fill(R(lx, 140, 72, 10), '#b9a07a') + line(`M${lx},138 L${lx + 72},138`, '#8a8076', 1.4, { 'stroke-dasharray': '3 3' });
+  // ----- sidewalk -----
+  s += fill(R(0, 150, 400, 18), '#e8dcc6') + fill(R(0, 166, 400, 3), '#cbbfa8');
+  // ----- road -----
+  s += fill(R(0, 169, 400, 36), '#8f8a86') + line('M0,187 L400,187', '#fff3dc', 2, { 'stroke-dasharray': '12 10' });
+  s += when('bikes', () => fill(R(0, 170, 400, 6), '#5fb34a', { opacity: .85 }) + [60, 200, 340].map(x => E('text', { x, y: 175.5, 'text-anchor': 'middle', 'font-size': 6, fill: '#fff' }, 'BIKE')).join('') +
+    [346, 356].map(x => E('path', { d: `M${x},165 l0,-8 a3,3 0 0,1 6,0 l0,8`, fill: 'none', stroke: '#5a5a5a', 'stroke-width': 1.4 })).join(''));
+  s += when('streetcar', () => fill(R(186, 140, 40, 26, 3), '#bfe0e6', { opacity: .7 }) + fill(R(184, 136, 44, 5, 2), K.ink) + fill(R(192, 156, 28, 4), '#b5773a') +
+    fill(R(100, 172, 120, 26, 6), '#e2312f') + fill(R(100, 192, 120, 4), '#fff') + [110, 130, 150, 170, 190].map(x => fill(R(x, 177, 14, 9, 2), '#bfe0e6')).join('') +
+    line('M100,170 L90,160 L230,160', '#5a5a5a', 1));
+  s += when('trees', () => [30, 130, 270, 370].map(x => fill(R(x - 2, 136, 4, 16), '#7a4b3a') + fill(C(x, 130, 12), treeCol) + fill(C(x - 5, 126, 5), '#fff', { opacity: .25 })).join(''));
+  s += when('lamps', () => [80, 320].map(x => line(`M${x},164 L${x},128`, '#3a3a3a', 2.4) + fill(C(x, 126, 4.5), '#ffd34d') + fill(C(x, 126, 9), '#ffd34d', { opacity: .3 })).join(''));
+  s += when('benches', () => [104, 294].map(x => fill(R(x - 12, 156, 24, 3, 1), '#b5773a') + fill(R(x - 12, 152, 24, 3, 1), '#c98a4a') + fill(R(x + 14, 152, 9, 10, 2), '#c96a3a') + fill(C(x + 18.5, 150, 4), K.leaf)).join(''));
+  s += when('lights', () => {
+    let l = line('M0,130 Q50,146 100,132 T200,132 T300,132 T400,130', K.ink, 1);
+    for (let x = 10; x < 400; x += 20) l += fill(C(x, 136 + Math.sin(x / 32) * 3, 2.4), ['#ffd34d', '#e8475f', '#8b55a6', '#5fb34a'][Math.floor(x / 20) % 4]);
+    return l;
+  });
+  s += when('arch', () => fill(R(146, 112, 8, 93), '#b5773a') + fill(R(246, 112, 8, 93), '#b5773a') + fill(R(138, 104, 124, 18, 6), K.eggplant) +
+    E('text', { x: 200, y: 117, 'text-anchor': 'middle', 'font-size': Math.min(11, 190 / Math.max(8, o.name.length)).toFixed(1), 'font-family': 'Righteous, sans-serif', fill: '#fff3dc' }, o.name) +
+    tulip(144, 100, .45, K.tulip) + tulip(256, 100, .45, K.tulip));
+  // ----- plaza -----
+  s += fill(R(0, 205, 400, 33), '#efe3cc') + [40, 120, 200, 280, 360].map(x => line(`M${x},205 L${x},238`, '#e2d4b8', 1)).join('');
+  s += when('market', () => [12, 44, 76].map((x, i) => fill(R(x, 220, 26, 14, 2), '#c98a4a') + fill(P(`M${x - 2},220 L${x + 28},220 L${x + 24},210 L${x + 2},210 Z`), i % 2 ? '#fff3dc' : ['#e8475f', '#2f8a8f', '#f6b62e'][i]) +
+    fill(C(x + 7, 219, 3), K.tomato) + fill(C(x + 15, 219, 3), '#ffd23f') + fill(C(x + 21, 219, 3), K.leaf)).join(''));
+  s += when('fountain', () => fill(EL(170, 228, 24, 7), '#a9a39b') + fill(EL(170, 226, 20, 5.5), '#7cc3d6') + fill(R(167, 210, 6, 16), '#a9a39b') + fill(EL(170, 210, 9, 3), '#a9a39b') +
+    E('path', { d: 'M170,208 Q162,198 156,222 M170,208 Q178,198 184,222', fill: 'none', stroke: '#bfe6f2', 'stroke-width': 2 }));
+  s += when('stage', () => fill(R(250, 216, 70, 16, 2), '#b5773a') + fill(P('M246,216 L324,216 L314,198 L256,198 Z'), K.eggplant) + fill(R(250, 198, 3, 18), '#7a4b3a') + fill(R(317, 198, 3, 18), '#7a4b3a') +
+    E('text', { x: 285, y: 210, 'text-anchor': 'middle', 'font-size': 9, fill: '#f6b62e' }, '♪ ♫ ♪'));
+  s += when('washrooms', () => fill(R(350, 208, 40, 26, 3), '#d6eef4') + fill(R(348, 204, 44, 6, 2), K.teal) + fill(R(356, 216, 10, 18, 1), K.teal) + fill(R(374, 216, 10, 18, 1), K.tulip) +
+    fill(C(361, 212, 2), '#fff') + fill(C(379, 212, 2), '#fff'));
+  // ----- park strip -----
+  const park = has.has('park') || o.focus === 'park';
+  s += park ? part('park', fill(R(0, 238, 400, 62), '#a8d88a') + [30, 160, 290].map(x => fill(R(x - 2, 250, 4, 14), '#7a4b3a') + fill(C(x, 246, 10), '#5fb34a')).join('') +
+      fill(R(120, 266, 26, 4, 1), '#b5773a') + fill(R(122, 270, 3, 8), '#7a4b3a') + fill(R(141, 270, 3, 8), '#7a4b3a'))
+    : fill(R(0, 238, 400, 62), '#d9cfa0') + [0, 1, 2, 3, 4, 5, 6, 7, 8].map(i => fill(R(10 + i * 46, 244, 3, 14), '#b5a27a')).join('') + line('M0,250 L400,250', '#b5a27a', 1.4);
+  s += when('splash', () => fill(EL(88, 278, 34, 12), '#bfe6f2') + [68, 82, 96, 110].map(x => E('path', { d: `M${x},280 Q${x + 4},262 ${x + 8},280`, fill: 'none', stroke: '#6cc6e0', 'stroke-width': 2 })).join('') +
+    fill(C(76, 266, 2), '#fff') + fill(C(104, 264, 2), '#fff'));
+  s += when('pool', () => fill(R(176, 258, 84, 34, 4), '#fffaf0') + fill(R(180, 262, 76, 26, 3), '#6cc6e0') + [270, 276, 282].map(y => line(`M182,${y} L254,${y}`, '#fff', 1, { 'stroke-dasharray': '4 3' })).join('') +
+    line('M252,258 L252,268 M256,258 L256,268', '#a9a39b', 1.4));
+  s += when('zoo', () => {
+    let z = [290, 310, 330, 350, 370, 390].map(x => fill(R(x, 270, 3, 18), '#b5773a')).join('') + line('M288,274 L394,274 M288,282 L394,282', '#b5773a', 1.6);
+    z += fill(EL(312, 262, 10, 6), '#fffaf0') + fill(C(322, 256, 4.5), '#d9d0c4') + line('M306,266 L306,272 M318,266 L318,272', '#7a6a5a', 1.4) + fill(P('M320,252 l2,-4 l1,4 Z'), '#7a6a5a');
+    z += fill(EL(346, 266, 6, 5), '#fffaf0') + fill(EL(343, 258, 2, 5, -10), '#fffaf0') + fill(EL(349, 258, 2, 5, 10), '#fffaf0') + fill(C(346, 263, 3), '#fffaf0');
+    z += fill(EL(374, 266, 6, 4.5), '#f6c33e') + fill(C(379, 262, 3), '#f6c33e') + fill(P('M381,262 l4,1 l-4,1 Z'), '#e8742f');
+    return z;
+  });
+  // ----- people: more buzz brings more visitors -----
+  const spots = [[58, 150], [158, 150], [238, 150], [338, 150], [24, 218], [118, 218], [208, 218], [336, 220], [60, 258], [200, 248], [256, 280], [146, 282], [18, 150], [300, 150], [380, 286], [100, 230]];
+  const who = ['tomato', 'eggplant', 'lemon', 'mushroom'];
+  for (let i = 0; i < Math.min(o.people, spots.length); i++) s += `<use href="#cust-${who[i % 4]}" x="${spots[i][0] - 8}" y="${spots[i][1] - 16}" width="16" height="16"/>`;
+  // ----- events -----
+  if (o.event === 'fireworks') {
+    s += fill(R(0, 0, 400, 110), '#2a1f44', { opacity: .55 });
+    for (const [x, y, c, d] of [[80, 40, '#f6b62e', 0], [200, 28, K.tulip, .5], [320, 46, '#6cc6e0', 1], [140, 60, '#8b55a6', 1.4], [260, 70, '#5fb34a', .8]]) {
+      let b = '';
+      for (let a = 0; a < 12; a++) { const r = a * Math.PI / 6; b += fill(C(x + Math.cos(r) * 16, y + Math.sin(r) * 16, 2.2), c); }
+      s += `<g class="fx-burst" style="animation-delay:${d}s">${b}${fill(C(x, y, 3), '#fff')}</g>`;
+    }
   }
-  return `<svg viewBox="0 0 400 240" role="img" aria-label="World map">${s}</svg>`;
+  if (o.event === 'parade') {
+    let p = '';
+    for (let i = 0; i < 6; i++) p += `<use href="#cust-${who[i % 4]}" x="${-40 - i * 34}" y="${172}" width="26" height="26"/>` + fill(C(-28 - i * 34, 160, 6), [K.tulip, '#f6b62e', '#6cc6e0'][i % 3]) + line(`M${-28 - i * 34},166 L${-28 - i * 34},176`, K.ink, .8);
+    s += `<g class="fx-parade">${p}</g>`;
+  }
+  if (o.event === 'trucks') {
+    for (const [x, c] of [[20, '#f6b62e'], [150, '#6cc6e0'], [280, K.tulip]]) s += `<g class="fx-bob">${fill(R(x, 174, 70, 24, 5), c)}${fill(R(x + 48, 178, 18, 10, 2), '#bfe0e6')}${fill(R(x + 6, 180, 34, 8, 2), '#fffaf0')}${fill(C(x + 14, 199, 5), K.ink)}${fill(C(x + 56, 199, 5), K.ink)}</g>`;
+  }
+  if (o.event === 'festival') {
+    let b = line('M0,124 Q100,140 200,124 T400,124', K.ink, 1);
+    for (let x = 8; x < 400; x += 16) b += fill(P(`M${x - 6},${128 + Math.sin(x / 40) * 4} L${x + 6},${128 + Math.sin(x / 40) * 4} L${x},${138 + Math.sin(x / 40) * 4} Z`), [K.tulip, '#f6b62e', '#6cc6e0', '#8b55a6'][(x / 16 | 0) % 4]);
+    s += b;
+    for (let i = 0; i < 24; i++) s += `<g class="fx-fall" style="animation-delay:${(i % 8) * .25}s">${fill(R(10 + i * 16, -10, 4, 6, 1), [K.tulip, '#f6b62e', '#6cc6e0', '#5fb34a'][i % 4])}</g>`;
+  }
+  if (o.event === 'tulipfest') {
+    for (let i = 0; i < 16; i++) { const x = 12 + i * 25, y = i % 2 ? 160 : 232; s += `<g class="fx-pop" style="animation-delay:${(i % 6) * .15}s">${line(`M${x},${y} L${x},${y - 8}`, K.leaf, 1.6)}${tulip(x, y - 12, .5, [K.tulip, '#8b55a6', '#f6c33e'][i % 3])}</g>`; }
+  }
+  return `<svg viewBox="0 0 400 300" role="img" aria-label="Your neighbourhood">${s}</svg>`;
 }
 
 // ---------- small interface icons (24 x 24) ----------

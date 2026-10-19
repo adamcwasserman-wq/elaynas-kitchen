@@ -9,7 +9,7 @@ export const BADGES = [
   { id: 'merger', name: 'Combo Cook', unit: 'merges', one: 'merge', stat: 'merges', tiers: [10, 75, 300] },
   { id: 'collector', name: 'Recipe Keeper', unit: 'recipes found', one: 'recipe found', stat: 'recipes', tiers: [1, 6, 16] },
   { id: 'tycoon', name: 'Tip Jar', unit: 'dollars earned', one: 'dollar earned', stat: 'earned', tiers: [100, 1000, 5000] },
-  { id: 'traveller', name: 'Food Explorer', unit: 'cities opened', one: 'city opened', stat: 'cities', tiers: [2, 3, 4] },
+  { id: 'traveller', name: 'Food Explorer', unit: 'restaurants opened', one: 'restaurant opened', stat: 'cities', tiers: [2, 3, 4] },
   { id: 'arcade', name: 'Fun Fair', unit: 'mini game wins', one: 'mini game win', stat: 'arcadeWins', tiers: [1, 10, 40] },
   { id: 'scholar', name: 'Smart Cookie', unit: 'trivia answers right', one: 'trivia answer right', stat: 'triviaRight', tiers: [1, 7, 30] },
   { id: 'vip', name: 'VIP Host', unit: 'VIPs served', one: 'VIP served', stat: 'vips', tiers: [1, 10, 40] },

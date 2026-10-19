@@ -17,7 +17,8 @@ import { UPGRADES, CHOICES } from '../data/restaurant.js';
 import { CUSTOMERS } from '../data/customers.js';
 import { VIPS, VIP_RULES } from '../data/vips.js';
 import { ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS, COMPLAINTS } from '../data/orders.js';
-import { buildSprite, use, ICONS, badgeSvg, restaurantSvg, mapSvg as drawMap } from './art.js';
+import { buildSprite, use, ICONS, badgeSvg, restaurantSvg, neighbourhoodSvg } from './art.js';
+import { HOOD, IMPROVEMENTS, AMENITIES, EVENTS, HOOD_CHOICES, RESTAURANT_BUZZ, BUZZ_LEVELS, VISITORS_PER_BUZZ } from '../data/neighbourhood.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
 import { createArcade } from './arcade.js';
 import { GEMS, TICKETS_PER_GEM } from '../data/arcade.js';
@@ -87,48 +88,195 @@ function travel(id) {
     const makes = PRODUCERS[c.starts[0]];
     celebrate({ art: restaurantPhoto(), wide: true, title: `Welcome to ${c.name}!`, name: c.restaurant,
       line: `Tap the ${makes.name.toLowerCase()} to start cooking. New foods, new recipes, new customers.` });
-  } else toast(`Back in ${c.name}!`);
+  } else toast(`Back at ${c.name}!`);
   buzz('serve');
   save();
 }
 
-// The world map: every city, where she is now, and what opens next.
-function mapPins() {
-  const pins = CITIES.map(c => {
-    const here = c.id === S.city;
-    const stars = here ? S.starLevel : S.cityData[c.id]?.starLevel;
-    return { name: c.name, x: c.map.x, y: c.map.y, state: here ? 'here' : S.openCities.includes(c.id) ? 'open' : 'locked', stars: S.openCities.includes(c.id) ? (stars || 0) : undefined };
-  });
-  return [...pins, ...COMING_SOON.map(c => ({ name: c.name, x: c.map.x, y: c.map.y, state: 'soon' }))];
+// ---------- the neighbourhood ----------
+// Her restaurants share one street. Improvements, amenities, events, restaurant stars and
+// upgrades add buzz; buzz levels pay gems and make customers pay more everywhere.
+const ALL_HOOD = [...IMPROVEMENTS, ...AMENITIES];
+function restaurantBuzz() {
+  let b = 0;
+  for (const c of CITIES) {
+    if (!S.openCities.includes(c.id)) continue;
+    const d = c.id === S.city ? S : S.cityData[c.id];
+    if (d) b += (d.starLevel || 0) * RESTAURANT_BUZZ.perStar + (d.upgrades?.length || 0) * RESTAURANT_BUZZ.perUpgrade;
+  }
+  return b;
 }
-const mapSvg = () => drawMap(mapPins());
-function openMap() {
-  $('#map-art').innerHTML = mapSvg();
-  $('#map-list').innerHTML = CITIES.map((c, i) => {
+const hoodBuzz = () => restaurantBuzz() +
+  S.hood.built.reduce((t, id) => t + (ALL_HOOD.find(x => x.id === id)?.buzz || 0), 0) +
+  Object.keys(S.hood.hosted).reduce((t, id) => t + (EVENTS.find(e => e.id === id)?.firstBuzz || 0), 0);
+const hoodLevelFor = b => BUZZ_LEVELS.reduce((l, x, i) => (b >= x.at ? i : l), 0);
+const hoodBonus = () => BUZZ_LEVELS[S.hood.level]?.bonus || 0;
+const activeEvent = () => (S.hood.event ? EVENTS.find(e => e.id === S.hood.event.id) : null);
+const eventBonus = () => activeEvent()?.bonus || 0;
+const hoodChoice = key => HOOD_CHOICES[key].find(c => c.colour === S.hood.choices[key]) || HOOD_CHOICES[key][0];
+
+function hoodScene(focus = null, event = null) {
+  const shops = CITIES.map(c => ({
+    slot: c.slot, open: S.openCities.includes(c.id), sign: c.sign, wall: c.look.wall, awning: c.look.awning,
+    stars: c.id === S.city ? S.starLevel : (S.cityData[c.id]?.starLevel || 0), here: c.id === S.city, label: 'For lease',
+  })).concat(COMING_SOON.map(c => ({ slot: c.slot, open: false, label: 'Coming soon' })));
+  return neighbourhoodSvg({
+    name: S.hood.name, built: new Set(S.hood.built), level: S.hood.level, shops, focus, event,
+    choices: { trees: hoodChoice('trees').colour, flowers: hoodChoice('flowers').colour, mural: hoodChoice('mural').name },
+    people: 2 + Math.floor(hoodBuzz() / 90),
+  });
+}
+
+// Reaching a new buzz level is a big moment.
+function checkHood() {
+  const target = hoodLevelFor(hoodBuzz());
+  while (S.hood.level < target) {
+    const L = BUZZ_LEVELS[++S.hood.level];
+    S.gems += L.gems;
+    const opens = [...AMENITIES, ...EVENTS].filter(x => x.needs === S.hood.level).map(x => x.name);
+    celebrate({
+      art: hoodScene(), wide: true, title: `${S.hood.name} is a ${L.name}!`, name: `Customers pay ${Math.round(L.bonus * 100)}% more everywhere`,
+      line: opens.length ? `Now you can build or host: ${opens.join(', ')}.` : 'People come from all over to visit.', gems: L.gems,
+    });
+  }
+}
+
+let hoodFocus = null;
+function hoodRow(x, kind) {
+  const built = S.hood.built.includes(x.id), locked = x.needs && S.hood.level < x.needs;
+  const can = !built && !locked && S.dollars >= x.cost;
+  const right = built ? `<span class="upg-done">${ICONS.check}</span>`
+    : locked ? '<span class="upg-cost">Locked</span>'
+    : `<button class="btn primary upg-buy" data-hood-build="${x.id}"${can ? '' : ' disabled'}>$${x.cost.toLocaleString()}</button>`;
+  const note = locked ? `Opens when ${S.hood.name} is a ${BUZZ_LEVELS[x.needs].name}.` : `${x.about} +${x.buzz} buzz.`;
+  const swatches = built && x.choice ? `<div class="swatches">${HOOD_CHOICES[x.choice].map(c =>
+    `<button class="swatch${hoodChoice(x.choice).colour === c.colour ? ' on' : ''}" data-hood-choice="${x.choice}" data-colour="${c.colour}" style="background:${c.colour}" aria-label="${c.name}"></button>`).join('')}</div>` : '';
+  return `<li class="upg${built ? ' done' : can ? ' next' : locked ? ' later' : ''}${hoodFocus === x.id ? ' focused' : ''}" data-hood-focus="${x.id}">` +
+    `<div class="upg-text"><b>${x.name}</b><span>${note}</span>${swatches}</div>${right}</li>`;
+}
+
+function renderHood() {
+  const b = hoodBuzz(), L = BUZZ_LEVELS[S.hood.level], next = BUZZ_LEVELS[S.hood.level + 1];
+  $('#hood-name').value = S.hood.name;
+  $('#hood-art').innerHTML = hoodScene(hoodFocus, S.hood.event?.id || null);
+  const f = ALL_HOOD.find(x => x.id === hoodFocus);
+  $('#hood-caption').textContent = !f ? 'Tap anything below to see where it goes. Tap a shop to visit it.'
+    : S.hood.built.includes(f.id) ? `${f.name}, outlined in purple.` : `Preview: ${f.name}, outlined in purple.`;
+  const pct = next ? Math.min(100, Math.round((b - L.at) / (next.at - L.at) * 100)) : 100;
+  $('#hood-buzz').innerHTML = `<div class="buzz-top"><b>${L.name}</b><span>${(b * VISITORS_PER_BUZZ).toLocaleString()} visitors a day</span></div>` +
+    `<div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>` +
+    `<span class="muted small">${b} buzz${next ? ` · ${next.at - b} more for ${next.name}` : ' · the most famous food district in town!'}` +
+    `${L.bonus ? ` · customers pay ${Math.round(L.bonus * 100)}% more` : ''}</span>` +
+    (activeEvent() ? `<span class="event-on">${activeEvent().name}: ${S.hood.event.left} more customers pay ${Math.round(activeEvent().bonus * 100)}% more!</span>` : '');
+  $('#hood-shops').innerHTML = CITIES.map((c, i) => {
     const here = c.id === S.city, open = S.openCities.includes(c.id);
     const lv = here ? S.starLevel : (S.cityData[c.id]?.starLevel || 0);
     const prev = CITIES[i - 1];
     const right = here ? '<span class="map-here">You\'re here</span>'
-      : open ? `<button class="btn primary" data-travel="${c.id}">Travel</button>` : '<span class="upg-cost">Locked</span>';
-    const note = open ? `${c.restaurant} · ${'★'.repeat(lv)}${'☆'.repeat(3 - lv)}` : `Opens when ${prev.name} reaches ${prev.opensNextAt} stars.`;
+      : open ? `<button class="btn primary" data-travel="${c.id}">Go there</button>` : '<span class="upg-cost">For lease</span>';
+    const note = open ? `${c.cuisine} · ${'★'.repeat(lv)}${'☆'.repeat(3 - lv)}` : `Opens when ${prev.name} reaches ${prev.opensNextAt} stars.`;
     return `<li class="${here ? 'upg next' : open ? 'upg' : 'upg later'}"><div class="upg-text"><b>${c.name}</b><span>${note}</span></div>${right}</li>`;
-  }).join('') + COMING_SOON.map(c => `<li class="upg later"><div class="upg-text"><b>${c.name}</b><span>Coming in a later update.</span></div></li>`).join('');
-  openSheet('#map');
+  }).join('') + COMING_SOON.map(c => `<li class="upg later"><div class="upg-text"><b>${c.name}</b><span>${c.cuisine} · coming in a later update.</span></div></li>`).join('');
+  $('#hood-improve').innerHTML = IMPROVEMENTS.map(x => hoodRow(x)).join('');
+  $('#hood-amen').innerHTML = AMENITIES.map(x => hoodRow(x)).join('');
+  $('#hood-events').innerHTML = EVENTS.map(e => {
+    const locked = S.hood.level < e.needs, on = S.hood.event?.id === e.id, busy = !!S.hood.event;
+    const can = !locked && !busy && S.dollars >= e.cost;
+    const right = on ? '<span class="map-here">On now!</span>' : locked ? '<span class="upg-cost">Locked</span>'
+      : `<button class="btn primary upg-buy" data-hood-event="${e.id}"${can ? '' : ' disabled'}>$${e.cost.toLocaleString()}</button>`;
+    const perk = `The next ${e.orders} customers pay ${Math.round(e.bonus * 100)}% more${e.stars ? ` and give ${e.stars} extra star${e.stars > 1 ? 's' : ''}` : ''}.`;
+    const note = locked ? `Opens when ${S.hood.name} is a ${BUZZ_LEVELS[e.needs].name}.` : `${e.about} ${perk}${S.hood.hosted[e.id] ? '' : ` First time: +${e.firstBuzz} buzz.`}`;
+    return `<li class="upg${on ? ' next' : locked ? ' later' : ''}"><div class="upg-text"><b>${e.name}</b><span>${note}</span></div>${right}</li>`;
+  }).join('');
+}
+function openHood() { hoodFocus = null; renderHood(); openSheet('#hood'); }
+
+function buildHood(id) {
+  const x = ALL_HOOD.find(i => i.id === id);
+  if (!x || S.hood.built.includes(id) || (x.needs && S.hood.level < x.needs) || S.dollars < x.cost) return;
+  S.dollars -= x.cost;
+  S.hood.built.push(id);
+  hoodFocus = id;
+  buzz('serve');
+  renderHood();
+  celebrate({ art: hoodScene(id), wide: true, title: `${x.name}!`, name: `+${x.buzz} buzz for ${S.hood.name}`,
+    line: x.choice ? `${x.about} Pick a style below.` : x.about });
+  checkHood();
+  renderHeader();
+  save();
 }
 
-// Opening the next city on the map.
+function hostEvent(id) {
+  const e = EVENTS.find(x => x.id === id);
+  if (!e || S.hood.event || S.hood.level < e.needs || S.dollars < e.cost) return;
+  S.dollars -= e.cost;
+  S.hood.event = { id, left: e.orders };
+  const first = !S.hood.hosted[id];
+  S.hood.hosted[id] = (S.hood.hosted[id] || 0) + 1;
+  buzz('serve');
+  closeSheets();
+  celebrate({ art: hoodScene(null, id), wide: true, title: `${e.name}!`, name: `The next ${e.orders} customers pay ${Math.round(e.bonus * 100)}% more`,
+    line: `${e.about}${e.stars ? ` Each one also gives ${e.stars} extra star${e.stars > 1 ? 's' : ''}.` : ''}${first ? ` +${e.firstBuzz} buzz.` : ''}` });
+  checkHood();
+  renderAll();
+  save();
+}
+
+// Each customer served during an event uses up one of its turns.
+function eventTurn() {
+  const e = activeEvent();
+  if (!e) return 0;
+  if (--S.hood.event.left <= 0) {
+    S.hood.event = null;
+    setTimeout(() => toast(`That's a wrap on the ${e.name.toLowerCase()}. Host another any time!`), 600);
+  }
+  return e.stars;
+}
+
+$('#hood').addEventListener('click', e => {
+  // Tapping a storefront in the picture walks her over to that restaurant.
+  const art = e.target.closest('#hood-art');
+  if (art) {
+    const r = art.getBoundingClientRect(), x = (e.clientX - r.left) / r.width * 400, y = (e.clientY - r.top) / r.height * 300;
+    const c = y > 30 && y < 152 ? CITIES.find(cc => cc.slot === Math.floor((x - 4) / 80) && S.openCities.includes(cc.id)) : null;
+    if (c && c.id !== S.city) travel(c.id);
+    else if (c) closeSheets();
+    return;
+  }
+  const sw = e.target.closest('[data-hood-choice]');
+  if (sw) {
+    S.hood.choices[sw.dataset.hoodChoice] = sw.dataset.colour;
+    hoodFocus = IMPROVEMENTS.find(x => x.choice === sw.dataset.hoodChoice)?.id || null;
+    buzz('tap'); renderHood(); save(); return;
+  }
+  const b = e.target.closest('button');
+  if (b?.dataset.hoodBuild) { buildHood(b.dataset.hoodBuild); return; }
+  if (b?.dataset.hoodEvent) { hostEvent(b.dataset.hoodEvent); return; }
+  if (b) return;
+  const li = e.target.closest('[data-hood-focus]');
+  if (li) { hoodFocus = hoodFocus === li.dataset.hoodFocus ? null : li.dataset.hoodFocus; buzz('tap'); renderHood(); }
+});
+$('#hood-name').addEventListener('change', e => {
+  S.hood.name = e.target.value.trim().slice(0, HOOD.nameMax) || HOOD.defaultName;
+  renderHood(); save();
+  toast(`Welcome to ${S.hood.name}!`);
+});
+
+// A new restaurant opens on her street.
 function openNextCity() {
   const i = CITIES.findIndex(c => c.id === S.city), next = CITIES[i + 1];
   if (!next || S.openCities.includes(next.id)) return;
   S.openCities.push(next.id);
-  celebrate({ art: mapSvg(), wide: true, title: `${next.name} is open!`, name: 'A new city on your map',
-    line: 'Tap your city at the top of the screen to see the map and travel there. Your progress here is kept.' });
+  celebrate({ art: hoodScene(), wide: true, title: `${next.name} opens on ${S.hood.name}!`, name: `A new ${next.cuisine.toLowerCase()} restaurant`,
+    line: `Tap your restaurant's name at the top to see your neighbourhood, then walk over. Your progress here is kept.` });
   checkBadges();
+  checkHood();
 }
 
 function newGame() {
   S = {
     v: SAVE_VERSION, dollars: 0, city: 'toronto', openCities: ['toronto'], cityData: {},
+    hood: { name: HOOD.defaultName, built: [], choices: {}, level: 0, event: null, hosted: {} },
     charges: CONFIG.charges.start, chargesAt: Date.now(), freeRefillAt: 0,
     tutorial: 0,
     seen: { 'bakery:1': true }, recipes: {}, badges: {},
@@ -189,6 +337,7 @@ function migrate(s) {
   // Cities arrived in phase 4: an older save is in Toronto.
   s.city ??= 'toronto';
   s.openCities ??= ['toronto'];
+  s.hood ??= { name: HOOD.defaultName, built: [], choices: {}, level: 0, event: null, hosted: {} };
   s.cityData ??= {};
   s.choices ??= {};
   s.served ??= 0;
@@ -450,7 +599,7 @@ function fillOrders() {
 }
 const wantName = w => w.dish ? recipeOf(w.dish).name : nameOf(w);
 const orderName = o => o.likes ? `Likes ${o.likes.map(nameOf).join(', ')}` : o.wants.map(wantName).join(' + ');
-const payFor = o => Math.round(o.reward * (1 + perks().orderBonus));
+const payFor = o => Math.round(o.reward * (1 + perks().orderBonus + hoodBonus() + eventBonus()));
 // The speed tip: full when the order is new, nothing at twice its fast time.
 const tipShare = o => Math.max(0, 1 - o.age / (o.fast * 2000));
 // Zip and the critic don't tip: Zip's pay is already doubled, and the critic's reward is his review.
@@ -717,7 +866,7 @@ function serve(oi) {
   const speedy = !v && isSpeedy(order);
   const tip = tipFor(order);
   const pay = payFor(order) + tip;
-  const stars = starsFor(order) + (speedy ? ORDER_STARS.speedy : 0);
+  const stars = starsFor(order) + (speedy ? ORDER_STARS.speedy : 0) + eventTurn();
   flyAway(taken, $(`.order[data-o="${oi}"]`));
   for (const i of taken) S.board[i] = null;
   if (taken.includes(sel)) sel = -1;
@@ -781,6 +930,7 @@ function addStars(n, speedy) {
       reward: r.dollars, gems: r.gems,
     });
     S.complaints = 0; // a new star is a fresh round: hearts refill
+    setTimeout(checkHood, 50);
     if (S.starLevel >= CITY.opensNextAt) openNextCity();
   }
 }
@@ -797,7 +947,7 @@ function skipOrder(oi) {
   S.stats.earned += pay;
   S.served++;
   for (const w of o.wants) if (w.dish) learnRecipe(recipeOf(w.dish));
-  addStars(o.stars, false);
+  addStars(o.stars + eventTurn(), false);
   orderPick = null;
   buzz('serve');
   floatText(`+$${pay}`, $('#money'));
@@ -849,6 +999,7 @@ function buyUpgrade(id) {
   // Stay on the restaurant, with the new part outlined in purple.
   restFocus = u.id;
   renderRestaurant();
+  setTimeout(checkHood, 50);
   celebrate({ art: restaurantPhoto(u.id), wide: true, title: 'Restaurant upgrade!', name: u.name,
     line: u.choice ? `${u.perk} Pick a colour below.` : u.perk });
   renderHeader();
@@ -1425,7 +1576,7 @@ document.addEventListener('click', e => {
   else if (t.dataset.upg !== undefined) buyUpgrade(t.dataset.upg);
   else if (t.id === 'hint-btn') hint(true);
   else if (t.id === 'charges') openRefill();
-  else if (t.id === 'brand') openMap();
+  else if (t.id === 'brand') openHood();
   else if (t.id === 'nav-restaurant') openRestaurant();
   else if (t.dataset.travel !== undefined) travel(t.dataset.travel);
   else if (t.id === 'nav-recipes') openRecipes();
@@ -1451,7 +1602,7 @@ document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e =
 // The restaurant
 let restFocus = null;
 function renderRestaurant() {
-  $('#rest-title').textContent = `${city().restaurant}, ${city().name}`;
+  $('#rest-title').textContent = `${city().name} · ${city().cuisine}`;
   $('#rest-art').innerHTML = restaurantPhoto(restFocus);
   const fu = UPGRADES.find(u => u.id === restFocus);
   $('#rest-caption').textContent = !fu ? 'Tap an upgrade to see where it goes.'
@@ -1504,7 +1655,7 @@ function openRecipes() {
         const known = !!S.recipes[r.id];
         return `<li class="recipe${known ? '' : ' unknown'}"><div class="recipe-art fam-dish">${use(`art-${r.id}`)}</div>` +
           `<div class="recipe-text"><b>${known ? r.name : 'Not found yet'}</b>${r.hers ? '<span class="hers">From your recipe box</span>' : ''}` +
-          `<span>${known ? `${nameOf(r.a)} + ${nameOf(r.b)}` : open ? 'Mix two different foods to find it.' : `Cook in ${c.name} to find it.`}</span></div></li>`;
+          `<span>${known ? `${nameOf(r.a)} + ${nameOf(r.b)}` : open ? 'Mix two different foods to find it.' : `Cook at ${c.name} to find it.`}</span></div></li>`;
       }).join('');
   }).join('');
   openSheet('#recipes');
@@ -1720,6 +1871,7 @@ function boot() {
   fillOrders();
   // An older save that already reached 2 stars in Toronto opens Mexico City now.
   if (S.starLevel >= city().opensNextAt) openNextCity();
+  checkHood();
   checkBadges();
   renderAll();
 

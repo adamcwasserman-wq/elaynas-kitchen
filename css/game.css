@@ -532,3 +532,30 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .tipbar.review:not(.urgent) i { background: var(--gold); }
 @keyframes rushpulse { 50% { box-shadow: 0 0 0 2px var(--tomato); } }
 @media (prefers-reduced-motion: reduce) { .tipbar.rush.late { animation: none; } }
+
+/* ---------- the neighbourhood ---------- */
+.hood-name { display: flex; align-items: center; gap: 6px; }
+.hood-name input {
+  flex: 1; min-width: 0; border: 0; background: transparent; font-family: var(--display); font-size: 1.5rem;
+  color: var(--eggplant); padding: 2px 0; border-bottom: 2px dashed transparent;
+}
+.hood-name input:focus { outline: none; border-bottom-color: var(--eggplant); }
+.hood-name .pencil { color: var(--muted); font-size: 1.1rem; }
+.hood-art { background: #cfeaf2; }
+.buzz-card { background: var(--panel); border-radius: 14px; padding: 10px 12px; display: flex; flex-direction: column; gap: 6px; }
+.buzz-top { display: flex; justify-content: space-between; align-items: baseline; gap: 8px; }
+.buzz-top b { font-family: var(--display); font-weight: 400; font-size: 1.15rem; color: var(--eggplant); }
+.buzz-top span { font-size: .8rem; font-weight: 700; color: var(--muted); }
+.event-on { font-weight: 700; color: #e8475f; font-size: .85rem; }
+/* event animations over the street */
+.fx-burst { transform-box: fill-box; transform-origin: center; animation: burst 1.6s ease-out infinite; }
+@keyframes burst { 0% { transform: scale(.1); opacity: 1; } 70% { opacity: 1; } 100% { transform: scale(1.6); opacity: 0; } }
+.fx-parade { animation: parade 7s linear infinite; }
+@keyframes parade { from { transform: translateX(0); } to { transform: translateX(640px); } }
+.fx-bob { transform-box: fill-box; animation: bob 1.2s ease-in-out infinite; }
+@keyframes bob { 50% { transform: translateY(-2px); } }
+.fx-fall { animation: fall 2.4s linear infinite; }
+@keyframes fall { from { transform: translateY(0) rotate(0); } to { transform: translateY(260px) rotate(200deg); } }
+.fx-pop { transform-box: fill-box; transform-origin: bottom center; animation: pop 1.4s ease-out infinite alternate; }
+@keyframes pop { from { transform: scale(0); } to { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .fx-burst, .fx-parade, .fx-bob, .fx-fall, .fx-pop { animation: none; } .fx-parade { transform: translateX(300px); } }
