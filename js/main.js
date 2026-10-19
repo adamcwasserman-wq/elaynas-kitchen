@@ -17,6 +17,7 @@ import { UPGRADES, LEVEL_NEEDS, themeFor } from '../data/restaurant.js';
 import { CUSTOMERS } from '../data/customers.js';
 import { VIPS, VIP_RULES } from '../data/vips.js';
 import { ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS, COMPLAINTS, MAX_WANTS } from '../data/orders.js';
+import { MOODS, DEFAULT_MOOD } from '../data/moods.js';
 import { buildSprite, use, ICONS, badgeSvg, restaurantSvg } from './art.js';
 import { islandSvg, islandGeom, isoPoint, isoTile, isLand, fromCentre } from './island.js';
 import { ISLAND, PIECES, ISLAND_DECOR } from '../data/island.js';
@@ -650,8 +651,9 @@ function migrate(s) {
     if (!o.wants || o.wants.length <= MAX_WANTS) continue;
     o.reward = Math.round(o.reward * MAX_WANTS / o.wants.length);
     o.wants = o.wants.slice(0, MAX_WANTS);
-    o.stars = o.wants.reduce((t, w) => t + wantStars(w), 0);
   }
+  // Stars now grow with how big the foods are: re-count the orders already waiting.
+  for (const d of [s, ...Object.values(s.cityData)]) for (const o of d.orders || []) if (o.wants?.length && !o.likes) o.stars = o.wants.reduce((t, w) => t + wantStars(w), 0);
   // Money split in two: each restaurant has its own tip jar, and the neighbourhood has Island dollars.
   // Half of what she had goes to the fund; the rest stays in the tip jar where she is.
   if (s.hood.bia === undefined) {
@@ -710,7 +712,9 @@ function perks() {
   return p;
 }
 // Hearts: complaints allowed before the round starts over (the bench adds more).
-const maxHearts = () => COMPLAINTS.max + perks().hearts;
+const maxHearts = () => Math.max(1, COMPLAINTS.max + perks().hearts + (mood().hearts || 0));
+// Today's mood (Settings): how busy the restaurants feel. See data/moods.js.
+const mood = () => MOODS.find(m => m.id === S.settings.mood) || MOODS.find(m => m.id === DEFAULT_MOOD);
 // Each upgrade has three levels, bought one at a time, in any order.
 const upLevel = id => S.upLv[id] || 0;
 const nextLevel = u => u.levels[upLevel(u.id)];
@@ -753,10 +757,24 @@ function availableChains() {
 
 // How hard customers are right now: set by the stars the restaurant has earned.
 const cityStars = () => S.cityStars || 0;
-const currentStage = () => ORDER_STAGES.find(st => cityStars() < st.untilStars) || ORDER_STAGES[ORDER_STAGES.length - 1];
+// The stage, adjusted for today's mood (fewer customers, smaller foods, more or fewer things per order).
+function currentStage() {
+  const st = ORDER_STAGES.find(x => cityStars() < x.untilStars) || ORDER_STAGES[ORDER_STAGES.length - 1], m = mood();
+  const shift = m.tierShift || 0, lo = Math.max(1, st.plainTiers[0] + shift), hi = Math.max(lo, st.plainTiers[1] + shift);
+  const most = Math.min(MAX_WANTS, m.wantsMax || MAX_WANTS, st.wants[1]);
+  const least = Math.min(most, Math.max(st.wants[0], m.wantsMin || 0));
+  return { ...st, plainTiers: [lo, hi], wants: [least, most], customers: Math.min(st.customers, m.customersMax || st.customers) };
+}
 
 // Stars and price for one thing an order asks for.
-const wantStars = w => w.dish ? ORDER_STARS[recipeLevel(recipeOf(w.dish))] : ORDER_STARS.plain;
+const plainStars = tier => ORDER_STARS.plain[Math.min(tier, ORDER_STARS.plain.length) - 1];
+const wantStars = w => {
+  if (!w.dish) return plainStars(w.tier);
+  const r = recipeOf(w.dish);
+  return plainStars(Math.max(r.a.tier, r.b.tier)) + ORDER_STARS.dish + (Math.min(r.a.tier, r.b.tier) >= 4 ? ORDER_STARS.bothBig : 0);
+};
+// Busier moods turn stars up: a share of the stars on top, with the leftover fraction as a chance of one more.
+const moodStars = n => { const x = n * (mood().extraStars || 0); return n + Math.floor(x) + (Math.random() < x % 1 ? 1 : 0); };
 const wantValue = w => w.dish ? recipeOf(w.dish).value : ORDER_VALUE[w.tier - 1];
 
 // An order asks for one or more things ("wants"). Price, stars and the speed window are fixed when it arrives.
@@ -778,7 +796,7 @@ function pickWant(stage, avoid) {
   if (levels.length && Math.random() < stage.dishChance) {
     const level = levels[randInt(0, levels.length - 1)];
     const dishes = RECIPES.filter(r => recipeCity(r) === S.city && recipeLevel(r) === level && chains.includes(r.a.chain) && chains.includes(r.b.chain) &&
-      Math.max(r.a.tier, r.b.tier) <= stage.plainTiers[1] + 1 && !avoid.has(`dish:${r.id}`));
+      Math.max(r.a.tier, r.b.tier) <= stage.plainTiers[1] && !avoid.has(`dish:${r.id}`));
     if (dishes.length) return { dish: dishes[randInt(0, dishes.length - 1)].id };
   }
   const chain = chains[randInt(0, chains.length - 1)];
@@ -794,7 +812,7 @@ function makeOrder() {
     wants = firsts[S.orderSeq].map(w => ({ ...w }));
   } else {
     const stage = currentStage();
-    const count = Math.min(MAX_WANTS, randInt(...stage.wants));
+    const count = randInt(...stage.wants);
     const avoid = new Set();
     wants = [];
     for (let k = 0; k < count; k++) {
@@ -819,7 +837,7 @@ const pick = list => list[randInt(0, list.length - 1)];
 function dishChoices(stage, opts = {}) {
   const chains = availableChains();
   return RECIPES.filter(r => recipeCity(r) === S.city && chains.includes(r.a.chain) && chains.includes(r.b.chain) &&
-    Math.max(r.a.tier, r.b.tier) <= stage.plainTiers[1] + 1 && (!opts.hers || r.hers) && (!opts.level || recipeLevel(r) === opts.level));
+    Math.max(r.a.tier, r.b.tier) <= stage.plainTiers[1] && (!opts.hers || r.hers) && (!opts.level || recipeLevel(r) === opts.level));
 }
 
 // Now and then a new customer is a VIP. Only one waits at a time, with a few regulars in between.
@@ -828,7 +846,7 @@ function maybeVip() {
   if (!called && (cityStars() < VIP_RULES.afterStars || (S.sinceVip || 0) < VIP_RULES.gap)) return null;
   if (S.orders.some(o => o.vip) || (!called && Math.random() >= VIP_RULES.chance + perks().vipChance)) return null;
   const stage = currentStage();
-  const made = VIPS.map(v => [v, vipOrder(v, stage)]).filter(([, o]) => o);
+  const made = VIPS.filter(v => !(mood().calm && v.kind === 'rush')).map(v => [v, vipOrder(v, stage)]).filter(([, o]) => o);
   if (!made.length) return null;
   // She meets every VIP once before any of them comes back.
   const fresh = made.filter(([v]) => !S.vipSeen[v.id]);
@@ -919,7 +937,7 @@ function vipLeaves(oi) {
   const lost = Math.min(v.lose, Math.max(0, cityStars() - floor));
   S.cityStars = cityStars() - lost;
   if (orderPick?.o === oi) orderPick = null;
-  S.orders[oi] = makeOrder();
+  nextCustomer(oi);
   buzz('nope');
   renderAll();
   toast(`${v.gone}${lost ? ` You lost ${lost} stars.` : ''}`, { icon: `cust-${v.id}`, ms: 4000 });
@@ -937,6 +955,12 @@ function fillOrders() {
   while (S.orders.length < want) { S.orders.push(makeOrder()); added = true; }
   return added;
 }
+// A customer leaves (served, or gave up): someone new steps up, unless there are more customers
+// waiting than there should be (after switching to a calmer mood), and then the spot just closes.
+function nextCustomer(oi) {
+  if (S.orders.length > currentStage().customers) { S.orders.splice(oi, 1); orderPick = null; }
+  else S.orders[oi] = makeOrder();
+}
 const wantName = w => w.dish ? recipeOf(w.dish).name : nameOf(w);
 const orderName = o => o.likes ? `Likes ${o.likes.map(nameOf).join(', ')}` : o.wants.map(wantName).join(' + ');
 // How much of an order's price is dishes (dishes pay more with the window display upgrade).
@@ -945,7 +969,7 @@ const dishShare = o => {
   const all = o.wants.reduce((t, w) => t + wantValue(w), 0);
   return all ? o.wants.filter(w => w.dish).reduce((t, w) => t + wantValue(w), 0) / all : 0;
 };
-const payFor = o => { const p = perks(); return Math.round(o.reward * (1 + p.orderBonus + p.dishBonus * dishShare(o) + hoodBonus() + eventBonus() + boostPay())); };
+const payFor = o => { const p = perks(); return Math.round(o.reward * (1 + p.orderBonus + p.dishBonus * dishShare(o) + hoodBonus() + eventBonus() + boostPay() + (mood().pay || 0))); };
 // The speed tip: full when the order is new, nothing at twice its fast time.
 const tipShare = o => Math.max(0, 1 - o.age / (o.fast * 2000));
 // Zip and the critic don't tip: Zip's pay is already doubled, and the critic's reward is his review.
@@ -961,7 +985,7 @@ const barClass = o => {
 const isSpeedy = o => o.age <= o.fast * 1000;
 const tipClass = o => { const t = tipShare(o); return t > 0.6 ? 'fresh' : t > 0.25 ? 'waiting' : t > 0.1 ? 'late' : 'urgent'; };
 // The first few teaching orders in a city never complain.
-const canComplain = o => (o.id || 0) > city().firstOrders.length;
+const canComplain = o => mood().complaints !== false && (o.id || 0) > city().firstOrders.length;
 
 // A customer whose bar ran out complains and leaves; a new one takes their place.
 function complain(oi) {
@@ -969,7 +993,7 @@ function complain(oi) {
   const cust = { id: o.customer, name: custName(o) };
   S.complaints = (S.complaints || 0) + 1;
   if (orderPick?.o === oi) orderPick = null;
-  S.orders[oi] = makeOrder();
+  nextCustomer(oi);
   buzz('nope');
   if (S.complaints >= maxHearts()) { failRound(cust); return; }
   const left = maxHearts() - S.complaints;
@@ -1225,7 +1249,7 @@ function serve(oi) {
   const pay = payFor(order) + tip;
   const p = perks();
   const luckyStar = Math.random() < p.starChance ? 1 : 0;
-  const stars = starsFor(order) + (speedy ? ORDER_STARS.speedy : 0) + eventTurn() + luckyStar + (boostOf()?.boost.stars || 0);
+  const stars = moodStars(starsFor(order) + (speedy ? ORDER_STARS.speedy : 0)) + eventTurn() + luckyStar + (boostOf()?.boost.stars || 0);
   flyAway(taken, $(`.order[data-o="${oi}"]`));
   for (const i of taken) S.board[i] = null;
   if (taken.includes(sel)) sel = -1;
@@ -1240,7 +1264,7 @@ function serve(oi) {
   if (v) vipThanks(order, v);
   upgradeGifts(p);
   if (boostOf()?.boost.left && !boostOf().boost.vip) useBoost();
-  S.orders[oi] = makeOrder();
+  nextCustomer(oi);
   if (fillOrders() && !v) toast('Another customer just walked in!');
   unlockProducers();
   renderAll();
@@ -1322,12 +1346,12 @@ function skipOrder(oi) {
   S.served++;
   visitorsSpend(pay);
   for (const w of o.wants) if (w.dish) learnRecipe(recipeOf(w.dish));
-  addStars(o.stars + eventTurn() + (boostOf()?.boost.stars || 0), false);
+  addStars(moodStars(o.stars) + eventTurn() + (boostOf()?.boost.stars || 0), false);
   if (boostOf()?.boost.left && !boostOf().boost.vip) useBoost();
   orderPick = null;
   buzz('serve');
   floatText(`+$${pay}`, $('#money'));
-  S.orders[oi] = makeOrder();
+  nextCustomer(oi);
   fillOrders();
   unlockProducers();
   advanceTutorial('serve');
@@ -1702,7 +1726,8 @@ function renderHeader() {
   const CITY = city(), goals = CITY.starGoals, lv = S.starLevel, goal = goals[Math.min(lv, goals.length - 1)];
   const prev = lv === 0 ? 0 : goals[lv - 1];
   $('#brand-city').innerHTML = `${CITY.name} <span class="brand-stars">${'★'.repeat(lv)}${'☆'.repeat(goals.length - lv)}</span>`;
-  const hearts = '♥'.repeat(Math.max(0, maxHearts() - (S.complaints || 0))) + '♡'.repeat(Math.min(maxHearts(), S.complaints || 0));
+  // In the Cozy mood nobody ever leaves, so there are no hearts to show.
+  const hearts = mood().complaints === false ? '' : '♥'.repeat(Math.max(0, maxHearts() - (S.complaints || 0))) + '♡'.repeat(Math.min(maxHearts(), S.complaints || 0));
   $('#brand-next').innerHTML = `${lv >= goals.length ? `${cityStars()} stars. You won ${CITY.name}!` : `${cityStars()} of ${goal} stars`} <span class="hearts" title="Complaints left before the round starts over">${hearts}</span>`;
   $('#brand-fill').style.width = `${lv >= goals.length ? 100 : Math.min(100, Math.round((cityStars() - prev) / (goal - prev) * 100))}%`;
   $('#brand-dot').hidden = !hoodNews();
@@ -2236,6 +2261,7 @@ $('#rf-free').addEventListener('click', () => {
 function openSettings() {
   $('#set-vibrate').checked = S.settings.vibrate;
   $('#set-nudge').checked = !!S.settings.nudge;
+  renderMoods();
   $('#bk-text').value = '';
   openSheet('#settings');
 }
@@ -2245,6 +2271,23 @@ $('#set-vibrate').addEventListener('change', e => {
   save();
 });
 $('#set-nudge').addEventListener('change', e => { S.settings.nudge = e.target.checked; save(); });
+// Today's mood: five rows, "Just right" in the middle.
+function renderMoods() {
+  const now = mood().id;
+  $('#set-mood').innerHTML = MOODS.map((m, i) => `<button class="mood${m.id === now ? ' on' : ''}" role="radio" aria-checked="${m.id === now}" data-mood="${m.id}">` +
+    `<span class="mood-meter" aria-hidden="true">${MOODS.map((_, j) => `<span style="height:${6 + j * 3}px;background:${j <= i ? '#e8475f' : '#e6d3bd'}"></span>`).join('')}</span>` +
+    `<span class="mood-text"><b>${m.name}</b><span>${m.about}</span></span></button>`).join('');
+}
+$('#set-mood').addEventListener('click', e => {
+  const b = e.target.closest('[data-mood]');
+  if (!b || b.dataset.mood === mood().id) return;
+  S.settings.mood = b.dataset.mood;
+  buzz('tap');
+  renderMoods();
+  renderAll();
+  save();
+  toast(`Today's mood: ${mood().name}.`);
+});
 $('#bk-copy').addEventListener('click', async () => {
   const code = toCode(S);
   try {
@@ -2380,7 +2423,7 @@ function boot() {
       // Customers wait: the bar drops and the amount they'll pay counts down toward the normal price.
       // When a bar runs out, that customer complains and leaves.
       // Patient customers (the awning and bench upgrades) wait longer: their clock runs slower.
-      const step = Math.round(1000 / (1 + perks().patience));
+      const step = Math.round(1000 / ((1 + perks().patience) * mood().patience));
       const done = S.orders.findIndex(o => o.age + step >= o.fast * 2000 && canComplain(o));
       if (done >= 0) { complain(done); return; }
       S.orders.forEach((o, oi) => {

@@ -16,6 +16,7 @@ export const FIRST_ORDERS = [
 // untilStars: this stage lasts until the restaurant has this many stars.
 // plainTiers: levels a plain item can be. dishChance: how often an order is a dish.
 // dishLevels: which recipes can be asked for ("simple" uses foods up to level 3, "advanced" goes higher).
+// A dish is only asked for if its foods are no higher than the stage's top plain level.
 // wants: how many things one order asks for (never more than MAX_WANTS). fastSeconds: serve within this time for the speed bonus.
 // customers: how many customers are waiting at once (it starts with one and grows).
 export const ORDER_STAGES = [
@@ -28,8 +29,12 @@ export const ORDER_STAGES = [
 // No customer ever asks for more than this many things (VIPs included). More got too hard to juggle.
 export const MAX_WANTS = 2;
 
-// Stars each part of an order earns, and the speed bonus.
-export const ORDER_STARS = { plain: 1, simple: 2, advanced: 3, speedy: 1 };
+// Stars each thing in an order earns. Bigger foods take more work, so they earn more:
+//   plain   a food by its level (level 1 is the first number)
+//   dish    a dish earns the stars of its bigger food, plus this for the mixing
+//   bothBig plus this when both of a dish's foods are level 4 or higher
+//   speedy  the speed bonus for the whole order
+export const ORDER_STARS = { plain: [1, 1, 2, 2, 3, 4], dish: 1, bothBig: 1, speedy: 1 };
 
 // Speed tip: served right away, a customer adds this share of the bill as a tip (1 = pays double).
 // The amount on the order card counts down as the customer waits, and the tip is gone at twice

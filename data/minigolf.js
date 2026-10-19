@@ -8,7 +8,7 @@ export const MINIGOLF = {
   maxOver: 4,              // after par + this many shots the ball is picked up (no stars, try again)
   waterPenalty: 1,         // extra shots for a splash
   // Stars by shots: under par = 3, par = 2, up to par + 2 = 1, more = 0.
-  gems: [0, 1, 2, 3],      // gems for 0, 1, 2 and 3 stars (times "gemsTimes")
+  gems: [0, 0, 1, 2],      // gems for 0, 1, 2 and 3 stars (times "gemsTimes"): par earns one, under par two
   holeInOneGems: 2,        // a hole in one adds this many gems
   modes: {
     // guide: how far the aiming dots reach (0 = a short arrow only)

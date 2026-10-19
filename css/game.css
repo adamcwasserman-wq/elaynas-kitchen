@@ -674,3 +674,13 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .isl-beam { animation: isl-beam 5s ease-in-out infinite alternate; }
 @keyframes isl-beam { from { transform: rotate(-25deg); } to { transform: rotate(205deg); } }
 @media (prefers-reduced-motion: reduce) { .isl-wave, .isl-beam { animation: none; } .isl-move { display: none; } }
+
+/* ---------- today's mood (Settings) ---------- */
+.moods { display: flex; flex-direction: column; gap: 6px; }
+.mood { display: flex; align-items: center; gap: 10px; text-align: left; border: 0; border-radius: 14px; background: var(--panel); padding: 8px 10px; cursor: pointer; color: var(--ink); font-family: var(--body); }
+.mood.on { background: #efe3fb; box-shadow: inset 0 0 0 3px var(--eggplant); }
+.mood-text { display: flex; flex-direction: column; min-width: 0; }
+.mood-text b { font-family: var(--display); font-weight: 400; color: var(--eggplant); font-size: 1.02rem; }
+.mood-text span { font-size: .8rem; color: var(--muted); line-height: 1.3; }
+.mood-meter { flex: none; display: flex; gap: 2px; align-items: flex-end; height: 18px; }
+.mood-meter span { display: block; width: 7px; border-radius: 2px; }
