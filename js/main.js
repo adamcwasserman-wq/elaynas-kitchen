@@ -59,7 +59,7 @@ let lastSale = null;   // for "Undo" after selling
 let lastAction = Date.now();
 
 // ---------- cities ----------
-// Each city keeps these for itself; everything else (gems, BIA dollars, badges, recipes) is shared.
+// Each city keeps these for itself; everything else (gems, Island dollars, badges, recipes) is shared.
 // "dollars" is the restaurant's own tip jar: tips earned in one restaurant only buy upgrades there.
 const CITY_KEYS = ['board', 'orders', 'orderSeq', 'served', 'dollars', 'producers', 'upLv', 'choices', 'decor', 'cityStars', 'starLevel', 'complaints'];
 const cityOf = id => CITIES.find(c => c.id === id) || CITIES[0];
@@ -121,7 +121,7 @@ const hoodLevelFor = b => BUZZ_LEVELS.reduce((l, x, i) => (b >= x.at ? i : l), 0
 const hoodBonus = () => BUZZ_LEVELS[S.hood.level]?.bonus || 0;
 const activeEvent = () => (S.hood.event ? EVENTS.find(e => e.id === S.hood.event.id) : null);
 const eventBonus = () => activeEvent()?.bonus || 0;
-// ---------- BIA dollars: the neighbourhood's own money ----------
+// ---------- Island dollars: the neighbourhood's own money ----------
 // Visitors spend money on the street; it waits in S.hood.pot until she collects it into S.hood.bia.
 const biaPerHour = () => BIA.basePerHour + hoodBuzz() * BIA.perBuzzPerHour;
 function accrueBia() {
@@ -322,7 +322,7 @@ function renderBanner() {
     const g = ghostFor(), why = g && !g.ok ? fits(islMode.kind, islMode.type, g.x, g.y, islMode.uid).why : null;
     if (islMode.kind === 'decor' && islMode.do === 'place') {
       const cost = decorOf(islMode.type).cost;
-      html = `<div class="isl-b-text"><b>${name} · $${cost}</b><span>${S.hood.bia < cost ? 'Not enough BIA dollars yet.' : why || 'Tap the map to place one. Tap again for more.'}</span></div><button class="btn primary" data-isl-done>Done</button>`;
+      html = `<div class="isl-b-text"><b>${name} · $${cost}</b><span>${S.hood.bia < cost ? 'Not enough Island dollars yet.' : why || 'Tap the map to place one. Tap again for more.'}</span></div><button class="btn primary" data-isl-done>Done</button>`;
     } else {
       const cost = islMode.do === 'place' ? costToPlace(islMode.kind, islMode.type) : 0;
       const can = g && g.ok && S.hood.bia >= cost;
@@ -331,7 +331,7 @@ function renderBanner() {
     }
   } else if (islSel === 'land') {
     const next = ISLAND.land[isl().land + 1];
-    html = next ? `<div class="isl-b-text"><b>Grow the island · $${next.cost.toLocaleString()}</b><span>${S.hood.bia >= next.cost ? 'More shoreline to build on.' : `$${(next.cost - S.hood.bia).toLocaleString()} more BIA dollars to go.`}</span></div>` +
+    html = next ? `<div class="isl-b-text"><b>Grow the island · $${next.cost.toLocaleString()}</b><span>${S.hood.bia >= next.cost ? 'More shoreline to build on.' : `$${(next.cost - S.hood.bia).toLocaleString()} more Island dollars to go.`}</span></div>` +
       `<button class="btn primary" data-isl-grow${S.hood.bia >= next.cost ? '' : ' disabled'}>Grow</button><button class="btn ghost" data-isl-cancel>×</button>` : '';
   } else if (typeof islSel === 'number') {
     const p = isl().pieces.find(q => q.uid === islSel);
@@ -392,7 +392,7 @@ function renderHood() {
   const pot = potReady(), b = hoodBuzz(), L = BUZZ_LEVELS[S.hood.level], next = BUZZ_LEVELS[S.hood.level + 1];
   if (document.activeElement !== $('#hood-name')) $('#hood-name').value = S.hood.name;
   const pct = next ? Math.max(0, Math.min(100, Math.round((b - L.at) / (next.at - L.at) * 100))) : 100;
-  $('#isl-stats').innerHTML = `<div class="isl-fund"><b>$${S.hood.bia.toLocaleString()}</b><span>BIA dollars</span></div>` +
+  $('#isl-stats').innerHTML = `<div class="isl-fund"><b>$${S.hood.bia.toLocaleString()}</b><span>Island dollars</span></div>` +
     (pot ? `<button class="btn primary" data-collect>Collect $${pot.toLocaleString()}</button>` : '') +
     `<div class="isl-level"><b>${L.name}</b><div class="bar-track"><div class="bar-fill" style="width:${pct}%"></div></div>` +
     `<span>${(b * VISITORS_PER_BUZZ).toLocaleString()} visitors a day${next ? ` · ${next.at - b} buzz to ${next.name}` : ''}</span></div>` +
@@ -652,7 +652,7 @@ function migrate(s) {
     o.wants = o.wants.slice(0, MAX_WANTS);
     o.stars = o.wants.reduce((t, w) => t + wantStars(w), 0);
   }
-  // Money split in two: each restaurant has its own tip jar, and the neighbourhood has BIA dollars.
+  // Money split in two: each restaurant has its own tip jar, and the neighbourhood has Island dollars.
   // Half of what she had goes to the fund; the rest stays in the tip jar where she is.
   if (s.hood.bia === undefined) {
     s.hood.bia = Math.floor((s.dollars || 0) / 2);

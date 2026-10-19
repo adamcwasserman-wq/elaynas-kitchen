@@ -5,16 +5,17 @@
 
 export const HOOD = { defaultName: 'Tulip Island', nameMax: 22 };
 
-// BIA dollars: the neighbourhood's own money, separate from each restaurant's tips.
+// Island dollars: the neighbourhood's own money, separate from each restaurant's tips.
 // Visitors spend money on the street, and it piles up for her to collect on the neighbourhood screen:
 //   orderShare      every customer served (in any restaurant) adds this share of what they paid
 //   basePerHour     visitors spend this much an hour, even on a quiet street
 //   perBuzzPerHour  plus this much an hour for each point of buzz
 //   maxHours        the hourly part stops piling up after this many hours away (customers still add)
 //   dotAt           the neighbourhood button shows a dot once this much is waiting
+// (In the code this money is still called "bia", and these settings "BIA".)
 export const BIA = { orderShare: 0.3, basePerHour: 30, perBuzzPerHour: 0.5, maxHours: 8, dotAt: 25 };
 
-// Bought in any order, with BIA dollars (see BIA below). Each improvement has three stages, from basic to amazing:
+// Bought in any order, with Island dollars (see BIA below). Each improvement has three stages, from basic to amazing:
 // build stage 1 first, then upgrade. Every stage shows up on the street and adds buzz.
 // "choice" lets her pick a style once it's built.
 export const IMPROVEMENTS = [
@@ -100,7 +101,7 @@ export const HOOD_CHOICES = {
 export const RESTAURANT_BUZZ = { perStar: 40, perUpgrade: 6 };
 
 // Neighbourhood levels. "bonus": customers in all restaurants pay this much more.
-// "gems" and "bia": the reward for reaching it (BIA dollars go straight into the neighbourhood fund).
+// "gems" and "bia": the reward for reaching it (Island dollars go straight into the neighbourhood fund).
 export const BUZZ_LEVELS = [
   { at: 0, name: 'Quiet street', bonus: 0, gems: 0, bia: 0 },
   { at: 100, name: 'Friendly block', bonus: 0.05, gems: 2, bia: 100 },

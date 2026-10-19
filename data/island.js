@@ -1,6 +1,6 @@
 // Tulip Island: Elayna's neighbourhood as an island she builds on, seen from above at an angle.
 // The map is a square of squares (mostly sea at first). The island is a circle of land in the middle
-// that grows when she buys more shoreline with BIA dollars. Her restaurants sit on Main Street.
+// that grows when she buys more shoreline with Island dollars. Her restaurants sit on Main Street.
 // Everything else (landmarks, amenities, decorations, boats) she places herself.
 // Squares are counted from the top corner: x runs down to the right, y runs down to the left.
 
@@ -8,7 +8,7 @@ export const ISLAND = {
   size: 22,               // the map is 22 x 22 squares
   centre: 10.5,           // the middle of the island
   mainStreet: 11,         // the row of squares that is Main Street
-  // Land she owns: the island's radius, in squares, and what each bigger island costs in BIA dollars.
+  // Land she owns: the island's radius, in squares, and what each bigger island costs in Island dollars.
   land: [
     { radius: 4.7, cost: 0 },
     { radius: 5.7, cost: 400 },
