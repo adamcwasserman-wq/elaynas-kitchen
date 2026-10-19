@@ -468,3 +468,10 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .abilities[hidden] { display: none !important; }
 .abilities-title { font-size: .72rem; font-weight: 700; color: var(--muted); margin-right: auto; }
 .abilities .gem-skip, .info .gem-skip { min-height: 44px; padding: 0 10px; }
+
+/* ---------- the world map ---------- */
+.map-art { border-radius: 16px; overflow: hidden; }
+.map-art svg { display: block; width: 100%; height: auto; }
+.map-here { font-family: var(--display); color: #e8475f; font-size: .95rem; }
+.recipe-city { background: transparent !important; padding: 8px 4px 0 !important; justify-content: space-between; }
+.recipe-city b { color: var(--eggplant); }

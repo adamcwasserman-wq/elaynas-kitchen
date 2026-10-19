@@ -469,6 +469,307 @@ export const ITEM_ART = {
     s += fill(P(sc('M0,-6 C6,-6 8,0 0,8 C-8,0 -6,-6 0,-6 Z', 24, 76, 1)), K.tulip) + fill(EL(24, 69.5, 4, 1.5), K.leaf);
     return s;
   },
+  // ================= Mexico City: corn =================
+  corn() {
+    let s = ground(50, 90, 22, 4);
+    s += fill(P('M50,86 Q30,78 26,46 Q36,62 46,70 Z'), '#7aa83e') + fill(P('M50,86 Q70,78 74,46 Q64,62 54,70 Z'), '#8fb84a');
+    const cob = EL(50, 46, 14, 34);
+    s += body(cob, '#ffd23f', -5, -5, .2);
+    for (let r = 0; r < 7; r++) for (let c = -1; c <= 1; c++) s += fill(EL(50 + c * 7.5, 20 + r * 8, 3.2, 3.4), '#f7b928');
+    s += shine(EL(44, 34, 3, 12), .45);
+    s += fill(P('M50,88 Q34,82 30,58 Q40,70 50,78 Z'), '#8fb84a', { opacity: .9 });
+    return s;
+  },
+  masa() {
+    let s = ground(50, 90, 34, 5);
+    const bowl = P('M12,54 L88,54 Q86,86 50,88 Q14,86 12,54 Z');
+    s += fill(P(blob(50, 46, 25, 17, 12, .06, 3)), '#f8e08e') + shine(EL(40, 40, 7, 3, -20), .6);
+    s += body(bowl, '#c96a3a', -8, -4, .2) + fill(R(10, 51, 80, 7, 3.5), '#dd8350');
+    s += line('M20,66 L80,66', '#fff3dc', 2.4, { 'stroke-dasharray': '4 4' });
+    return s;
+  },
+  tortilla() {
+    let s = ground(50, 86, 40, 5);
+    s += fill(EL(50, 74, 42, 11), K.tulip) + line('M14,76 L86,76', '#fff', 2, { 'stroke-dasharray': '3 4', opacity: .7 });
+    for (let i = 0; i < 4; i++) s += fill(EL(50, 66 - i * 6, 36, 10), i % 2 ? '#f2cd7c' : '#f6d892') + fill(EL(50, 64.5 - i * 6, 36, 9), i % 2 ? '#f6d892' : '#f9e2a6');
+    for (const [x, y] of [[36, 46], [56, 44], [64, 49], [44, 50], [50, 45]]) s += fill(EL(x, y, 3, 1.6), '#c98a3a', { opacity: .7 });
+    return s;
+  },
+  taco() {
+    let s = ground(50, 86, 36, 5);
+    s += fill(P('M18,72 Q50,6 82,72 Z'), '#f2b33e') + shade(P('M18,72 Q50,6 82,72 Z'), -6, -6, .18);
+    s += fill(P(blob(50, 46, 26, 12, 12, .2, 4)), K.leaf) + fill(C(38, 42, 5), K.tomato) + fill(C(56, 38, 5), K.tomato) + fill(C(64, 46, 4), '#ffd45c') + fill(C(46, 36, 3.5), '#ffd45c');
+    s += fill(P('M22,72 Q50,20 78,72 Q50,60 22,72 Z'), '#f6c45a');
+    s += shine(P('M26,66 Q34,46 46,34 Q36,50 30,68 Z'), .4);
+    return s;
+  },
+  tamales() {
+    let s = ground(50, 88, 40, 5);
+    const husk = (x, y, rot, open) => E('g', { transform: `rotate(${rot} ${x} ${y})` },
+      body(P(sc('M-26,0 Q-20,-12 0,-13 Q20,-12 26,0 Q20,12 0,13 Q-20,12 -26,0 Z', x, y, 1)), '#d9b479', -4, -4, .2) +
+      (open ? fill(EL(x + 2, y, 15, 8), '#f8e08e') + fill(EL(x + 2, y - 1, 8, 4), '#e2412f', { opacity: .8 }) : line(`M${x - 6},${y - 12} L${x - 6},${y + 12} M${x + 8},${y - 12} L${x + 8},${y + 12}`, '#a8692a', 2)) +
+      line(`M${x - 26},${y} L${x - 32},${y - 4} M${x + 26},${y} L${x + 32},${y - 4}`, '#c9a060', 2.2));
+    return s + husk(46, 66, -8, false) + husk(52, 44, 8, true);
+  },
+  tacoplatter() {
+    let s = ground(50, 89, 44, 5);
+    s += fill(EL(50, 74, 44, 14), K.teal) + fill(EL(50, 72, 38, 11), '#3fa3a8');
+    const mini = (x, y) => fill(P(sc('M-14,10 Q0,-16 14,10 Z', x, y, 1)), '#f2b33e') + fill(EL(x, y + 2, 9, 4), K.leaf) + fill(C(x - 3, y, 2.4), K.tomato) + fill(C(x + 4, y + 1, 2), '#ffd45c');
+    s += mini(30, 58) + mini(50, 52) + mini(70, 58);
+    s += fill(P('M78,72 L90,66 L88,78 Z'), '#8fd14f') + fill(P('M10,70 L22,66 L20,78 Z'), '#8fd14f');
+    return s;
+  },
+
+  // ================= Garden (Mexico City and Rome) =================
+  sprout() {
+    let s = ground(50, 88, 26, 4);
+    s += fill(EL(50, 80, 26, 9), '#8a5a3c') + fill(EL(50, 78, 22, 6), '#a8734e');
+    s += line('M50,78 Q49,60 50,48', '#5fa84a', 3.5);
+    s += fill(P(leaf(50, 52, -150, 22, 9)), '#6cc052') + fill(P(leaf(50, 50, -30, 22, 9)), '#5fb34a');
+    s += shine(EL(36, 44, 4, 2, -30), .5);
+    return s;
+  },
+  tomatoveg() {
+    const t = P(sc('M0,-26 C24,-30 40,-12 38,8 C36,30 18,40 0,40 C-18,40 -36,30 -38,8 C-40,-12 -24,-30 0,-26 Z', 50, 54, .9));
+    return ground(50, 90, 30, 4) + body(t, K.tomato, -7, -7, .2) + shine(EL(32, 44, 8, 4.5, -40), .55) +
+      fill(P(sc('M0,-24 L-14,-34 L-4,-24 L-16,-18 L-2,-20 L0,-10 L2,-20 L16,-18 L4,-24 L14,-34 Z', 50, 54, .9)), K.leaf);
+  },
+  pepper() {
+    let s = ground(50, 90, 26, 4);
+    const p = P('M50,28 C70,26 80,40 76,62 C72,82 60,88 50,84 C40,88 28,82 24,62 C20,40 30,26 50,28 Z');
+    s += body(p, '#e2312f', -7, -6, .2) + line('M50,30 Q46,56 50,84', '#b8211f', 2, { opacity: .5 });
+    s += fill(P('M42,30 Q50,22 58,30 Q50,34 42,30 Z'), '#3f9b3c') + line('M50,26 Q52,16 58,14', '#3f9b3c', 4);
+    s += shine(EL(36, 44, 4, 10, 10), .5);
+    return s;
+  },
+  eggplantveg() {
+    const e = P(sc('M18,-28 C34,-20 38,4 22,26 C6,46 -30,44 -34,20 C-36,2 -18,-6 -2,-14 C6,-18 10,-30 18,-28 Z', 54, 52, 1));
+    return ground(48, 92, 30, 4) + line('M73,27 L82,14', K.leaf, 5) + body(e, K.eggplant, -7, -7, .2) +
+      shine(EL(30, 64, 4, 9, 35), .45) + fill(P(sc('M0,-14 Q8,-30 26,-26 Q18,-18 14,-8 Q8,-18 0,-14 Z', 54, 52, 1)), K.leaf);
+  },
+  vegbasket() {
+    let s = ground(50, 90, 38, 5);
+    s += fill(C(36, 46, 13), K.tomato) + shine(C(32, 42, 3), .5);
+    s += fill(EL(62, 40, 9, 16, 30), K.eggplant) + fill(EL(68, 28, 6, 3, 30), K.leaf);
+    s += fill(EL(50, 46, 9, 12), '#e2312f') + fill(R(48, 32, 4, 6, 2), K.leaf);
+    const basket = P('M14,52 L86,52 L78,86 Q50,92 22,86 Z');
+    s += body(basket, '#c98a4a', -6, -4, .2);
+    for (const y of [62, 72, 82]) s += line(`M18,${y} L82,${y}`, '#a8692a', 2);
+    s += fill(R(12, 48, 76, 7, 3.5), '#b5773a') + line('M24,52 Q50,14 76,52', '#b5773a', 3.5);
+    return s;
+  },
+  marketcrate() {
+    let s = ground(50, 91, 42, 5);
+    s += fill(R(14, 18, 72, 10, 4), K.tulip) + [0, 1, 2, 3].map(i => fill(P(`M${14 + i * 18},28 L${32 + i * 18},28 L${23 + i * 18},36 Z`), i % 2 ? '#fff3dc' : K.tulip)).join('');
+    s += line('M18,28 L18,50 M82,28 L82,50', '#7a4b3a', 2.4);
+    s += fill(C(32, 50, 9), K.tomato) + fill(EL(50, 48, 7, 11, 25), K.eggplant) + fill(C(66, 50, 8), '#ffd23f') + fill(C(42, 54, 6), '#e2312f') + fill(C(58, 56, 6), '#8fd14f');
+    const crate = R(14, 56, 72, 32, 4);
+    s += body(crate, '#d39a5a', -6, -5, .2) + line('M18,68 L82,68 M18,78 L82,78', '#a8692a', 2.2);
+    s += tulip(76, 50, .6, '#8b55a6') + line('M76,56 L76,62', K.leaf, 2);
+    return s;
+  },
+
+  // ================= Rome: pasta =================
+  egg() {
+    const e = P('M50,18 C68,18 78,46 76,64 C74,82 62,90 50,90 C38,90 26,82 24,64 C22,46 32,18 50,18 Z');
+    return ground(50, 92, 22, 4) + body(e, '#fff6e6', -7, -6, .2) + shine(EL(40, 40, 5, 10, 15), .7) + fill(C(60, 58, 2), '#e8d8b8') + fill(C(56, 70, 1.4), '#e8d8b8');
+  },
+  pastadough() {
+    let s = ground(50, 88, 40, 5);
+    s += fill(P('M10,70 L72,58 L90,74 L28,86 Z'), '#c98a4a') + fill(P('M10,70 L28,86 L28,90 L10,74 Z'), '#a8692a');
+    s += body(P(blob(46, 60, 20, 13, 10, .06, 6)), '#ffd86b', -5, -5, .18) + shine(EL(40, 54, 6, 2.6, -15), .6);
+    s += E('g', { transform: 'rotate(-18 72 52)' }, fill(R(56, 46, 34, 9, 4.5), '#e9c38f') + fill(R(50, 48, 8, 5, 2.5), '#c98a4a') + fill(R(88, 48, 8, 5, 2.5), '#c98a4a'));
+    for (const [x, y] of [[24, 72], [60, 72], [70, 66]]) s += fill(C(x, y, 1.6), '#fff', { opacity: .8 });
+    return s;
+  },
+  spaghetti() {
+    let s = ground(50, 88, 36, 5);
+    s += fill(EL(50, 66, 34, 18), '#f2c46e');
+    for (let i = 0; i < 6; i++) s += E('ellipse', { cx: 50, cy: 64, rx: 30 - i * 4.5, ry: 15 - i * 2.2, fill: 'none', stroke: i % 2 ? '#e8b04a' : '#ffd86b', 'stroke-width': 3.2 });
+    s += line('M26,58 Q50,46 74,58', '#fff', 1.6, { opacity: .6 });
+    return s;
+  },
+  ravioli() {
+    let s = ground(50, 88, 40, 5);
+    s += fill(EL(50, 74, 42, 12), '#c98a4a') + fill(EL(50, 72, 38, 10), '#e0a96a');
+    const rav = (x, y) => fill(R(x - 12, y - 12, 24, 24, 4), '#f6c45a') + E('rect', { x: x - 12, y: y - 12, width: 24, height: 24, rx: 4, fill: 'none', stroke: '#e0a03a', 'stroke-width': 2.4, 'stroke-dasharray': '2 2' }) + fill(EL(x, y, 7, 6), '#ffd86b') + shine(EL(x - 4, y - 5, 4, 1.6), .5);
+    return s + rav(36, 56) + rav(64, 56) + rav(50, 38);
+  },
+  lasagna() {
+    let s = ground(50, 89, 42, 5);
+    const dish = R(10, 38, 80, 48, 10);
+    s += body(dish, '#e8574a', -6, -6, .2);
+    s += fill(R(16, 44, 68, 36, 6), '#f2c46e');
+    for (const [y, c] of [[52, '#d6402f'], [60, '#fff1cf'], [68, '#d6402f']]) s += fill(R(16, y, 68, 5), c);
+    s += fill(R(16, 44, 68, 7, 4), '#ffcf47') + fill(EL(34, 47, 6, 2.4), '#e8a02f') + fill(EL(60, 46, 7, 2.4), '#e8a02f');
+    s += fill(P(leaf(70, 46, -40, 9, 3.5)), K.leaf);
+    return s;
+  },
+  pastafeast() {
+    let s = ground(50, 90, 44, 5);
+    const bowl = P('M8,52 L92,52 Q90,88 50,90 Q10,88 8,52 Z');
+    s += body(bowl, '#fffaf0', -8, -4, .2) + line('M14,64 L86,64', '#3f9b3c', 3) + line('M16,70 L84,70', '#e2412f', 3);
+    s += fill(EL(50, 52, 42, 11), '#f2c46e');
+    for (let i = 0; i < 5; i++) s += E('ellipse', { cx: 50, cy: 48, rx: 34 - i * 6, ry: 9 - i * 1.4, fill: 'none', stroke: i % 2 ? '#e8b04a' : '#ffd86b', 'stroke-width': 3 });
+    s += fill(P(blob(50, 42, 18, 7, 10, .12, 2)), '#d6402f') + fill(P(leaf(46, 36, -40, 10, 4)), K.leaf) + fill(P(leaf(54, 36, -140, 10, 4)), K.leaf);
+    return s;
+  },
+
+  // ================= Mexico City dishes =================
+  elote() {
+    let s = ground(48, 90, 22, 4);
+    s += line('M50,90 L50,74', '#c98a4a', 4);
+    s += E('g', { transform: 'rotate(-20 50 46)' }, body(EL(50, 44, 13, 32), '#ffd23f', -5, -5, .2) +
+      [0, 1, 2, 3, 4, 5].map(r => fill(EL(50, 20 + r * 9, 11, 3.2), '#f7b928')).join('') +
+      line('M38,24 Q50,30 62,22 M38,40 Q50,46 62,38 M38,56 Q50,62 62,54', '#fffaf0', 3) +
+      [[44, 30], [56, 44], [46, 52], [54, 26]].map(([x, y]) => fill(C(x, y, 1.6), '#e2412f')).join(''));
+    s += fill(P('M66,76 L84,68 L80,84 Z'), '#8fd14f');
+    return s;
+  },
+  cornsalad() {
+    let s = ground(50, 89, 38, 5);
+    const bowl = P('M12,50 L88,50 Q86,86 50,88 Q14,86 12,50 Z');
+    s += body(bowl, K.white, -8, -4, .2) + fill(EL(50, 50, 38, 10), '#fff3dc');
+    const r = rng(3);
+    for (let i = 0; i < 22; i++) s += fill(C(20 + r() * 60, 44 + r() * 12, 2.6), ['#ffd23f', '#ffd23f', '#e2312f', '#3a2a2a', '#5fb34a'][i % 5]);
+    s += line('M20,64 L80,64', K.teal, 3);
+    return s;
+  },
+  chipssalsa() {
+    let s = ground(50, 89, 42, 5);
+    for (const [x, y, rot] of [[22, 66, -20], [34, 74, 10], [72, 70, 25], [80, 60, -10], [28, 54, 40]])
+      s += E('g', { transform: `rotate(${rot} ${x} ${y})` }, fill(P(sc('M0,-12 L12,9 L-12,9 Z', x, y, 1)), '#f2c46e') + fill(C(x - 2, y + 2, 1), '#c98a3a'));
+    const bowl = P('M30,46 L70,46 Q68,74 50,76 Q32,74 30,46 Z');
+    s += body(bowl, K.teal, -5, -3, .2) + fill(EL(50, 46, 20, 6), '#d6402f');
+    for (const [x, y] of [[44, 45], [54, 44], [50, 47]]) s += fill(C(x, y, 1.8), '#5fb34a');
+    return s;
+  },
+  quesadilla() {
+    let s = ground(50, 88, 42, 5);
+    s += fill(EL(50, 74, 42, 12), K.white) + fill(EL(50, 73, 34, 8), '#f1e3c6');
+    const wedge = (x, y, rot) => E('g', { transform: `rotate(${rot} ${x} ${y})` },
+      fill(P(sc('M0,12 L-18,-10 Q0,-20 18,-10 Z', x, y, 1)), '#f2c46e') +
+      fill(P(sc('M-14,-8 Q0,-12 14,-8 L12,-4 Q8,2 4,-3 Q0,4 -4,-3 Q-8,2 -12,-4 Z', x, y, 1)), '#ffcf47') +
+      [[-6, 0], [5, 2], [0, 8]].map(([dx, dy]) => fill(C(x + dx, y + dy, 1.6), '#c98a3a')).join(''));
+    return s + wedge(36, 62, -30) + wedge(64, 62, 30) + wedge(50, 46, 180);
+  },
+  nachos() {
+    let s = ground(50, 89, 42, 5);
+    s += fill(EL(50, 76, 42, 11), K.tulip) + fill(EL(50, 75, 34, 7), '#f28b97');
+    const r = rng(9);
+    for (let i = 0; i < 9; i++) {
+      const x = 24 + r() * 52, y = 46 + r() * 24, rot = r() * 360;
+      s += E('g', { transform: `rotate(${rot.toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})` }, fill(P(sc('M0,-11 L11,8 L-11,8 Z', x, y, 1)), '#f2c46e'));
+    }
+    s += fill(P(blob(50, 54, 24, 12, 12, .25, 5)), '#ffcf47', { opacity: .95 });
+    for (const [x, y] of [[40, 52], [58, 50], [50, 60]]) s += fill(C(x, y, 3.4), '#5fb34a') + fill(C(x, y, 1.4), '#fff3dc');
+    s += fill(C(66, 58, 3), K.tomato);
+    return s;
+  },
+  eggplanttacos() {
+    let s = ground(50, 88, 42, 5);
+    s += fill(EL(50, 76, 42, 10), K.white) + fill(EL(50, 75, 34, 7), '#f1e3c6');
+    const t = x => fill(P(sc('M-20,16 Q0,-22 20,16 Z', x, 56, 1)), '#f2b33e') + fill(P(blob(x, 52, 14, 7, 10, .2, x)), K.leaf) +
+      fill(EL(x - 5, 48, 5, 4), K.eggplant) + fill(EL(x + 5, 50, 5, 4), '#7a4a90') + fill(C(x, 44, 2.4), '#fff3dc') +
+      fill(P(sc('M-17,16 Q0,-12 17,16 Q0,8 -17,16 Z', x, 56, 1)), '#f6c45a');
+    return s + t(32) + t(68);
+  },
+  burritos() {
+    let s = ground(50, 88, 42, 5);
+    s += fill(EL(50, 76, 42, 10), K.white) + fill(EL(50, 75, 34, 7), '#f1e3c6');
+    const b = (x, y, rot) => E('g', { transform: `rotate(${rot} ${x} ${y})` },
+      body(R(x - 30, y - 11, 60, 22, 11), '#f6d892', -4, -4, .2) +
+      fill(EL(x + 26, y, 6, 10), '#fff3dc') + fill(EL(x + 26, y, 4.5, 8), '#3a2a2a') + fill(C(x + 25, y - 3, 1.6), '#fffaf0') + fill(C(x + 27, y + 3, 1.6), '#e2312f') + fill(C(x + 24, y + 2, 1.4), '#5fb34a') +
+      line(`M${x - 18},${y - 10} Q${x - 14},${y} ${x - 18},${y + 10}`, '#e0b56a', 2));
+    return s + b(46, 62, -8) + b(50, 42, 6);
+  },
+  casserole() {
+    let s = ground(50, 89, 44, 5);
+    const dish = R(8, 34, 84, 52, 12);
+    s += body(dish, K.teal, -6, -6, .2) + fill(R(4, 50, 8, 12, 4), K.teal) + fill(R(88, 50, 8, 12, 4), K.teal);
+    s += fill(R(14, 40, 72, 40, 8), '#ffcf47');
+    const r = rng(14);
+    for (let i = 0; i < 18; i++) s += fill(C(18 + r() * 64, 44 + r() * 32, 2.6), ['#e2312f', '#5fb34a', '#3a2a2a', '#f2b33e'][i % 4]);
+    s += fill(EL(36, 54, 8, 3), '#e8a02f', { opacity: .6 }) + fill(EL(64, 66, 8, 3), '#e8a02f', { opacity: .6 });
+    return s;
+  },
+
+  // ================= Rome dishes =================
+  pomodoro() {
+    let s = ground(50, 89, 42, 5);
+    s += fill(EL(50, 72, 42, 13), K.white) + fill(EL(50, 71, 34, 9), '#f1e3c6');
+    for (let i = 0; i < 5; i++) s += E('ellipse', { cx: 50, cy: 62, rx: 26 - i * 4.5, ry: 11 - i * 1.8, fill: 'none', stroke: i % 2 ? '#e8b04a' : '#ffd86b', 'stroke-width': 3 });
+    s += fill(P(blob(50, 58, 15, 7, 10, .14, 3)), '#d6402f') + shine(EL(46, 55, 4, 1.6), .5);
+    s += fill(P(leaf(48, 52, -40, 11, 4)), K.leaf) + fill(P(leaf(52, 52, -140, 11, 4)), '#5fb34a');
+    return s;
+  },
+  minestrone() {
+    let s = ground(50, 89, 38, 5);
+    const bowl = P('M12,50 L88,50 Q86,86 50,88 Q14,86 12,50 Z');
+    s += body(bowl, '#fffaf0', -8, -4, .2) + line('M18,62 L82,62', K.tulip, 3);
+    s += fill(EL(50, 50, 38, 10), '#e8742f') + fill(EL(50, 49, 33, 7.5), '#f08a3e');
+    const r = rng(5);
+    for (let i = 0; i < 14; i++) s += fill(i % 3 ? C(22 + r() * 56, 45 + r() * 9, 2.4) : R(22 + r() * 56, 45 + r() * 8, 5, 3, 1), ['#ffd86b', '#5fb34a', '#e2312f', '#f6e7c8'][i % 4]);
+    s += E('path', { d: 'M40,36 C35,30 45,24 40,16 M58,36 C53,30 63,24 58,16', fill: 'none', stroke: '#fff', 'stroke-width': 3, 'stroke-linecap': 'round', opacity: .8 });
+    return s;
+  },
+  ziti() {
+    let s = ground(50, 89, 44, 5);
+    const dish = R(8, 38, 84, 48, 12);
+    s += body(dish, '#fffaf0', -6, -6, .2) + fill(R(4, 52, 8, 12, 4), '#fffaf0') + fill(R(88, 52, 8, 12, 4), '#fffaf0');
+    s += fill(R(14, 44, 72, 36, 8), '#fbe6c2');
+    const r = rng(21);
+    for (let i = 0; i < 12; i++) {
+      const x = 20 + r() * 58, y = 48 + r() * 26;
+      s += E('g', { transform: `rotate(${(r() * 180).toFixed(0)} ${x.toFixed(1)} ${y.toFixed(1)})` }, fill(R(x - 7, y - 2.6, 14, 5.2, 1), '#f2c46e') + fill(EL(x + 7, y, 1.2, 2.6), '#d9a04a'));
+    }
+    s += fill(EL(36, 54, 7, 3), '#e8a02f', { opacity: .5 }) + fill(EL(62, 68, 8, 3), '#e8a02f', { opacity: .5 }) + fill(P(leaf(66, 50, -30, 9, 3.4)), K.leaf);
+    return s;
+  },
+  pizza() {
+    let s = ground(50, 88, 42, 5);
+    const crust = C(50, 54, 38);
+    s += body(crust, '#e8a24a', -6, -6, .2) + fill(C(50, 54, 32), '#d6402f') + fill(P(blob(50, 54, 29, 29, 14, .06, 7)), '#ffd45c');
+    for (const [x, y] of [[38, 44], [62, 48], [44, 66], [64, 64]]) s += fill(C(x, y, 5), '#3f9b3c') + fill(C(x - 2, y - 2, 3), '#5fb34a');
+    for (const [x, y] of [[52, 40], [34, 58], [56, 58], [70, 54]]) s += fill(R(x - 4, y - 3.5, 8, 7, 1.5), '#ffe066') + fill(R(x - 2, y - 2, 4, 1.6, .8), '#fff4b8');
+    s += shine(EL(32, 36, 8, 3, -40), .45);
+    return s;
+  },
+  raviolisauce() {
+    let s = ground(50, 89, 42, 5);
+    s += fill(EL(50, 72, 42, 13), K.white) + fill(EL(50, 71, 34, 9), '#f1e3c6') + fill(P(blob(50, 66, 30, 11, 12, .1, 4)), '#d6402f');
+    const rav = (x, y) => fill(R(x - 10, y - 9, 20, 18, 4), '#f6c45a') + E('rect', { x: x - 10, y: y - 9, width: 20, height: 18, rx: 4, fill: 'none', stroke: '#e0a03a', 'stroke-width': 2, 'stroke-dasharray': '2 2' });
+    s += rav(36, 62) + rav(56, 64) + rav(46, 52) + fill(P(leaf(64, 52, -40, 10, 4)), K.leaf) + fill(C(40, 66, 1.6), '#fff');
+    return s;
+  },
+  parmigiana() {
+    let s = ground(50, 89, 42, 5);
+    const dish = R(10, 38, 80, 48, 10);
+    s += body(dish, '#c96a3a', -6, -6, .2) + fill(R(16, 44, 68, 36, 6), '#d6402f');
+    for (const [x, y] of [[28, 56], [50, 54], [72, 56], [38, 70], [62, 70]]) s += fill(EL(x, y, 10, 7), '#7a4a90') + fill(EL(x, y, 7, 5), '#f5d07a');
+    s += fill(P(blob(50, 60, 30, 14, 14, .25, 2)), '#fff3c8', { opacity: .7 });
+    s += fill(P(leaf(44, 46, -40, 9, 3.5)), K.leaf) + fill(P(leaf(60, 46, -140, 9, 3.5)), K.leaf);
+    return s;
+  },
+  lasagnadish() {
+    let s = ground(50, 89, 42, 5);
+    s += fill(EL(50, 78, 42, 10), K.white) + fill(EL(50, 77, 34, 7), '#f1e3c6');
+    const slice = P('M22,44 L72,40 L78,72 L28,78 Z');
+    s += fill(slice, '#f2c46e');
+    for (const [y, c] of [[52, '#d6402f'], [59, '#fff1cf'], [66, '#d6402f']]) s += fill(P(`M24,${y} L74,${y - 4} L75,${y + 1} L25,${y + 5} Z`), c);
+    s += fill(P('M22,44 L72,40 L74,46 L23,50 Z'), '#ffcf47') + fill(P('M72,40 L84,46 L88,76 L78,72 Z'), '#e8a24a');
+    s += fill(P(leaf(48, 42, -40, 10, 4)), K.leaf) + fill(P(leaf(52, 42, -140, 9, 3.5)), '#5fb34a');
+    return s;
+  },
+  familydinner() {
+    let s = ground(50, 90, 46, 5);
+    s += fill(EL(50, 74, 46, 14), K.tulip) + line('M8,74 Q50,92 92,74', '#fff', 2, { 'stroke-dasharray': '3 3', opacity: .7 });
+    s += fill(P('M18,58 L50,58 Q49,76 34,77 Q19,76 18,58 Z'), '#fffaf0') + fill(EL(34, 58, 16, 5), '#f2c46e') + fill(P(blob(34, 56, 7, 3, 8, .1, 1)), '#d6402f');
+    s += fill(P('M56,62 L84,62 L80,78 Q70,82 60,78 Z'), '#c98a4a') + fill(EL(64, 58, 7, 4, -20), '#e8a24a') + fill(EL(74, 57, 7, 4, 20), '#d9913f');
+    s += fill(R(48, 34, 6, 22, 2), '#fffaf0') + fill(EL(51, 31, 2.6, 4.4), '#ffd34d') + fill(EL(51, 32, 1.2, 2.2), '#ff8a3d');
+    s += tulip(84, 46, .55, K.tulip) + line('M84,52 L84,60', K.leaf, 2);
+    return s;
+  },
 };
 
 // ---------- starter blocks (producers) ----------
@@ -498,6 +799,40 @@ export const PRODUCER_ART = {
       fill(P(sc('M0,-22 L6,-7 L22,-7 L9,3 L14,19 L0,9 L-14,19 L-9,3 L-22,-7 L-6,-7 Z', 50, 48, 1)), K.eggplant) +
       fill(P(sc('M0,-22 L6,-7 L22,-7 L9,3 L0,0 Z', 50, 48, 1)), '#7a4a90') +
       fill(C(32, 24, 3), K.tulip) + fill(C(68, 72, 3), K.teal) + fill(C(66, 24, 2.4), K.leaf) + fill(C(33, 72, 2.4), '#f6b62e'));
+    return s;
+  },
+
+  cornbasket() {
+    let s = ground(50, 91, 40, 5);
+    for (const [x, rot] of [[34, -18], [50, 0], [66, 18]]) s += E('g', { transform: `rotate(${rot} ${x} 40)` },
+      fill(EL(x, 30, 8, 18), '#ffd23f') + [0, 1, 2, 3].map(r => fill(EL(x, 18 + r * 7, 6, 2.4), '#f7b928')).join('') +
+      fill(P(`M${x},50 Q${x - 12},40 ${x - 10},22 Q${x - 4},36 ${x},44 Z`), '#7aa83e'));
+    const basket = P('M12,46 L88,46 L80,88 Q50,94 20,88 Z');
+    s += body(basket, '#d9b479', -7, -5, .22);
+    for (const y of [56, 66, 76]) s += line(`M16,${y} L84,${y}`, '#b58a4f', 2.2);
+    for (let x = 22; x < 82; x += 10) s += line(`M${x},48 L${x + 2},86`, '#c9a060', 1.4);
+    s += fill(R(10, 42, 80, 8, 4), '#b58a4f') + fill(R(36, 58, 28, 16, 4), K.cream) + tulip(50, 66, .55, K.tulip);
+    return s;
+  },
+  gardenbox() {
+    let s = ground(50, 91, 40, 5);
+    s += line('M30,46 Q28,30 32,20', '#3f9b3c', 3) + fill(C(30, 30, 7), K.tomato) + fill(C(36, 20, 5.5), K.tomato) + fill(P(leaf(31, 38, -150, 14, 6)), '#5fb34a');
+    s += line('M64,46 Q66,32 62,22', '#3f9b3c', 3) + fill(EL(66, 32, 6, 10, 20), K.eggplant) + fill(P(leaf(64, 40, -30, 14, 6)), '#5fb34a');
+    s += fill(P(leaf(48, 46, -100, 16, 6)), '#6cc052') + fill(P(leaf(50, 46, -70, 14, 5)), '#5fb34a');
+    const box = R(12, 44, 76, 44, 5);
+    s += body(box, '#3fa3a8', -7, -6, .22) + line('M16,58 L84,58 M16,72 L84,72', '#2f8a8f', 2.4);
+    s += fill(R(10, 40, 80, 8, 4), '#8a5a3c');
+    s += fill(R(36, 56, 28, 16, 4), K.cream) + tulip(50, 64, .55, '#8b55a6');
+    return s;
+  },
+  eggbasket() {
+    let s = ground(50, 91, 40, 5);
+    for (const [x, y] of [[34, 40], [50, 34], [66, 40], [42, 46], [58, 46]]) s += fill(EL(x, y, 9, 12), '#fff6e6') + shine(EL(x - 3, y - 4, 2.4, 4), .7);
+    const basket = P('M12,48 L88,48 L80,88 Q50,94 20,88 Z');
+    s += body(basket, '#c98a4a', -7, -5, .22);
+    for (const y of [58, 68, 78]) s += line(`M16,${y} L84,${y}`, '#a8692a', 2.2);
+    s += fill(R(10, 44, 80, 8, 4), '#a8692a') + line('M22,48 Q50,4 78,48', '#a8692a', 3.5);
+    s += fill(R(36, 60, 28, 16, 4), K.cream) + fill(R(38, 66, 8, 4), '#3f9b3c') + fill(R(46, 66, 8, 4), '#fff') + fill(R(54, 66, 8, 4), '#e2412f');
     return s;
   },
 
@@ -634,7 +969,9 @@ export function badgeSvg(family, tier) {
 // opts.paint / opts.awning: the colours she picked. opts.colour: 0 to 1, how much colour the
 // original building has (it fills in as she upgrades). opts.focus: an upgrade to outline in purple.
 export function restaurantSvg(has, opts = {}) {
-  const wallColour = has.has('paint') ? (opts.paint || '#ffd9b8') : '#f3ead8';
+  const wallColour = has.has('paint') ? (opts.paint || '#ffd9b8') : (opts.baseWall || '#f3ead8');
+  const signText = opts.sign || "Elayna's";
+  const signW = Math.max(128, signText.length * 11.5 + 24), signX = 200 - signW / 2;
   const awn = opts.awning || K.eggplant;
   const grey = Math.max(0, 1 - (opts.colour ?? 1));
   const glow = 'filter:drop-shadow(0 0 1.5px #5b2c6f) drop-shadow(0 0 1.5px #5b2c6f) drop-shadow(0 0 6px #b57fd0)';
@@ -669,8 +1006,24 @@ export function restaurantSvg(has, opts = {}) {
     }
     return b;
   });
-  s += part('base', fill(R(136, 8, 128, 40, 10), K.eggplant) +
-    E('text', { x: 200, y: 36, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': 23, fill: '#fff3dc' }, "Elayna's"));
+  // A local touch: paper flags in Mexico City, vines in Rome.
+  if (opts.flair === 'papel') {
+    let f = line('M58,42 Q130,52 200,44 Q270,52 342,42', K.ink, 1);
+    const cols = ['#e8475f', '#2f8a8f', '#f6b62e', '#8b55a6', '#5fb34a'];
+    for (let i = 0; i < 15; i++) {
+      const x = 62 + i * 19.5, y = 44 + Math.sin((i / 14) * Math.PI) * 6;
+      f += fill(P(`M${x - 7},${y} L${x + 7},${y} L${x + 7},${y + 12} Q${x + 3.5},${y + 9} ${x},${y + 12} Q${x - 3.5},${y + 9} ${x - 7},${y + 12} Z`), cols[i % cols.length]);
+    }
+    s += part('base', f);
+  }
+  if (opts.flair === 'vines') {
+    let v = '';
+    for (let x = 64; x <= 336; x += 14) v += fill(P(leaf(x, 64, 90 + ((x / 14) % 2 ? 30 : -30), 9, 4)), (x / 14) % 2 ? '#3f9b3c' : '#5fb34a');
+    for (const x of [72, 328]) for (let y = 70; y < 180; y += 12) v += fill(P(leaf(x, y, x < 200 ? 20 : 160, 8, 3.5)), '#5fb34a');
+    s += part('base', line('M60,64 Q200,74 340,64', '#2f6e25', 1.6) + v);
+  }
+  s += part('base', fill(R(signX, 8, signW, 40, 10), K.eggplant) +
+    E('text', { x: 200, y: 36, 'text-anchor': 'middle', 'font-family': 'Righteous, sans-serif', 'font-size': signText.length > 10 ? 19 : 23, fill: '#fff3dc' }, signText));
   s += when('awning', () => {
     let a = '';
     for (let i = 0; i < 10; i++) {
@@ -736,6 +1089,33 @@ export function restaurantSvg(has, opts = {}) {
     fill(EL(366, 160, 20, 4.5), K.white) + line('M366,160 L366,184', K.ink, 2) +
     fill(R(340, 160, 8, 24, 2), K.teal) + fill(R(384, 160, 8, 24, 2), K.teal));
   return `<svg viewBox="0 -4 400 204" role="img" aria-label="Elayna's restaurant">${s}</svg>`;
+}
+
+// ---------- the world map ----------
+// pins: [{ name, x, y, state: 'here' | 'open' | 'locked' | 'soon', stars }]
+export function mapSvg(pins) {
+  let s = fill(R(0, 0, 400, 240), '#bfe0e6');
+  for (let y = 30; y < 240; y += 40) s += line(`M10,${y} q10,-5 20,0 t20,0`, '#fff', 1.4, { opacity: .6 }) + line(`M200,${y + 18} q10,-5 20,0 t20,0`, '#fff', 1.4, { opacity: .6 });
+  const land = (cx, cy, rx, ry, seed, c) => fill(P(blob(cx, cy, rx, ry, 12, .22, seed)), c);
+  s += land(96, 66, 78, 46, 3, '#c9e6a0') + land(90, 128, 34, 26, 5, '#e6d39a') + land(96, 160, 14, 12, 8, '#e6d39a') + land(140, 205, 34, 34, 9, '#c9e6a0');
+  s += land(262, 74, 44, 32, 4, '#c9e6a0') + land(276, 170, 48, 56, 6, '#e6d39a') + land(330, 120, 22, 22, 2, '#e6d39a') + land(358, 64, 44, 30, 7, '#c9e6a0');
+  for (let i = 0; i < pins.length - 1; i++) {
+    const a = pins[i], b = pins[i + 1];
+    s += line(`M${a.x},${a.y} Q${(a.x + b.x) / 2},${Math.min(a.y, b.y) - 30} ${b.x},${b.y}`, b.state === 'soon' || b.state === 'locked' ? '#9aa3b2' : K.tulip, 2.4, { 'stroke-dasharray': '2 7' });
+  }
+  for (const p of pins) {
+    const colour = p.state === 'here' ? K.tulip : p.state === 'open' ? K.eggplant : '#b9b0a5';
+    if (p.state === 'here') s += E('circle', { cx: p.x, cy: p.y - 14, r: 16, fill: 'none', stroke: K.tulip, 'stroke-width': 2.5, opacity: .5 });
+    s += fill(EL(p.x, p.y + 1, 7, 2.4), K.shadow, { opacity: .2 });
+    const { x, y } = p;
+    s += fill(P(`M${x},${y} C${x - 6},${y - 8} ${x - 11},${y - 12} ${x - 11},${y - 19} A11 11 0 1 1 ${x + 11},${y - 19} C${x + 11},${y - 12} ${x + 6},${y - 8} ${x},${y} Z`), colour);
+    s += fill(C(p.x, p.y - 19, 6.5), '#fff') + (p.state === 'soon' ? E('text', { x: p.x, y: p.y - 15.5, 'text-anchor': 'middle', 'font-size': 10, 'font-family': 'Righteous, sans-serif', fill: '#9aa3b2' }, '?') : tulip(p.x, p.y - 19.5, .42, colour));
+    const label = `${p.name}${p.stars !== undefined ? '  ' + '★'.repeat(p.stars) + '☆'.repeat(3 - p.stars) : ''}`;
+    const w = label.length * 5.6 + 12;
+    s += fill(R(p.x - w / 2, p.y + 5, w, 15, 7.5), p.state === 'here' ? K.eggplant : '#fffaf0', { opacity: .95 });
+    s += E('text', { x: p.x, y: p.y + 16, 'text-anchor': 'middle', 'font-size': 9.5, 'font-family': 'Righteous, sans-serif', fill: p.state === 'here' ? '#fff' : K.ink }, label);
+  }
+  return `<svg viewBox="0 0 400 240" role="img" aria-label="World map">${s}</svg>`;
 }
 
 // ---------- small interface icons (24 x 24) ----------

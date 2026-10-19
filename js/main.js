@@ -9,13 +9,14 @@
 // and serve customers what they ask for.
 
 import { CONFIG } from '../data/config.js';
-import { CHAINS, PRODUCERS, PRODUCER_UNLOCKS, ORDER_VALUE, SELL_VALUE } from '../data/items.js';
-import { RECIPES, RENAMED_DISHES, RECIPE_DISCOVERY_REWARD, recipeLevel } from '../data/recipes.js';
+import { CHAINS, PRODUCERS, ORDER_VALUE, SELL_VALUE } from '../data/items.js';
+import { CITIES, COMING_SOON } from '../data/cities.js';
+import { RECIPES, RENAMED_DISHES, RECIPE_DISCOVERY_REWARD, recipeLevel, recipeCity } from '../data/recipes.js';
 import { BADGES, BADGE_REWARD, BADGE_TIER_NAMES } from '../data/badges.js';
-import { UPGRADES, CITY, CHOICES } from '../data/restaurant.js';
+import { UPGRADES, CHOICES } from '../data/restaurant.js';
 import { CUSTOMERS } from '../data/customers.js';
-import { FIRST_ORDERS, ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS } from '../data/orders.js';
-import { buildSprite, use, ICONS, badgeSvg, restaurantSvg } from './art.js';
+import { ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS } from '../data/orders.js';
+import { buildSprite, use, ICONS, badgeSvg, restaurantSvg, mapSvg as drawMap } from './art.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
 import { createArcade } from './arcade.js';
 import { GEMS, TICKETS_PER_GEM } from '../data/arcade.js';
@@ -52,18 +53,87 @@ let orderPick = null;  // or: an item tapped inside an order, as { o, k }
 let lastSale = null;   // for "Undo" after selling
 let lastAction = Date.now();
 
-function newGame() {
+// ---------- cities ----------
+// Each city keeps these for itself; everything else (dollars, gems, badges, recipes) is shared.
+const CITY_KEYS = ['board', 'orders', 'orderSeq', 'served', 'producers', 'upgrades', 'choices', 'decor', 'cityStars', 'starLevel'];
+const cityOf = id => CITIES.find(c => c.id === id) || CITIES[0];
+const city = () => cityOf(S?.city);
+
+// A city the first time she arrives: its starter blocks and one ingredient to begin with.
+function newCityState(id) {
+  const c = cityOf(id);
   const board = Array(CELLS).fill(null);
-  board[idx(2, 3)] = { producer: 'crate' };
-  board[idx(1, 4)] = { chain: 'bakery', tier: 1 };
+  c.starts.forEach((p, n) => { board[idx(2 + n, 3)] = { producer: p }; });
+  const first = PRODUCERS[c.starts[0]].makes[0];
+  board[idx(1, 4)] = { chain: first.chain, tier: 1 };
+  return { board, orders: [], orderSeq: 0, served: 0, producers: [...c.starts], upgrades: [], choices: {}, decor: [], cityStars: 0, starLevel: 0 };
+}
+
+function travel(id) {
+  if (id === S.city || !S.openCities.includes(id)) return;
+  S.cityData[S.city] = Object.fromEntries(CITY_KEYS.map(k => [k, S[k]]));
+  Object.assign(S, S.cityData[id] || newCityState(id));
+  const firstVisit = !S.cityData[id];
+  delete S.cityData[id];
+  S.city = id;
+  sel = -1; orderPick = null;
+  fillOrders();
+  for (const it of S.board) if (it && !it.producer) S.seen[keyOf(it)] ??= true;
+  closeSheets();
+  renderAll();
+  const c = city();
+  if (firstVisit) {
+    const makes = PRODUCERS[c.starts[0]];
+    celebrate({ art: restaurantPhoto(), wide: true, title: `Welcome to ${c.name}!`, name: c.restaurant,
+      line: `Tap the ${makes.name.toLowerCase()} to start cooking. New foods, new recipes, new customers.` });
+  } else toast(`Back in ${c.name}!`);
+  buzz('serve');
+  save();
+}
+
+// The world map: every city, where she is now, and what opens next.
+function mapPins() {
+  const pins = CITIES.map(c => {
+    const here = c.id === S.city;
+    const stars = here ? S.starLevel : S.cityData[c.id]?.starLevel;
+    return { name: c.name, x: c.map.x, y: c.map.y, state: here ? 'here' : S.openCities.includes(c.id) ? 'open' : 'locked', stars: S.openCities.includes(c.id) ? (stars || 0) : undefined };
+  });
+  return [...pins, ...COMING_SOON.map(c => ({ name: c.name, x: c.map.x, y: c.map.y, state: 'soon' }))];
+}
+const mapSvg = () => drawMap(mapPins());
+function openMap() {
+  $('#map-art').innerHTML = mapSvg();
+  $('#map-list').innerHTML = CITIES.map((c, i) => {
+    const here = c.id === S.city, open = S.openCities.includes(c.id);
+    const lv = here ? S.starLevel : (S.cityData[c.id]?.starLevel || 0);
+    const prev = CITIES[i - 1];
+    const right = here ? '<span class="map-here">You\'re here</span>'
+      : open ? `<button class="btn primary" data-travel="${c.id}">Travel</button>` : '<span class="upg-cost">Locked</span>';
+    const note = open ? `${c.restaurant} · ${'★'.repeat(lv)}${'☆'.repeat(3 - lv)}` : `Opens when ${prev.name} reaches ${prev.opensNextAt} stars.`;
+    return `<li class="${here ? 'upg next' : open ? 'upg' : 'upg later'}"><div class="upg-text"><b>${c.name}</b><span>${note}</span></div>${right}</li>`;
+  }).join('') + COMING_SOON.map(c => `<li class="upg later"><div class="upg-text"><b>${c.name}</b><span>Coming in a later update.</span></div></li>`).join('');
+  openSheet('#map');
+}
+
+// Opening the next city on the map.
+function openNextCity() {
+  const i = CITIES.findIndex(c => c.id === S.city), next = CITIES[i + 1];
+  if (!next || S.openCities.includes(next.id)) return;
+  S.openCities.push(next.id);
+  celebrate({ art: mapSvg(), wide: true, title: `${next.name} is open!`, name: 'A new city on your map',
+    line: 'Tap your city at the top of the screen to see the map and travel there. Your progress here is kept.' });
+  checkBadges();
+}
+
+function newGame() {
   S = {
-    v: SAVE_VERSION, board, dollars: 0,
+    v: SAVE_VERSION, dollars: 0, city: 'toronto', openCities: ['toronto'], cityData: {},
     charges: CONFIG.charges.start, chargesAt: Date.now(), freeRefillAt: 0,
-    orders: [], orderSeq: 0, served: 0, tutorial: 0,
-    seen: { 'bakery:1': true }, recipes: {}, badges: {}, upgrades: [], producers: ['crate'],
+    tutorial: 0,
+    seen: { 'bakery:1': true }, recipes: {}, badges: {},
+    ...newCityState('toronto'),
     stats: { produced: 0, merges: 0, mixes: 0, sold: 0, earned: 0, bounces: 0, arcadeWins: 0, triviaRight: 0 },
-    gems: 0, wildcards: 0, decor: [], triviaIndex: 0, triviaStreak: 0, triviaLastRight: null,
-    cityStars: 0, starLevel: 0,
+    gems: 0, wildcards: 0, triviaIndex: 0, triviaStreak: 0, triviaLastRight: null,
     settings: { vibrate: true },
     created: Date.now(),
   };
@@ -113,6 +183,12 @@ function migrate(s) {
     if (want.dish) want = { dish: renamed(want.dish) };
     return orderFor([want], o);
   });
+  // Cities arrived in phase 4: an older save is in Toronto.
+  s.city ??= 'toronto';
+  s.openCities ??= ['toronto'];
+  s.cityData ??= {};
+  s.choices ??= {};
+  s.served ??= 0;
   if (s.board.length !== CELLS) {
     // The board changed size: keep everything, moving anything that no longer fits.
     const oldCols = s.board.length === 63 ? 7 : COLS;
@@ -156,7 +232,8 @@ function perks() {
   return p;
 }
 // Upgrades can be bought in any order: is there one she can afford right now?
-const upgradeAffordable = () => UPGRADES.some(u => !S.upgrades.includes(u.id) && S.dollars >= u.cost);
+const upgradeCost = u => Math.round(u.cost * (city().upgradeCost || 1) / 5) * 5;
+const upgradeAffordable = () => UPGRADES.some(u => !S.upgrades.includes(u.id) && S.dollars >= upgradeCost(u));
 
 // ---------- pantry charges ----------
 function tickCharges() {
@@ -209,7 +286,7 @@ function pickWant(stage, avoid) {
   const levels = stage.dishLevels;
   if (levels.length && Math.random() < stage.dishChance) {
     const level = levels[randInt(0, levels.length - 1)];
-    const dishes = RECIPES.filter(r => recipeLevel(r) === level && chains.includes(r.a.chain) && chains.includes(r.b.chain) &&
+    const dishes = RECIPES.filter(r => recipeCity(r) === S.city && recipeLevel(r) === level && chains.includes(r.a.chain) && chains.includes(r.b.chain) &&
       Math.max(r.a.tier, r.b.tier) <= stage.plainTiers[1] + 1 && !avoid.has(`dish:${r.id}`));
     if (dishes.length) return { dish: dishes[randInt(0, dishes.length - 1)].id };
   }
@@ -219,8 +296,9 @@ function pickWant(stage, avoid) {
 
 function makeOrder() {
   let wants;
-  if (S.orderSeq < FIRST_ORDERS.length) {
-    wants = FIRST_ORDERS[S.orderSeq].map(w => ({ ...w }));
+  const firsts = city().firstOrders;
+  if (S.orderSeq < firsts.length) {
+    wants = firsts[S.orderSeq].map(w => ({ ...w }));
   } else {
     const stage = currentStage();
     const count = randInt(...stage.wants);
@@ -411,7 +489,7 @@ function learnRecipe(recipe) {
 
 // New starter blocks arrive as she serves more orders.
 function unlockProducers() {
-  for (const u of PRODUCER_UNLOCKS) {
+  for (const u of city().unlocks) {
     if (S.producers.includes(u.producer) || S.served < u.afterServed) continue;
     const near = producerIndex();
     const spot = nearestEmpty(near >= 0 ? near : idx(2, 3));
@@ -489,7 +567,7 @@ function serve(oi) {
 function addStars(n, speedy) {
   S.cityStars = cityStars() + n;
   floatText(`+${n} ★${speedy ? ' speedy!' : ''}`, $('#brand'));
-  const goals = CITY.starGoals;
+  const CITY = city(), goals = CITY.starGoals;
   while (S.starLevel < goals.length && S.cityStars >= goals[S.starLevel]) {
     const lv = S.starLevel++;
     const r = CITY.starRewards[lv];
@@ -501,10 +579,11 @@ function addStars(n, speedy) {
       art: `<div class="cele-stars">${'★'.repeat(lv + 1)}${'☆'.repeat(goals.length - lv - 1)}</div>`,
       title: won ? `You won ${CITY.name}!` : `${lv + 1}-star restaurant!`,
       name: `${CITY.restaurant}, ${CITY.name}`,
-      line: won ? 'Three stars! A new city is coming in the next update. You can keep cooking here.' :
+      line: won ? 'Three stars! You can keep cooking here, or travel on.' :
         `Customers love it. Next: ${goals[lv + 1]} stars. Orders will get a little trickier.`,
       reward: r.dollars, gems: r.gems,
     });
+    if (S.starLevel >= CITY.opensNextAt) openNextCity();
   }
 }
 
@@ -565,8 +644,8 @@ function undoSell() {
 
 function buyUpgrade(id) {
   const u = UPGRADES.find(x => x.id === id);
-  if (!u || S.upgrades.includes(u.id) || S.dollars < u.cost) return;
-  S.dollars -= u.cost;
+  if (!u || S.upgrades.includes(u.id) || S.dollars < upgradeCost(u)) return;
+  S.dollars -= upgradeCost(u);
   S.upgrades.push(u.id);
   buzz('serve');
   // Stay on the restaurant, with the new part outlined in purple.
@@ -581,18 +660,21 @@ function buyUpgrade(id) {
 
 // The restaurant picture: the original building starts black and white and fills with
 // colour as she upgrades; "focus" outlines one upgrade in purple (a preview if not bought yet).
-const choiceColour = key => (CHOICES[key].find(c => c.colour === S.choices?.[key]) || CHOICES[key][0]).colour;
+const choiceColour = key => CHOICES[key].find(c => c.colour === S.choices?.[key])?.colour ||
+  (key === 'awning' ? city().look.awning : CHOICES[key][0].colour);
 function restaurantPhoto(focus = null) {
   const has = new Set(S.upgrades);
   if (focus) has.add(focus);
   return restaurantSvg(has, {
     paint: choiceColour('paint'), awning: choiceColour('awning'),
+    sign: city().sign, baseWall: city().look.wall, flair: city().look.flair,
     colour: .25 + .75 * S.upgrades.length / UPGRADES.length, focus, decor: S.decor,
   });
 }
 
 // ---------- badges ----------
 function statFor(b) {
+  if (b.stat === 'cities') return S.openCities.length;
   return b.stat === 'recipes' ? Object.keys(S.recipes).length : (S.stats[b.stat] || 0);
 }
 function checkBadges() {
@@ -776,7 +858,7 @@ function renderHeader() {
   if (arcade) $('#nav-today .dot').hidden = !arcade.somethingNew();
   $('#charges-t').textContent = S.charges < perks().chargesMax ? `+1 in ${mmss(nextChargeIn())}` : 'Full';
   const can = upgradeAffordable();
-  const goals = CITY.starGoals, lv = S.starLevel, goal = goals[Math.min(lv, goals.length - 1)];
+  const CITY = city(), goals = CITY.starGoals, lv = S.starLevel, goal = goals[Math.min(lv, goals.length - 1)];
   const prev = lv === 0 ? 0 : goals[lv - 1];
   $('#brand-city').innerHTML = `${CITY.name} <span class="brand-stars">${'★'.repeat(lv)}${'☆'.repeat(goals.length - lv)}</span>`;
   $('#brand-next').textContent = lv >= goals.length ? `${cityStars()} stars. You won ${CITY.name}!` : `${cityStars()} of ${goal} stars`;
@@ -1129,7 +1211,9 @@ document.addEventListener('click', e => {
   else if (t.dataset.upg !== undefined) buyUpgrade(t.dataset.upg);
   else if (t.id === 'hint-btn') hint(true);
   else if (t.id === 'charges') openRefill();
-  else if (t.id === 'brand' || t.id === 'nav-restaurant') openRestaurant();
+  else if (t.id === 'brand') openMap();
+  else if (t.id === 'nav-restaurant') openRestaurant();
+  else if (t.dataset.travel !== undefined) travel(t.dataset.travel);
   else if (t.id === 'nav-recipes') openRecipes();
   else if (t.id === 'nav-badges') openBadges();
   else if (t.id === 'settings-btn') openSettings();
@@ -1153,16 +1237,17 @@ document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e =
 // The restaurant
 let restFocus = null;
 function renderRestaurant() {
+  $('#rest-title').textContent = `${city().restaurant}, ${city().name}`;
   $('#rest-art').innerHTML = restaurantPhoto(restFocus);
   const fu = UPGRADES.find(u => u.id === restFocus);
   $('#rest-caption').textContent = !fu ? 'Tap an upgrade to see where it goes.'
     : S.upgrades.includes(fu.id) ? `${fu.name}, outlined in purple.` : `Preview: ${fu.name}, outlined in purple.`;
   $('#rest-count').textContent = `${S.upgrades.length} of ${UPGRADES.length} upgrades`;
   $('#rest-list').innerHTML = UPGRADES.map(u => {
-    const done = S.upgrades.includes(u.id), can = !done && S.dollars >= u.cost;
+    const done = S.upgrades.includes(u.id), can = !done && S.dollars >= upgradeCost(u);
     const right = done ? `<span class="upg-done">${ICONS.check}</span>`
-      : `<button class="btn primary upg-buy" data-upg="${u.id}"${can ? '' : ' disabled'}>$${u.cost}</button>`;
-    const short = !done && !can ? `<em>$${(u.cost - S.dollars).toLocaleString()} more to go</em>` : '';
+      : `<button class="btn primary upg-buy" data-upg="${u.id}"${can ? '' : ' disabled'}>$${upgradeCost(u).toLocaleString()}</button>`;
+    const short = !done && !can ? `<em>$${(upgradeCost(u) - S.dollars).toLocaleString()} more to go</em>` : '';
     const swatches = done && u.choice ? `<div class="swatches">${CHOICES[u.choice].map(c =>
       `<button class="swatch${choiceColour(u.choice) === c.colour ? ' on' : ''}" data-choice="${u.choice}" data-colour="${c.colour}" style="background:${c.colour}" aria-label="${c.name}"></button>`).join('')}</div>` : '';
     return `<li class="upg${done ? ' done' : can ? ' next' : ''}${restFocus === u.id ? ' focused' : ''}" data-focus="${u.id}">` +
@@ -1197,11 +1282,16 @@ $('#rest-list').addEventListener('click', e => {
 function openRecipes() {
   const found = RECIPES.filter(r => S.recipes[r.id]).length;
   $('#recipe-count').textContent = `${found} of ${RECIPES.length} found`;
-  $('#recipe-list').innerHTML = RECIPES.map(r => {
-    const known = !!S.recipes[r.id];
-    return `<li class="recipe${known ? '' : ' unknown'}"><div class="recipe-art fam-dish">${use(`art-${r.id}`)}</div>` +
-      `<div class="recipe-text"><b>${known ? r.name : 'Not found yet'}</b>${r.hers ? '<span class="hers">From your recipe box</span>' : ''}` +
-      `<span>${known ? `${nameOf(r.a)} + ${nameOf(r.b)}` : 'Mix two different foods to find it.'}</span></div></li>`;
+  $('#recipe-list').innerHTML = CITIES.map(c => {
+    const list = RECIPES.filter(r => recipeCity(r) === c.id);
+    const open = S.openCities.includes(c.id);
+    return `<li class="recipe-city"><b>${c.name}</b><span>${list.filter(r => S.recipes[r.id]).length} of ${list.length}${open ? '' : ' · opens later'}</span></li>` +
+      list.map(r => {
+        const known = !!S.recipes[r.id];
+        return `<li class="recipe${known ? '' : ' unknown'}"><div class="recipe-art fam-dish">${use(`art-${r.id}`)}</div>` +
+          `<div class="recipe-text"><b>${known ? r.name : 'Not found yet'}</b>${r.hers ? '<span class="hers">From your recipe box</span>' : ''}` +
+          `<span>${known ? `${nameOf(r.a)} + ${nameOf(r.b)}` : open ? 'Mix two different foods to find it.' : `Cook in ${c.name} to find it.`}</span></div></li>`;
+      }).join('');
   }).join('');
   openSheet('#recipes');
 }
@@ -1414,6 +1504,8 @@ function boot() {
   if (S) migrate(S); else { newGame(); writeSave(S); }
   unlockProducers();
   fillOrders();
+  // An older save that already reached 2 stars in Toronto opens Mexico City now.
+  if (S.starLevel >= city().opensNextAt) openNextCity();
   checkBadges();
   renderAll();
 

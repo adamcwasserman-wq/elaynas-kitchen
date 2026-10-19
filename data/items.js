@@ -25,6 +25,42 @@ export const CHAINS = {
       { id: 'cheesecake', name: 'Cheesecake' },
     ],
   },
+  // Mexico City
+  corn: {
+    name: 'Corn',
+    tiers: [
+      { id: 'corn', name: 'Corn' },
+      { id: 'masa', name: 'Masa' },
+      { id: 'tortilla', name: 'Tortillas' },
+      { id: 'taco', name: 'Taco' },
+      { id: 'tamales', name: 'Tamales' },
+      { id: 'tacoplatter', name: 'Taco platter' },
+    ],
+  },
+  // Mexico City and Rome
+  garden: {
+    name: 'Garden',
+    tiers: [
+      { id: 'sprout', name: 'Sprout' },
+      { id: 'tomatoveg', name: 'Tomato' },
+      { id: 'pepper', name: 'Red pepper' },
+      { id: 'eggplantveg', name: 'Eggplant' },
+      { id: 'vegbasket', name: 'Veggie basket' },
+      { id: 'marketcrate', name: 'Market crate' },
+    ],
+  },
+  // Rome
+  pasta: {
+    name: 'Pasta',
+    tiers: [
+      { id: 'egg', name: 'Egg' },
+      { id: 'pastadough', name: 'Pasta dough' },
+      { id: 'spaghetti', name: 'Spaghetti' },
+      { id: 'ravioli', name: 'Ravioli' },
+      { id: 'lasagna', name: 'Lasagna' },
+      { id: 'pastafeast', name: 'Pasta feast' },
+    ],
+  },
 };
 
 // Producers ("starter blocks") make level 1 items when tapped. Each tap uses one pantry charge.
@@ -38,12 +74,20 @@ export const PRODUCERS = {
     name: 'Dairy fridge',
     makes: [{ chain: 'dairy', tier: 1, weight: 1 }],
   },
+  cornbasket: {
+    name: 'Corn basket',
+    makes: [{ chain: 'corn', tier: 1, weight: 1 }],
+  },
+  gardenbox: {
+    name: 'Garden box',
+    makes: [{ chain: 'garden', tier: 1, weight: 1 }],
+  },
+  eggbasket: {
+    name: 'Egg basket',
+    makes: [{ chain: 'pasta', tier: 1, weight: 1 }],
+  },
 };
-
-// The game starts with the bakery crate. Others arrive as she serves more orders.
-export const PRODUCER_UNLOCKS = [
-  { producer: 'fridge', afterServed: 2 },
-];
+// Which starter blocks each city starts with, and which arrive later, are in data/cities.js.
 
 // Dollars a customer pays for one item, by level (level 1 is the first number).
 export const ORDER_VALUE = [2, 5, 11, 24, 50, 105];
