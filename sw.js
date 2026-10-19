@@ -1,7 +1,7 @@
 // Keeps a copy of the game on the phone so it works with no connection.
 // When you change any game file, bump VERSION so phones pick up the new copy.
 
-const VERSION = 'ek-0.13.0';
+const VERSION = 'ek-0.13.1';
 const FILES = [
   './',
   'index.html',
@@ -33,6 +33,8 @@ const FILES = [
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',
+  'icons/apple-touch-icon.png',
+  'icons/favicon-48.png',
 ];
 
 self.addEventListener('install', event => {
