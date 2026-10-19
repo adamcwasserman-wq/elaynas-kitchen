@@ -5,7 +5,7 @@
 //   rush     Zip is in a hurry. Serve before his timer runs out or he leaves and takes stars with him.
 //   puzzle   Penny can't decide. She names three foods she likes and loves any dish made from two of them.
 //   critic   Monsieur Croissant writes a review: one, two or three golden spoons, by how fast he's served.
-//   gift     Bubbie wants one of Elayna's own recipes, and leaves a wild card on the board as a thank you.
+//   gift     Bubbie wants one of the family recipes, and leaves a wild card on the board as a thank you.
 //   party    Pina orders for a whole party: two things at once, and pays double.
 //
 // pay: times the normal price. gems: gems on top. stars: extra stars on top of the order's own.
@@ -36,8 +36,8 @@ export const VIPS = [
   {
     id: 'bubbie', name: 'Bubbie', kind: 'gift', title: 'Everyone\'s grandma',
     pay: 1, gems: 2, stars: 2,
-    intro: "Bubbie only orders the classics: Elayna's own recipes. She's never in a rush, and she always leaves a little gift.",
-    about: "Bubbie wants one of Elayna's own recipes. She leaves a wild card as a thank you.",
+    intro: "Bubbie only orders the classics: family recipes. She's never in a rush, and she always leaves a little gift.",
+    about: 'Bubbie wants one of the family recipes. She leaves a wild card as a thank you.',
   },
   {
     id: 'party', name: 'Pina', kind: 'party', title: 'The party planner',

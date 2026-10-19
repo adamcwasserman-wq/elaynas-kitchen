@@ -1,4 +1,4 @@
-// Moods: Elayna picks how busy her restaurants feel today (Settings, "Today's mood").
+// Moods: the player picks how busy her restaurants feel today (Settings, "Today's mood").
 // "Just right" is the game as it was made; the others lean easier or harder.
 //
 //   patience     customers' clocks run this many times slower (2 = they wait twice as long, and speed tips last longer)

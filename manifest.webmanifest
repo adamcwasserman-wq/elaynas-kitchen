@@ -1,7 +1,7 @@
 {
-  "name": "Elayna's Kitchen",
-  "short_name": "Elayna's",
-  "description": "A cozy merge and cooking game, made for Elayna.",
+  "name": "Tulip Kitchen",
+  "short_name": "Tulip Kitchen",
+  "description": "A cozy merge and cooking game: cook, serve and build your own food island.",
   "start_url": "./",
   "scope": "./",
   "display": "standalone",

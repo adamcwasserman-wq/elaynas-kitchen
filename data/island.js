@@ -1,4 +1,4 @@
-// Tulip Island: Elayna's neighbourhood as an island she builds on, seen from above at an angle.
+// Tulip Island: the player's neighbourhood as an island she builds on, seen from above at an angle.
 // The map is a square of squares (mostly sea at first). The island is a circle of land in the middle
 // that grows when she buys more shoreline with Island dollars. Her restaurants sit on Main Street.
 // Everything else (landmarks, amenities, decorations, boats) she places herself.
@@ -18,7 +18,7 @@ export const ISLAND = {
     { radius: 9.7, cost: 4500 },
   ],
   // Where each restaurant lot sits (its top square). Matches "slot" in data/cities.js.
-  lots: { 0: [7, 9], 1: [9, 9], 2: [11, 9], 4: [9, 12] },
+  lots: { 0: [7, 9], 1: [9, 9], 2: [11, 9], 3: [13, 9], 4: [9, 12], 5: [11, 12] },
   // Sailboats out on the water, by buzz level (see BUZZ_LEVELS).
   sailboats: [1, 2, 3, 4, 5, 6],
   // It's night on the island between these hours (she can switch it by hand too).

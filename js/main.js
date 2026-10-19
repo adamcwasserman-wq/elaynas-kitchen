@@ -1,4 +1,4 @@
-// Elayna's Kitchen.
+// Tulip Kitchen.
 // Phase 1: one city (Toronto), the merge board, the pantry crate, two food chains,
 // customer orders, dollars and automatic saving.
 // Phase 2: mixing two different foods into dishes, the recipe book, badges,
@@ -9,7 +9,7 @@
 // and serve customers what they ask for.
 
 import { CONFIG } from '../data/config.js';
-import { CHAINS, PRODUCERS, ORDER_VALUE, SELL_VALUE } from '../data/items.js';
+import { CHAINS, PRODUCERS, ORDER_VALUE } from '../data/items.js';
 import { CITIES, COMING_SOON } from '../data/cities.js';
 import { RECIPES, RENAMED_DISHES, RECIPE_DISCOVERY_REWARD, recipeLevel, recipeCity } from '../data/recipes.js';
 import { BADGES, BADGE_REWARD, BADGE_TIER_NAMES } from '../data/badges.js';
@@ -50,13 +50,12 @@ const canMerge = (a, b) => isChain(a) && isChain(b) && sameItem(a, b) && a.tier 
 const findRecipe = (a, b) => (!isChain(a) || !isChain(b)) ? null :
   RECIPES.find(r => (sameItem(r.a, a) && sameItem(r.b, b)) || (sameItem(r.a, b) && sameItem(r.b, a))) || null;
 const itemValue = it => it.dish ? recipeOf(it.dish).value : ORDER_VALUE[it.tier - 1];
-const sellValue = it => it.dish ? Math.round(recipeOf(it.dish).value / 4) : SELL_VALUE[it.tier - 1];
 
 // ---------- game state ----------
 let S = null;          // everything that gets saved
 let sel = -1;          // the selected square on the board
 let orderPick = null;  // or: an item tapped inside an order, as { o, k }
-let lastSale = null;   // for "Undo" after selling
+let lastBinned = null; // for "Undo" after the green bin
 let lastAction = Date.now();
 
 // ---------- cities ----------
@@ -212,6 +211,13 @@ function autoPlace(kind, type) {
 function ensureIsland() {
   S.hood.island ??= { land: 0, pieces: [], next: 1 };
   if (S.hood.name === 'Tulip Row') S.hood.name = HOOD.defaultName; // the old default name becomes the island's
+  // New restaurant lots arrived on Main Street: move anything she'd built where a lot now stands.
+  const lotSquares = new Set(Object.values(ISLAND.lots).flatMap(([x, y]) => squaresOf(x, y, 2, 2).map(q => q.join(','))));
+  for (const p of [...isl().pieces]) {
+    if (!squaresOf(p.x, p.y, ...sizeOf(p.kind, p.type)).some(q => lotSquares.has(q.join(',')))) continue;
+    isl().pieces = isl().pieces.filter(q => q !== p);
+    autoPlace(p.kind, p.type);
+  }
   for (const x of IMPROVEMENTS) if (stageOf(x.id) && !pieceOf('imp', x.id)) autoPlace('imp', x.id);
   for (const id of S.hood.built) if (!pieceOf('amen', id)) autoPlace('amen', id);
 }
@@ -563,6 +569,41 @@ $('#hood-name').addEventListener('change', e => {
   toast(`Welcome to ${S.hood.name}!`);
 });
 
+// ---------- the player's name ----------
+// Restaurant names in data/cities.js can hold {chef}: the player's name goes there.
+const chefName = () => (S.profile?.name || '').trim() || 'Tulip';
+const possessive = n => (/s$/i.test(n) ? `${n}'` : `${n}'s`);
+function applyNames() {
+  for (const c of CITIES) {
+    c.templates ??= { name: c.name, restaurant: c.restaurant, sign: c.sign };
+    for (const k of ['name', 'restaurant', 'sign']) c[k] = c.templates[k].replace("{chef}'s", possessive(chefName())).replace('{chef}', chefName());
+  }
+}
+function setName(name) {
+  S.profile = { ...(S.profile || {}), name: name.trim().slice(0, 16) };
+  applyNames();
+  renderAll();
+  save();
+}
+// The first time the game opens (or after starting over), it asks the player's name.
+function openWelcome() {
+  $('#welcome-name').value = S.profile?.name || '';
+  welcomePreview();
+  openSheet('#welcome');
+}
+function welcomePreview() {
+  const n = $('#welcome-name').value.trim() || 'Tulip';
+  $('#welcome-preview').innerHTML = `Your first restaurant will be called <b>${possessive(n).replace(/</g, '&lt;')}</b>.`;
+}
+$('#welcome-name').addEventListener('input', welcomePreview);
+$('#welcome-form').addEventListener('submit', e => {
+  e.preventDefault();
+  setName($('#welcome-name').value || 'Tulip');
+  closeSheets();
+  buzz('serve');
+  toast(`Welcome to ${city().name}!`);
+});
+
 // A new restaurant opens on her street.
 function openNextCity() {
   const i = CITIES.findIndex(c => c.id === S.city), next = CITIES[i + 1];
@@ -612,7 +653,7 @@ function migrate(s) {
   // The single pantry became separate starter blocks: the bakery crate, then the dairy fridge.
   s.board = s.board.map(it => it && it.producer === 'pantry' ? { producer: 'crate' } : it);
   s.producers ??= s.board.filter(it => it && it.producer).map(it => it.producer);
-  // Some dishes became Elayna's own recipes under new names.
+  // Some dishes became family recipes under new names.
   const renamed = id => RENAMED_DISHES[id] || id;
   s.board = s.board.map(it => it && it.dish ? { dish: renamed(it.dish) } : it);
   for (const [old, now] of Object.entries(RENAMED_DISHES)) {
@@ -835,7 +876,7 @@ function makeOrder() {
 const vipOf = o => o && o.vip ? VIPS.find(v => v.id === o.vip) : null;
 const custName = o => vipOf(o)?.name || CUSTOMERS.find(c => c.id === o.customer)?.name || '';
 const pick = list => list[randInt(0, list.length - 1)];
-// Dishes customers here could ask for right now. "hers" limits it to Elayna's own recipes.
+// Dishes customers here could ask for right now. "hers" limits it to the family recipes.
 function dishChoices(stage, opts = {}) {
   const chains = availableChains();
   return RECIPES.filter(r => recipeCity(r) === S.city && chains.includes(r.a.chain) && chains.includes(r.b.chain) &&
@@ -1080,7 +1121,7 @@ function produce(i) {
   const spot = nearestEmpty(i);
   if (spot < 0) {
     buzz('nope');
-    toast('The board is full. Merge or sell something to make room.');
+    toast('The board is full. Merge something, or put something in the green bin.');
     hint(false);
     return;
   }
@@ -1186,7 +1227,7 @@ function learnRecipe(recipe) {
   S.seen[`dish:${recipe.id}`] = true;
   celebrate({
     art: use(`art-${recipe.id}`), title: 'New recipe!', name: recipe.name,
-    line: `${recipe.hers ? 'One of your own recipes! ' : ''}${nameOf(recipe.a)} + ${nameOf(recipe.b)}.`, reward: RECIPE_DISCOVERY_REWARD,
+    line: `${recipe.hers ? 'A family recipe! ' : ''}${nameOf(recipe.a)} + ${nameOf(recipe.b)}.`, reward: RECIPE_DISCOVERY_REWARD,
   });
 }
 
@@ -1362,32 +1403,27 @@ function skipOrder(oi) {
   save();
 }
 
-function sell(i) {
+// The green bin: clears a square when the board is too full. It pays nothing, and Undo puts it back.
+function binIt(i) {
   const it = S.board[i];
   if (!it || it.producer || it.wild) return;
-  const value = sellValue(it);
   S.board[i] = null;
-  S.dollars += value;
-  S.stats.earned += value;
   S.stats.sold++;
   sel = -1;
-  lastSale = { i, it, value };
+  lastBinned = { i, it };
   buzz('tap');
-  toast(`Sold ${nameOf(it)} for $${value}.`, { action: 'Undo', onAction: undoSell });
+  toast(`${nameOf(it)} went in the green bin.`, { action: 'Undo', onAction: undoBin });
   renderAll();
-  checkBadges();
   save();
 }
-function undoSell() {
-  if (!lastSale) return;
-  let { i } = lastSale;
+function undoBin() {
+  if (!lastBinned) return;
+  let { i } = lastBinned;
   if (S.board[i]) i = nearestEmpty(i);
   if (i < 0) { toast('No room to put it back.'); return; }
-  S.board[i] = lastSale.it;
-  S.dollars = Math.max(0, S.dollars - lastSale.value);
-  S.stats.earned = Math.max(0, S.stats.earned - lastSale.value);
+  S.board[i] = lastBinned.it;
   sel = i;
-  lastSale = null;
+  lastBinned = null;
   renderAll();
   save();
 }
@@ -1655,7 +1691,7 @@ function hint(fromButton) {
     return;
   }
   if (!unlimited() && S.charges <= 0) { if (fromButton) openRefill(); return; }
-  // Board is full with nothing to merge: suggest selling the smallest thing.
+  // Board is full with nothing to merge: suggest binning the smallest thing.
   const wanted = new Set(S.orders.flatMap(orderKeys));
   const score = it => (it.dish ? 7 : it.tier) + (wanted.has(keyOf(it)) ? 10 : 0);
   let low = -1;
@@ -1668,7 +1704,7 @@ function hint(fromButton) {
     orderPick = null;
     renderAll();
     wiggle([cellEl(low)]);
-    toast('The board is full. Sell this to make room.');
+    toast('The board is full. Put this in the green bin to make room.');
   }
 }
 
@@ -1814,7 +1850,7 @@ function renderInfo() {
     }
     let buttons = '';
     if (sel >= 0) {
-      buttons = `<button class="sell" data-sell="${sel}">Sell $${sellValue(it)}</button>`;
+      buttons = `<button class="sell bin" data-bin="${sel}" aria-label="Put it in the green bin">${ICONS.bin}<span>Bin</span></button>`;
       if (isChain(it) && it.tier < maxTier(it.chain)) buttons += gemButton('levelup', sel, 'Level up', GEMS.levelUp);
     }
     info.innerHTML = `<div class="info-icon fam-${familyOf(it)}">${use(artId(it))}</div>
@@ -2081,7 +2117,7 @@ document.addEventListener('click', e => {
     buzz('tap');
     renderAll();
   }
-  else if (t.dataset.sell !== undefined) sell(+t.dataset.sell);
+  else if (t.dataset.bin !== undefined) binIt(+t.dataset.bin);
   else if (t.dataset.ability !== undefined) useAbility(t.dataset.ability, +t.dataset.target);
   else if (t.id === 'nav-today') arcade.open();
   else if (t.id === 'gems') openGemShop();
@@ -2109,7 +2145,8 @@ function closeSheets() {
   document.querySelectorAll('.sheet').forEach(s => { s.hidden = true; });
   resetTwoTaps();
 }
-document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if (e.target === s) closeSheets(); }));
+// Tapping outside a sheet closes it (except the welcome, which waits for a name).
+document.querySelectorAll('.sheet').forEach(s => s.addEventListener('click', e => { if (e.target === s && s.dataset.keep === undefined) closeSheets(); }));
 
 // The restaurant
 let restFocus = null, restFocusPreview = true;
@@ -2174,7 +2211,7 @@ function openRecipes() {
       list.map(r => {
         const known = !!S.recipes[r.id];
         return `<li class="recipe${known ? '' : ' unknown'}"><div class="recipe-art fam-dish">${use(`art-${r.id}`)}</div>` +
-          `<div class="recipe-text"><b>${known ? r.name : 'Not found yet'}</b>${r.hers ? '<span class="hers">From your recipe box</span>' : ''}` +
+          `<div class="recipe-text"><b>${known ? r.name : 'Not found yet'}</b>${r.hers ? '<span class="hers">Family recipe</span>' : ''}` +
           `<span>${known ? `${nameOf(r.a)} + ${nameOf(r.b)}` : open ? 'Mix two different foods to find it.' : `Cook at ${c.name} to find it.`}</span></div></li>`;
       }).join('');
   }).join('');
@@ -2263,6 +2300,7 @@ $('#rf-free').addEventListener('click', () => {
 function openSettings() {
   $('#set-vibrate').checked = S.settings.vibrate;
   $('#set-nudge').checked = !!S.settings.nudge;
+  $('#set-name').value = S.profile?.name || '';
   renderMoods();
   $('#bk-text').value = '';
   openSheet('#settings');
@@ -2273,6 +2311,7 @@ $('#set-vibrate').addEventListener('change', e => {
   save();
 });
 $('#set-nudge').addEventListener('change', e => { S.settings.nudge = e.target.checked; save(); });
+$('#set-name').addEventListener('change', e => { setName(e.target.value || 'Tulip'); toast(`Hello, ${chefName()}! Welcome to ${city().name}.`); });
 // Today's mood: five rows, "Just right" in the middle.
 function renderMoods() {
   const now = mood().id;
@@ -2306,7 +2345,7 @@ $('#bk-download').addEventListener('click', () => {
   const blob = new Blob([toCode(S)], { type: 'text/plain' });
   const a = document.createElement('a');
   a.href = URL.createObjectURL(blob);
-  a.download = `elaynas-kitchen-backup-${new Date().toISOString().slice(0, 10)}.txt`;
+  a.download = `tulip-kitchen-backup-${new Date().toISOString().slice(0, 10)}.txt`;
   document.body.append(a);
   a.click();
   setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 1000);
@@ -2332,6 +2371,7 @@ function restore(text) {
   if (!data) { toast("That doesn't look like a backup code."); return; }
   S = migrate(data);
   ensureIsland();
+  applyNames();
   sel = -1;
   orderPick = null;
   writeSave(S);
@@ -2352,8 +2392,9 @@ twoTap($('#reset'), 'Tap again to erase everything', () => {
   orderPick = null;
   writeSave(S);
   closeSheets();
+  applyNames();
   renderAll();
-  toast('A fresh start. Have fun!');
+  openWelcome();
 });
 
 // ---------- the Today hub (gift, trivia, mini games, prizes) ----------
@@ -2409,6 +2450,7 @@ function boot() {
   S = loadSave();
   if (S) migrate(S); else { newGame(); writeSave(S); }
   ensureIsland(); // older saves get their neighbourhood laid out on the island
+  applyNames();
   unlockProducers();
   fillOrders();
   // An older save that already reached 2 stars in Toronto opens Mexico City now.
@@ -2417,6 +2459,7 @@ function boot() {
   checkHood();
   checkBadges();
   renderAll();
+  if (!S.profile?.name) openWelcome();
 
   setInterval(() => {
     accrueBia();

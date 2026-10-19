@@ -61,6 +61,78 @@ export const CHAINS = {
       { id: 'pastafeast', name: 'Pasta feast' },
     ],
   },
+  // Hana Sushi
+  rice: {
+    name: 'Rice',
+    tiers: [
+      { id: 'rice', name: 'Rice' },
+      { id: 'steamedrice', name: 'Steamed rice' },
+      { id: 'onigiri', name: 'Onigiri' },
+      { id: 'makiroll', name: 'Maki rolls' },
+      { id: 'bento', name: 'Bento box' },
+      { id: 'sushiboat', name: 'Sushi boat' },
+    ],
+  },
+  // Hana Sushi
+  tea: {
+    name: 'Tea',
+    tiers: [
+      { id: 'tealeaf', name: 'Tea leaf' },
+      { id: 'greentea', name: 'Green tea' },
+      { id: 'matcha', name: 'Matcha' },
+      { id: 'mochi', name: 'Mochi' },
+      { id: 'matchaparfait', name: 'Matcha parfait' },
+      { id: 'teaset', name: 'Tea ceremony set' },
+    ],
+  },
+  // Sunny Side
+  coffee: {
+    name: 'Coffee',
+    tiers: [
+      { id: 'coffeebean', name: 'Coffee beans' },
+      { id: 'groundcoffee', name: 'Ground coffee' },
+      { id: 'espresso', name: 'Espresso' },
+      { id: 'cappuccino', name: 'Cappuccino' },
+      { id: 'icedmocha', name: 'Iced mocha' },
+      { id: 'coffeeflight', name: 'Coffee flight' },
+    ],
+  },
+  // Sunny Side and Sugar Tulip
+  fruit: {
+    name: 'Fruit',
+    tiers: [
+      { id: 'strawberry', name: 'Strawberry' },
+      { id: 'berrybowl', name: 'Berry bowl' },
+      { id: 'fruitsalad', name: 'Fruit salad' },
+      { id: 'smoothie', name: 'Smoothie' },
+      { id: 'smoothiebowl', name: 'Smoothie bowl' },
+      { id: 'fruitplatter', name: 'Fruit platter' },
+    ],
+  },
+  // Sugar Tulip
+  cocoa: {
+    name: 'Cocoa',
+    tiers: [
+      { id: 'cocoabean', name: 'Cocoa pod' },
+      { id: 'chocchips', name: 'Chocolate chips' },
+      { id: 'chocbar', name: 'Chocolate bar' },
+      { id: 'truffles', name: 'Truffles' },
+      { id: 'choccake', name: 'Chocolate cake' },
+      { id: 'chocfountain', name: 'Chocolate fountain' },
+    ],
+  },
+  // Sugar Tulip
+  icecream: {
+    name: 'Ice cream',
+    tiers: [
+      { id: 'vanilla', name: 'Vanilla' },
+      { id: 'sweetcream', name: 'Sweet cream' },
+      { id: 'scoop', name: 'Ice cream scoop' },
+      { id: 'cone', name: 'Ice cream cone' },
+      { id: 'sundae', name: 'Sundae' },
+      { id: 'icecreamcake', name: 'Ice cream cake' },
+    ],
+  },
 };
 
 // Producers ("starter blocks") make level 1 items when tapped. Each tap uses one pantry charge.
@@ -86,11 +158,15 @@ export const PRODUCERS = {
     name: 'Egg basket',
     makes: [{ chain: 'pasta', tier: 1, weight: 1 }],
   },
+  ricecooker: { name: 'Rice cooker', makes: [{ chain: 'rice', tier: 1, weight: 1 }] },
+  teapot: { name: 'Teapot', makes: [{ chain: 'tea', tier: 1, weight: 1 }] },
+  grinder: { name: 'Coffee grinder', makes: [{ chain: 'coffee', tier: 1, weight: 1 }] },
+  fruitbasket: { name: 'Fruit basket', makes: [{ chain: 'fruit', tier: 1, weight: 1 }] },
+  cocoatin: { name: 'Cocoa tin', makes: [{ chain: 'cocoa', tier: 1, weight: 1 }] },
+  freezer: { name: 'Ice cream freezer', makes: [{ chain: 'icecream', tier: 1, weight: 1 }] },
 };
 // Which starter blocks each city starts with, and which arrive later, are in data/cities.js.
 
 // Dollars a customer pays for one item, by level (level 1 is the first number).
 export const ORDER_VALUE = [2, 5, 11, 24, 50, 105];
 
-// Dollars you get for selling one item from the board, by level.
-export const SELL_VALUE = [1, 2, 4, 8, 16, 32];

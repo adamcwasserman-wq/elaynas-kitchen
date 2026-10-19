@@ -17,6 +17,7 @@ export const MISSIONS = [
   { id: 'buzz3', name: 'Make your island a Busy food street', stat: 'buzzLevel', n: 3, gems: 6 },
   { id: 'serve200', name: 'Serve 200 customers', stat: 'served', n: 200, gems: 6 },
   { id: 'stars6', name: 'Earn 6 restaurant stars in all', stat: 'stars', n: 6, gems: 8 },
-  { id: 'open3', name: 'Open all three restaurants', stat: 'restaurants', n: 3, gems: 8 },
+  { id: 'open3', name: 'Open three restaurants', stat: 'restaurants', n: 3, gems: 8 },
+  { id: 'open6', name: 'Open all six restaurants', stat: 'restaurants', n: 6, gems: 20 },
   { id: 'buzz5', name: 'Become a Famous food district', stat: 'buzzLevel', n: 5, gems: 15 },
 ];

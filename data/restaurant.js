@@ -1,12 +1,3 @@
-// Where Elayna is cooking right now. More cities and restaurants come later.
-// Winning a restaurant: every order earns stars. Reaching each goal gives the restaurant
-// another star rating (up to three) and some gems. Three stars wins the city.
-export const CITY = {
-  name: 'Toronto', restaurant: "Elayna's",
-  starGoals: [40, 100, 180],
-  starRewards: [{ gems: 3, dollars: 50 }, { gems: 5, dollars: 150 }, { gems: 15, dollars: 400 }],
-};
-
 // Restaurant upgrades. Every restaurant has the same twelve, and each one changes the game in
 // its own way. Each has three levels: buy level 1 first, then climb. The look and the names
 // change with the restaurant (see THEMES below), but what an upgrade does is the same everywhere.
@@ -182,6 +173,102 @@ export const THEMES = {
       patio: { name: 'Piazza patio', levels: ['Patio with a market umbrella', 'Patio with planters', 'Grapevine pergola'] },
       bunting: { name: 'Flag bunting', levels: ['Green, white and red bunting', 'Double bunting', 'Bunting and rooftop flags'] },
       rooftop: { name: 'Rooftop garden', levels: ['Rooftop basil pots', 'Tomato vine trellis', 'Rooftop lemon grove'] },
+    },
+  },
+  japan: {
+    style: 'japan',
+    choices: {
+      paint: [
+        { name: 'Rice white', colour: '#f6f0e4' },
+        { name: 'Sakura', colour: '#f6d3dc' },
+        { name: 'Matcha', colour: '#d6e6c0' },
+        { name: 'Sky', colour: '#d3ecf6' },
+        { name: 'Sand', colour: '#eadbc0' },
+      ],
+      awning: [
+        { name: 'Red', colour: '#c8323a' },
+        { name: 'Indigo', colour: '#2b3a6b' },
+        { name: 'Ink black', colour: '#3a2a2a' },
+        { name: 'Teal', colour: '#2f8a8f' },
+      ],
+    },
+    upgrades: {
+      paint: { name: 'Walls', levels: ['Fresh white plaster', 'Dark wood beams', 'Painted wave pattern'] },
+      awning: { name: 'Awning', levels: ['Red awning', 'Awning with gold tassels', 'Awning with flowers'] },
+      tulips: { name: 'Window boxes', levels: ['Window flower boxes', 'Overflowing flower boxes', 'Butterfly garden boxes'] },
+      trees: { name: 'Cherry trees', levels: ['Cherry trees in pots', 'Cherry trees in bloom', 'Cherry trees with fairy lights'] },
+      oven: { name: 'Rice steamer', levels: ['Lantern over the rice steamer', 'Two lanterns and warm steam', 'Golden lantern'] },
+      display: { name: 'Sushi window', levels: ['Sushi in the window', 'Teapot on display', '"Oishii!" banner'] },
+      bench: { name: 'Bench', levels: ['Wooden bench', 'Bench with cushions', 'Bench under a lamp'] },
+      lights: { name: 'String lights', levels: ['String lights', 'Rainbow lights', 'Lights everywhere'] },
+      neon: { name: 'Neon sign', levels: ['Neon SUSHI sign', 'Neon window frame', 'Neon fish'] },
+      patio: { name: 'Garden patio', levels: ['Patio with an umbrella', 'Patio with planters', 'Twinkly patio'] },
+      bunting: { name: 'Paper lanterns', levels: ['Paper lanterns', 'Two rows of lanterns', 'Lanterns and rooftop flags'] },
+      rooftop: { name: 'Rooftop garden', levels: ['Rooftop garden', 'Garden with a trellis', 'Sunflower roof'] },
+    },
+  },
+  brunch: {
+    style: 'brunch',
+    choices: {
+      paint: [
+        { name: 'Butter', colour: '#fff0b3' },
+        { name: 'Peach', colour: '#ffd9b8' },
+        { name: 'Mint', colour: '#cdeedb' },
+        { name: 'Sky', colour: '#d3ecf6' },
+        { name: 'Lilac', colour: '#e6d6f3' },
+      ],
+      awning: [
+        { name: 'Orange', colour: '#f39a1e' },
+        { name: 'Sunny yellow', colour: '#f6c33e' },
+        { name: 'Coral', colour: '#f2726b' },
+        { name: 'Teal', colour: '#2f8a8f' },
+      ],
+    },
+    upgrades: {
+      paint: { name: 'Paint', levels: ['Sunny fresh paint', 'Painted trim', 'Hand-painted tiles'] },
+      awning: { name: 'Awning', levels: ['Striped awning', 'Awning with gold tassels', 'Awning with flowers'] },
+      tulips: { name: 'Window boxes', levels: ['Window flower boxes', 'Overflowing flower boxes', 'Butterfly garden boxes'] },
+      trees: { name: 'Potted trees', levels: ['Potted orange trees', 'Blossoming trees', 'Twinkling trees'] },
+      oven: { name: 'Coffee pot', levels: ['Coffee pot on the roof', 'Coffee pot puffing steam', 'Golden coffee pot'] },
+      display: { name: 'Pastry window', levels: ['Croissants in the window', 'Cake stand with berries', '"Brunch all day" banner'] },
+      bench: { name: 'Bench', levels: ['Bench out front', 'Comfy cushioned bench', 'Bench under a lamp post'] },
+      lights: { name: 'String lights', levels: ['String lights', 'Rainbow lights', 'Glowing lights everywhere'] },
+      neon: { name: 'Neon sign', levels: ['Neon CAFÉ sign', 'Neon window frame', 'Neon coffee cup'] },
+      patio: { name: 'Patio', levels: ['Sunny patio', 'Patio with planters', 'Twinkly patio'] },
+      bunting: { name: 'Bunting', levels: ['Sunny bunting', 'Double bunting', 'Bunting and rooftop flags'] },
+      rooftop: { name: 'Rooftop garden', levels: ['Rooftop garden', 'Garden with a trellis', 'Sunflower roof'] },
+    },
+  },
+  dessert: {
+    style: 'dessert',
+    choices: {
+      paint: [
+        { name: 'Bubblegum', colour: '#ffd1e0' },
+        { name: 'Mint', colour: '#cdeedb' },
+        { name: 'Lavender', colour: '#e6d6f3' },
+        { name: 'Lemon', colour: '#fff0b3' },
+        { name: 'Vanilla', colour: '#fff6e6' },
+      ],
+      awning: [
+        { name: 'Pink', colour: '#e8659a' },
+        { name: 'Mint', colour: '#4fbf9f' },
+        { name: 'Lavender', colour: '#9b7fd1' },
+        { name: 'Cherry', colour: '#d7263d' },
+      ],
+    },
+    upgrades: {
+      paint: { name: 'Paint', levels: ['Pink paint', 'Sprinkle trim', 'Candy-stripe trim'] },
+      awning: { name: 'Awning', levels: ['Candy-striped awning', 'Awning with gold tassels', 'Awning with flowers'] },
+      tulips: { name: 'Window boxes', levels: ['Window flower boxes', 'Overflowing flower boxes', 'Butterfly garden boxes'] },
+      trees: { name: 'Lollipop trees', levels: ['Lollipop trees', 'Giant lollipops', 'Twinkling lollipops'] },
+      oven: { name: 'Giant cone', levels: ['Ice cream cone on the roof', 'Two-scoop cone', 'Three scoops and a cherry'] },
+      display: { name: 'Cake window', levels: ['Cupcakes in the window', 'Tiered cake stand', '"Sweet treats" banner'] },
+      bench: { name: 'Bench', levels: ['Bench out front', 'Comfy cushioned bench', 'Bench under a lamp post'] },
+      lights: { name: 'String lights', levels: ['String lights', 'Rainbow lights', 'Glowing lights everywhere'] },
+      neon: { name: 'Neon sign', levels: ['Neon SWEETS sign', 'Neon window frame', 'Neon cupcake'] },
+      patio: { name: 'Patio', levels: ['Ice cream patio', 'Patio with planters', 'Twinkly patio'] },
+      bunting: { name: 'Bunting', levels: ['Pastel bunting', 'Double bunting', 'Bunting and rooftop flags'] },
+      rooftop: { name: 'Rooftop garden', levels: ['Rooftop garden', 'Garden with a trellis', 'Sunflower roof'] },
     },
   },
 };

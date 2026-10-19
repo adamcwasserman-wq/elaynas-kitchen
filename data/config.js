@@ -1,4 +1,4 @@
-// Tuning numbers for the game. Change these after Elayna plays it,
+// Tuning numbers for the game. Change these after play testing,
 // no game logic lives here. Times are in seconds unless the name says otherwise.
 
 export const CONFIG = {

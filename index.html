@@ -3,8 +3,8 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
-<title>Elayna's Kitchen</title>
-<meta name="description" content="A cozy merge and cooking game, made for Elayna.">
+<title>Tulip Kitchen</title>
+<meta name="description" content="A cozy merge and cooking game: cook, serve and build your own food island.">
 <meta name="theme-color" content="#f9dcb5">
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/png" href="icons/icon-192.png">
@@ -158,7 +158,7 @@
 <div class="sheet" id="restaurant" hidden>
   <div class="sheet-card" role="dialog" aria-labelledby="rest-title">
     <div class="rest-photo">
-      <h2 id="rest-title">Elayna's, Toronto</h2>
+      <h2 id="rest-title">Your restaurant</h2>
       <div class="rest-art" id="rest-art"></div>
       <p class="muted small" id="rest-caption"></p>
     </div>
@@ -199,9 +199,23 @@
   </div>
 </div>
 
+<div class="sheet" id="welcome" data-keep hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="welcome-title">
+    <h2 id="welcome-title">Welcome to Tulip Kitchen!</h2>
+    <p>Merge ingredients, cook dishes, serve hungry customers and build your own little food island.</p>
+    <form id="welcome-form" class="welcome-form">
+      <label class="name-field"><span>What should we call you?</span><input id="welcome-name" maxlength="16" autocomplete="given-name" placeholder="Your name"></label>
+      <p class="muted small" id="welcome-preview"></p>
+      <button class="btn primary" type="submit">Let's cook!</button>
+    </form>
+    <p class="muted small">Your game saves on this phone only. Nothing is sent anywhere.</p>
+  </div>
+</div>
+
 <div class="sheet" id="settings" hidden>
   <div class="sheet-card" role="dialog" aria-labelledby="settings-title">
     <h2 id="settings-title">Settings</h2>
+    <label class="name-field"><span>Your name</span><input id="set-name" maxlength="16" autocomplete="given-name" placeholder="Your name"></label>
     <label class="toggle"><span>Vibration</span><input type="checkbox" id="set-vibrate"></label>
     <label class="toggle"><span>Nudge me when I'm idle</span><input type="checkbox" id="set-nudge"></label>
 
@@ -227,7 +241,7 @@
     <h3>Start over</h3>
     <button class="btn danger" id="reset">Start a new game</button>
 
-    <p class="muted small version">Elayna's Kitchen · version 0.12</p>
+    <p class="muted small version">Tulip Kitchen · version 0.13</p>
     <button class="btn ghost" data-close>Close</button>
   </div>
 </div>

@@ -1,4 +1,4 @@
-/* Elayna's Kitchen: sunny poster look.
+/* Tulip Kitchen: sunny poster look.
    One fixed palette on purpose (the game has a single look, no dark mode).
    Layout: header, three order cards, a tip line, the board filling the middle, an info bar. */
 :root {
@@ -684,3 +684,33 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .mood-text span { font-size: .8rem; color: var(--muted); line-height: 1.3; }
 .mood-meter { flex: none; display: flex; gap: 2px; align-items: flex-end; height: 18px; }
 .mood-meter span { display: block; width: 7px; border-radius: 2px; }
+
+/* The green bin button in the info bar */
+.sell.bin { display: inline-flex; flex-direction: column; align-items: center; justify-content: center; gap: 1px; background: #dff2d6; color: #2f7a2d; box-shadow: 0 2px 0 #9fcf8c; font-size: .8rem; padding: 2px 12px; }
+.sell.bin svg { width: 22px; height: 22px; display: block; }
+
+/* The player's name: on the welcome card and in Settings */
+.name-field { display: flex; flex-direction: column; gap: 4px; font-weight: 700; }
+.name-field input { font-family: var(--display); font-size: 1.25rem; color: var(--eggplant); border: 2px solid var(--edge); border-radius: 12px; padding: 8px 12px; background: #fff; min-height: 48px; }
+.name-field input:focus { outline: none; border-color: var(--eggplant); }
+.welcome-form { display: flex; flex-direction: column; gap: 10px; }
+
+/* The new food families (Hana Sushi, Sunny Side, Sugar Tulip) get their own tinted squares, so pale foods stand out. */
+.cell.fam-rice { background: #e2eef7; box-shadow: inset 0 0 0 3px #8fb6d9; }
+.need-item.fam-rice { background: #e2eef7; box-shadow: inset 0 0 0 2px #8fb6d9; }
+.step.fam-rice .step-art, .info-icon.fam-rice { background: #e2eef7; }
+.cell.fam-tea { background: #e6f2d8; box-shadow: inset 0 0 0 3px #9cc56e; }
+.need-item.fam-tea { background: #e6f2d8; box-shadow: inset 0 0 0 2px #9cc56e; }
+.step.fam-tea .step-art, .info-icon.fam-tea { background: #e6f2d8; }
+.cell.fam-coffee { background: #f3e3d3; box-shadow: inset 0 0 0 3px #c9955a; }
+.need-item.fam-coffee { background: #f3e3d3; box-shadow: inset 0 0 0 2px #c9955a; }
+.step.fam-coffee .step-art, .info-icon.fam-coffee { background: #f3e3d3; }
+.cell.fam-fruit { background: #fde3e6; box-shadow: inset 0 0 0 3px #ef8f9b; }
+.need-item.fam-fruit { background: #fde3e6; box-shadow: inset 0 0 0 2px #ef8f9b; }
+.step.fam-fruit .step-art, .info-icon.fam-fruit { background: #fde3e6; }
+.cell.fam-cocoa { background: #f3e0d6; box-shadow: inset 0 0 0 3px #b9806a; }
+.need-item.fam-cocoa { background: #f3e0d6; box-shadow: inset 0 0 0 2px #b9806a; }
+.step.fam-cocoa .step-art, .info-icon.fam-cocoa { background: #f3e0d6; }
+.cell.fam-icecream { background: #eee6fb; box-shadow: inset 0 0 0 3px #b9a2e6; }
+.need-item.fam-icecream { background: #eee6fb; box-shadow: inset 0 0 0 2px #b9a2e6; }
+.step.fam-icecream .step-art, .info-icon.fam-icecream { background: #eee6fb; }

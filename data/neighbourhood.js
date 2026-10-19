@@ -1,4 +1,4 @@
-// Elayna's neighbourhood: Tulip Island, the food district she builds up, like a BIA (business improvement area).
+// The neighbourhood: Tulip Island, the food district she builds up, like a BIA (business improvement area).
 // She places each improvement on the island map (see data/island.js). Improvements, restaurant stars and restaurant upgrades
 // all add "buzz". More buzz brings more people to the neighbourhood, and every buzz level
 // pays gems and makes customers pay a little more in all of her restaurants.
