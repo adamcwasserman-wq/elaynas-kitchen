@@ -15,7 +15,7 @@ import { RECIPES, RENAMED_DISHES, RECIPE_DISCOVERY_REWARD, recipeLevel, recipeCi
 import { BADGES, BADGE_REWARD, BADGE_TIER_NAMES } from '../data/badges.js';
 import { UPGRADES, CHOICES } from '../data/restaurant.js';
 import { CUSTOMERS } from '../data/customers.js';
-import { ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS } from '../data/orders.js';
+import { ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS, COMPLAINTS } from '../data/orders.js';
 import { buildSprite, use, ICONS, badgeSvg, restaurantSvg, mapSvg as drawMap } from './art.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
 import { createArcade } from './arcade.js';
@@ -55,7 +55,7 @@ let lastAction = Date.now();
 
 // ---------- cities ----------
 // Each city keeps these for itself; everything else (dollars, gems, badges, recipes) is shared.
-const CITY_KEYS = ['board', 'orders', 'orderSeq', 'served', 'producers', 'upgrades', 'choices', 'decor', 'cityStars', 'starLevel'];
+const CITY_KEYS = ['board', 'orders', 'orderSeq', 'served', 'producers', 'upgrades', 'choices', 'decor', 'cityStars', 'starLevel', 'complaints'];
 const cityOf = id => CITIES.find(c => c.id === id) || CITIES[0];
 const city = () => cityOf(S?.city);
 
@@ -66,7 +66,7 @@ function newCityState(id) {
   c.starts.forEach((p, n) => { board[idx(2 + n, 3)] = { producer: p }; });
   const first = PRODUCERS[c.starts[0]].makes[0];
   board[idx(1, 4)] = { chain: first.chain, tier: 1 };
-  return { board, orders: [], orderSeq: 0, served: 0, producers: [...c.starts], upgrades: [], choices: {}, decor: [], cityStars: 0, starLevel: 0 };
+  return { board, orders: [], orderSeq: 0, served: 0, producers: [...c.starts], upgrades: [], choices: {}, decor: [], cityStars: 0, starLevel: 0, complaints: 0 };
 }
 
 function travel(id) {
@@ -189,6 +189,7 @@ function migrate(s) {
   s.cityData ??= {};
   s.choices ??= {};
   s.served ??= 0;
+  s.complaints ??= 0;
   if (s.board.length !== CELLS) {
     // The board changed size: keep everything, moving anything that no longer fits.
     const oldCols = s.board.length === 63 ? 7 : COLS;
@@ -332,7 +333,44 @@ const payFor = o => Math.round(o.reward * (1 + perks().orderBonus));
 const tipShare = o => Math.max(0, 1 - o.age / (o.fast * 2000));
 const tipFor = o => Math.round(payFor(o) * SPEED_TIP * (1 + perks().tipBonus) * tipShare(o));
 const isSpeedy = o => o.age <= o.fast * 1000;
-const tipClass = o => { const t = tipShare(o); return t > 0.6 ? 'fresh' : t > 0.25 ? 'waiting' : t > 0 ? 'late' : 'done'; };
+const tipClass = o => { const t = tipShare(o); return t > 0.6 ? 'fresh' : t > 0.25 ? 'waiting' : t > 0.1 ? 'late' : 'urgent'; };
+// The first few teaching orders in a city never complain.
+const canComplain = o => (o.id || 0) > city().firstOrders.length;
+
+// A customer whose bar ran out complains and leaves; a new one takes their place.
+function complain(oi) {
+  const o = S.orders[oi];
+  const cust = CUSTOMERS.find(c => c.id === o.customer);
+  S.complaints = (S.complaints || 0) + 1;
+  if (orderPick?.o === oi) orderPick = null;
+  S.orders[oi] = makeOrder();
+  buzz('nope');
+  if (S.complaints >= COMPLAINTS.max) { failRound(cust); return; }
+  const left = COMPLAINTS.max - S.complaints;
+  toast(`${cust.name} waited too long and left. ${left} more complaint${left === 1 ? '' : 's'} and the round starts over.`);
+  renderAll();
+  shake($('#brand'));
+  save();
+}
+
+// Too many complaints: this star level starts over. The food on the board stays.
+function failRound(cust) {
+  const goals = city().starGoals;
+  const floor = S.starLevel === 0 ? 0 : goals[S.starLevel - 1];
+  const lost = Math.max(0, cityStars() - floor);
+  S.cityStars = floor;
+  S.complaints = 0;
+  orderPick = null;
+  S.orders = [];
+  fillOrders();
+  celebrate({
+    art: `<div class="cele-emoji">${use(`cust-${cust.id}`)}</div>`, title: 'Rough shift!',
+    name: `${COMPLAINTS.max} customers left unhappy`,
+    line: `This round starts over${lost ? `, back to ${floor} stars` : ''}. Your food is still on the board. Serve faster to keep your hearts!`,
+  });
+  renderAll();
+  save();
+}
 
 // What an order card shows. A single dish shows its two foods; anything else shows each thing.
 function slotsOf(o) {
@@ -583,6 +621,7 @@ function addStars(n, speedy) {
         `Customers love it. Next: ${goals[lv + 1]} stars. Orders will get a little trickier.`,
       reward: r.dollars, gems: r.gems,
     });
+    S.complaints = 0; // a new star is a fresh round: hearts refill
     if (S.starLevel >= CITY.opensNextAt) openNextCity();
   }
 }
@@ -861,7 +900,8 @@ function renderHeader() {
   const CITY = city(), goals = CITY.starGoals, lv = S.starLevel, goal = goals[Math.min(lv, goals.length - 1)];
   const prev = lv === 0 ? 0 : goals[lv - 1];
   $('#brand-city').innerHTML = `${CITY.name} <span class="brand-stars">${'★'.repeat(lv)}${'☆'.repeat(goals.length - lv)}</span>`;
-  $('#brand-next').textContent = lv >= goals.length ? `${cityStars()} stars. You won ${CITY.name}!` : `${cityStars()} of ${goal} stars`;
+  const hearts = '♥'.repeat(COMPLAINTS.max - (S.complaints || 0)) + '♡'.repeat(S.complaints || 0);
+  $('#brand-next').innerHTML = `${lv >= goals.length ? `${cityStars()} stars. You won ${CITY.name}!` : `${cityStars()} of ${goal} stars`} <span class="hearts" title="Complaints left before the round starts over">${hearts}</span>`;
   $('#brand-fill').style.width = `${lv >= goals.length ? 100 : Math.min(100, Math.round((cityStars() - prev) / (goal - prev) * 100))}%`;
   $('#brand-dot').hidden = !can;
   $('#nav-restaurant .dot').hidden = !can;
@@ -1510,11 +1550,15 @@ function boot() {
   renderAll();
 
   setInterval(() => {
-    if (document.visibilityState === 'visible' && $('#game').hidden) {
+    const paused = !$('#game').hidden || !$('#celebrate').hidden || document.querySelectorAll('.sheet:not([hidden])').length > 0;
+    if (document.visibilityState === 'visible' && !paused) {
       // Customers wait: the bar drops and the amount they'll pay counts down toward the normal price.
+      // When a bar runs out, that customer complains and leaves.
+      const done = S.orders.findIndex(o => o.age + 1000 >= o.fast * 2000 && canComplain(o));
+      if (done >= 0) { complain(done); return; }
       S.orders.forEach((o, oi) => {
         const before = payFor(o) + tipFor(o);
-        o.age += 1000;
+        o.age = Math.min(o.age + 1000, o.fast * 2000);
         const card = $(`.order[data-o="${oi}"]`);
         if (!card) return;
         const bar = card.querySelector('.tipbar');

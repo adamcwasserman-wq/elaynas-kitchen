@@ -33,5 +33,11 @@ export const ORDER_STARS = { plain: 1, simple: 2, advanced: 3, speedy: 1 };
 // the fast time. It never drops below the normal price, and orders never expire.
 export const SPEED_TIP = 1;
 
+// Complaints: when a customer's bar runs out (twice their fast time), they complain and leave.
+// "max" complaints fails the round: stars go back to where this star level began and the
+// customers start fresh (the food on the board stays). Hearts refill at each new star.
+// The very first teaching orders never complain, and the bars pause while a panel is open.
+export const COMPLAINTS = { max: 3 };
+
 // Orders that ask for several things pay a little extra.
 export const BIG_ORDER_BONUS = 1.25;
