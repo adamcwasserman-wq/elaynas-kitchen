@@ -2267,7 +2267,7 @@ function renderKitchenButton() {
   if (!KITCHEN_CITIES.includes(S.city)) { el.innerHTML = '<p class="muted small k-soon">This kitchen opens for cooking shifts in a later update.</p>'; return; }
   const k = S.kitchen?.[S.city], done = (k?.best || []).filter(b => b > 0).length;
   el.innerHTML = `<button class="k-open" id="k-open"><span class="k-open-art">${ICONS.cloche}</span><span><b>Cook a shift</b>` +
-    `<small>${done ? `${done} of ${SHIFTS.length} shifts done` : 'Bake bagels, pour coffee, serve customers'}</small></span></button>`;
+    `<small>${done ? `${done} of ${SHIFTS.length} shifts done` : 'Bake pretzels, pour coffee, serve customers'}</small></span></button>`;
 }
 $('#rest-kitchen').addEventListener('click', e => {
   if (!e.target.closest('#k-open')) return;

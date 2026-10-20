@@ -65,18 +65,19 @@ export const vip = (art, x, y, cls = '') => g(`translate(${x} ${y})`, `<g class=
   text(17, -14, '★', 14, GOLD, { stroke: '#d99a12', 'stroke-width': .6 }));
 
 // ---------- food, drawn around 0,0 at about 24 across ----------
-const RING = (r, h) => `M${-r},0 a${r},${r} 0 1,0 ${2 * r},0 a${r},${r} 0 1,0 ${-2 * r},0 Z M${-h},0 a${h},${h} 0 1,0 ${2 * h},0 a${h},${h} 0 1,0 ${-2 * h},0 Z`;
-const bagelArt = (dark, light, seeds) => g('scale(1 .8)', path(RING(12, 4), dark, { 'fill-rule': 'evenodd' }) + g('translate(-1 -1.5)', path(RING(11, 4.2), light, { 'fill-rule': 'evenodd' })) +
-  (seeds ? [[-6, -6], [3, -8], [7, -2], [-8, 2], [5, 5]].map(([x, y]) => ell(x, y, 1.4, .8, CREAM)).join('') : '') + shine(-6, -5, 3, 1.4));
+// A pretzel: two loops and crossed arms, drawn as a thick rope. Salt grains on top when salted.
+const KNOT = 'M0,-1 C-4,-9 -13,-9 -13,-1 C-13,7 -6,10 0,10 C6,10 13,7 13,-1 C13,-9 4,-9 0,-1 M-7,8 Q0,2 4,-6 M7,8 Q0,2 -4,-6';
+const pretzelArt = (dark, light, salt) => line(KNOT, dark, 6.4) + line(KNOT, light, 4) + shine(-9, -4, 2.2, 1.1) +
+  (salt ? [[-10, -5], [9, -6], [-12, 3], [12, 2], [-4, 9], [5, 9], [-1, 4], [2, -4]].map(([x, y]) => rect(x - 1.1, y - 1.1, 2.4, 2.4, .6, '#fff')).join('') : '');
 const challahArt = (dark, light) => ell(0, 3, 15, 8, dark) + [-8, 0, 8].map(x => ell(x, -.5, 6.5, 7.5, light, { transform: `rotate(-25 ${x} 0)` })).join('') + [-8, 0, 8].map(x => shine(x - 2, -3, 2.2, 1.2)).join('');
 const cupArt = (full, cold) => line('M7,-1 Q13,-1 13,4 Q13,9 7,8', '#226a6e', 3) + rect(-10, -6, 18, 17, 4, '#226a6e') + rect(-10, -6, 16, 16, 4, '#2f8a8f') +
   ell(-1, -5.5, 8, 2.4, cold ? '#a8876a' : full ? '#6b3a1e' : '#1d5558') + shine(-6, 1, 1.6, 4) +
   (cold ? line('M-13,-12 l3,3 M-13,-9 l3,-3 M10,-14 l3,3 M10,-11 l3,-3', '#7fb6e6', 1.6) : full ? line('M-4,-10 q-2,-3 0,-6', '#c9b8a8', 1.8, { class: 'steam' }) + line('M2,-10 q2,-3 0,-6', '#c9b8a8', 1.8, { class: 'steam b' }) : '');
 export const FOOD = {
-  bagel: () => bagelArt('#b8732f', '#e3a24f', true),
-  bagelDough: () => bagelArt('#d9bf94', '#f3e2c2', false),
-  bagelBurnt: () => bagelArt('#2e1d16', '#57382a', false),
-  creamBagel: () => FOOD.bagel() + path('M-9,-3 Q-7,-8 0,-8 Q8,-8 9,-3 Q4,1 0,-1 Q-5,2 -9,-3 Z', CREAM) + path('M-3,-2 Q0,-6 4,-4 Q1,-2 -3,-2 Z', '#e8dccb'),
+  pretzel: () => pretzelArt('#8a4a1e', '#c47a3a', false),
+  pretzelDough: () => pretzelArt('#d9bf94', '#f3e2c2', false),
+  pretzelBurnt: () => pretzelArt('#2e1d16', '#57382a', false),
+  saltPretzel: () => pretzelArt('#8a4a1e', '#c47a3a', true),
   challah: () => challahArt('#a8622a', '#e9a443'),
   challahDough: () => challahArt('#d9bf94', '#f3e2c2'),
   challahBurnt: () => challahArt('#2e1d16', '#57382a'),
@@ -88,6 +89,8 @@ export const FOOD = {
   dirtyPlate: () => ell(0, 4, 13, 5, '#e8dccb') + ell(0, 3, 12, 4.5, CREAM) + g('translate(0 -1) scale(.8)', FOOD.dirty()),
   coin: () => circ(0, 0, 10, '#d99a12') + circ(0, 0, 8.5, GOLD) + text(0, 5, '$', 13, '#8a5a12', { 'text-anchor': 'middle', 'font-family': 'Righteous' }),
   clock: () => circ(0, 0, 13, '#e2412f') + circ(0, 0, 10, CREAM) + line('M0,-6 L0,0 L5,3', INK, 2) + rect(-3, -18, 6, 4, 1.5, '#e2412f') + circ(0, 0, 1.5, INK),
+  salt: () => rect(-7, -6, 14, 17, 5, '#c9d8d8') + rect(-7, -6, 13, 16, 5, '#eef7f7') + rect(-5, 2, 10, 7, 3, '#fff') +
+    rect(-7, -11, 14, 6, 2.5, '#9a9088') + [-3, 0, 3].map(x => circ(x, -8, .9, INK)).join('') + shine(-4, -1, 1.2, 3),
   creamCheese: () => rect(-9, -3, 18, 13, 3, '#e8dccb') + rect(-9, -3, 16, 12, 3, CREAM) + rect(-10, -7, 20, 5, 2, '#4a7fd0') + shine(-5, 2, 1.4, 3),
   flour: () => path('M-10,12 L-11,-4 Q-11,-10 -5,-11 L5,-11 Q11,-10 11,-4 L10,12 Z', '#d8c39d') + path('M-9,11 L-10,-4 Q-10,-9 -5,-10 L5,-10 Q9,-9 9,-4 L8,11 Z', '#efe1c3') + rect(-7, -1, 14, 6, 2, '#5b2c6f') + path('M-5,-11 L0,-15 L5,-11 Z', '#d8c39d'),
   beans: () => rect(-8, -8, 16, 20, 4, '#e8dccb', { opacity: .9 }) + rect(-7, -4, 14, 15, 3, '#7a4524') + [[-3, 0], [3, 3], [-2, 7], [3, -2]].map(([x, y]) => ell(x, y, 2.4, 1.6, '#4a2512')).join('') + rect(-9, -11, 18, 4, 2, '#2f8a8f'),
@@ -183,7 +186,7 @@ export function pantry(level, items) {
     [-H + 64, -H + 112].forEach(y => { s += rect(8, y, W - 30, 4, 2, '#9fc9c6'); });
     s += rect(W - 18, -H + 50, 6, 64, 3, GOLD);
     rowY = -H + 92;
-    decor.push(['creamCheese', 30, -H + 48], ['creamCheese', 54, -H + 48], ['flour', 78, -H + 48], ['dough', 34, -30], ['beans', 66, -28]);
+    decor.push(['salt', 30, -H + 48], ['salt', 54, -H + 48], ['flour', 78, -H + 48], ['dough', 34, -30], ['beans', 66, -28]);
   }
   s += decor.map(([k, x, y]) => food(k, x, y, .85)).join('');
   // Tappable spots, spread across the front row.
@@ -295,5 +298,5 @@ export function bin(on, level = 1) {
     line(`M-6,${-h + 8} L-6,-6 M0,${-h + 8} L0,-6 M6,${-h + 8} L6,-6`, '#2e7a2c', 2.2, { opacity: on ? 0 : 1 }) + (on ? line('M-7,-16 L-2,-10 L8,-22', '#fff', 3) : '');
 }
 
-// For the "New: cooking shifts!" card: Tomato in a chef's hat with a fresh bagel.
-export const newsArt = () => `<svg viewBox="-60 -50 120 80" aria-hidden="true">${friend('tomato', -22, 0, 1.3, chefHat())}${plate(26, 4, 'bagel', 1.4)}</svg>`;
+// For the "New: cooking shifts!" card: Tomato in a chef's hat with a fresh pretzel.
+export const newsArt = () => `<svg viewBox="-60 -50 120 80" aria-hidden="true">${friend('tomato', -22, 0, 1.3, chefHat())}${plate(26, 4, 'pretzel', 1.4)}</svg>`;
