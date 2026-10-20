@@ -191,6 +191,39 @@ export function prep(level) {
   return { art: s, W, plates, scale: level === 3 ? .85 : .9 };
 }
 
+// The mixer, on the counter between the prep board and the bin. Kept low so it stays under the oven.
+// Returns the art plus where the dough being made sits and where its timer ring goes.
+export function mixer(level) {
+  const bowl = (x0, w, d, c, cd) => path(`M${x0},${-d} L${x0 + w},${-d} Q${x0 + w - 3},0 ${x0 + w / 2},0 Q${x0 + 3},0 ${x0},${-d} Z`, cd) +
+    path(`M${x0 + 2},${-d} L${x0 + w - 4},${-d} Q${x0 + w - 6},-3 ${x0 + w / 2 - 1},-3 Q${x0 + 4},-3 ${x0 + 2},${-d} Z`, c) + ell(x0 + w / 2, -d, w / 2, 4, CREAM) + ell(x0 + w / 2, -d, w / 2 - 4, 2.6, '#e8dccb');
+  let s, W, slot, rg;
+  if (level === 1) {
+    W = 70;
+    s = bowl(0, 70, 26, '#2f8a8f', '#226a6e') + line('M50,-24 L66,-40', WOOD, 4) + ell(67, -41, 4, 6, WOODL, { transform: 'rotate(40 67 -41)' });
+    slot = [35, -30]; rg = [10, -36];
+  } else if (level === 2) {
+    W = 82;
+    s = rect(0, -6, 82, 6, 3, '#43204f') + rect(60, -38, 14, 34, 5, '#5b2c6f') + rect(18, -40, 60, 12, 6, '#5b2c6f') + rect(18, -40, 58, 5, 3, '#7a4a8f') +
+      line('M38,-28 L38,-20', CHROME, 3) + bowl(8, 54, 20, CHROME, '#c9c2b8');
+    slot = [35, -24]; rg = [10, -32];
+  } else {
+    W = 90;
+    s = rect(0, -40, 90, 40, 8, '#c9c2b8') + rect(0, -40, 87, 37, 8, CHROME) + rect(0, -40, 87, 6, 3, GOLD) +
+      rect(8, -31, 52, 24, 6, INK) + rect(11, -28, 46, 18, 4, '#fdebd0') + circ(74, -22, 7, '#2f8a8f') + circ(74, -22, 5, '#fff') + line('M74,-22 L77,-25', INK, 1.6) + rect(66, -10, 16, 4, 2, GOLD);
+    slot = [34, -18]; rg = [74, -46];
+  }
+  return { art: s, W, H: 42, slot, ring: rg };
+}
+// How full the bin is: a row of dots under it, red when nearly full.
+export function binMeter(used, max) {
+  let s = '';
+  const gap = 9, x0 = -(max - 1) * gap / 2, warn = max - used <= 1;
+  for (let i = 0; i < max; i++) s += circ(x0 + i * gap, 10, 3.6, i < used ? (warn ? '#e2412f' : '#3a2a2a') : CREAM, { stroke: warn ? '#e2412f' : '#b5774a', 'stroke-width': 1 });
+  return s;
+}
+// A stock count on a pantry dough.
+export const badge = (x, y, n) => circ(x, y, 8, n ? '#5b2c6f' : '#e2412f') + text(x, y + 4, n, 11, '#fff', { 'text-anchor': 'middle', 'font-family': 'Righteous' });
+
 // ---------- the room ----------
 const ferry = (x, y, s = 1) => g(`translate(${x} ${y}) scale(${s})`, path('M-26,8 L26,8 L20,16 L-20,16 Z', CREAM) + rect(-14, -2, 26, 10, 2, '#e2412f') + rect(-10, -8, 6, 8, 1, INK));
 function awning() {

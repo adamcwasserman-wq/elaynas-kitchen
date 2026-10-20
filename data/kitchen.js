@@ -67,10 +67,17 @@ export const SHIFT_RULES = {
   coldFrom: 3,          // coffee goes cold from this shift on
   dirtyFrom: 5,         // plates come back dirty from this shift on
   rushRefill: 1.5,      // rush hour: seconds before an empty spot at the counter fills again
+  doughFrom: 3,         // from this shift on, dough runs out and is made at the mixer
+  startDough: 2,        // doughs of each kind on the pantry shelf when a shift starts
+  doughMax: 6,          // the most of each dough the shelf holds
+  binMax: 5,            // things she can throw out (burnt, cold, tossed) before the bin is full and the shift is over (moods add or take away)
   speedTip: 0.25,       // served while the bar is still more than half full: a tip this share of the price
   stars: [0.5, 0.8, 1], // share of customers served happily for 1, 2 and 3 stars (3 also means nobody left)
   openNext: 1,          // stars needed on a shift to open the next one
 };
+
+// Shown the first time she plays a shift with the mixer (from SHIFT_RULES.doughFrom).
+export const DOUGH_INTRO = { id: 'dough', art: 'dough', title: 'New: the mixer!', line: 'Dough can run out now. Tap the mixer to make more. It makes the dough your customers need, and puts it on the pantry shelf.' };
 
 // Appliances: three levels each, bought with this restaurant's tips. The art grows with them.
 //   oven     slots: things baking at once. speed: bake time multiplier. noBurn: food never burns.
@@ -78,6 +85,7 @@ export const SHIFT_RULES = {
 //   pantry   smart: a tap on a dough also starts the bread a customer is still waiting for.
 //            auto: dough for bread a customer is waiting for goes in the oven by itself.
 //   prep     plates: plates on the board.
+//   mixer    batch: doughs made at a time. secs: how long a batch takes. auto: starts a batch by itself when a dough runs low.
 export const APPLIANCES = [
   { id: 'oven', name: 'Oven', levels: [
     { name: 'Little oven', perk: 'Bakes 2 at a time.', slots: 2, speed: 1 },
@@ -91,6 +99,10 @@ export const APPLIANCES = [
     { name: 'Open shelves', perk: 'One tap, one dough.' },
     { name: 'Full shelves', perk: 'Each tap also starts the bread a customer is still waiting for.', cost: 150, smart: true },
     { name: 'Glass fridge', perk: 'Dough for whatever customers are waiting for goes in the oven by itself.', cost: 600, smart: true, auto: true }] },
+  { id: 'mixer', name: 'Mixer', levels: [
+    { name: 'Mixing bowl', perk: 'Makes 2 doughs at a time.', batch: 2, secs: 5 },
+    { name: 'Stand mixer', perk: 'Makes 3 doughs at a time, a bit faster.', cost: 220, batch: 3, secs: 4 },
+    { name: 'Dough machine', perk: 'Makes 4 doughs quickly, and starts by itself when a dough runs low.', cost: 800, batch: 4, secs: 3, auto: true }] },
   { id: 'prep', name: 'Prep counter', levels: [
     { name: 'Small board', perk: 'Room for 2 plates.', plates: 2 },
     { name: 'Long board', perk: 'Room for 3 plates.', cost: 200, plates: 3 },
