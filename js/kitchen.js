@@ -14,6 +14,7 @@ const BOTTOM = 388;                       // where the appliances stand
 const CENTRE = { pantry: 64, oven: 190, coffee: 300 };
 const PREP_X = 10, PREP_Y = 430;
 const BIN = [314, 430];
+const DISHWASHER = [248, 452];             // the dishwasher's middle and top, in the right cupboard
 const MIXER_X = 246;                      // the mixer's middle, on the counter between the prep board and the bin
 const HELPER_Y = 540;                     // helpers stand on the floor, in front of the cupboards
 const stars = n => '★'.repeat(n) + '☆'.repeat(3 - n);
@@ -91,6 +92,7 @@ export function createKitchen(api) {
       coming: sh.rush ? Infinity : sh.customers, first: true, spawnIn: .6, served: 0, lost: 0, earned: 0,
       hearts: Math.max(1, SHIFT_RULES.hearts + (m.hearts || 0)),
       toss: false, say: null, sayUntil: 0, over: false, trash: 0,
+      counter: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null), wash: { waiting: 0, load: 0, t: 0 },
       stock: Object.fromEntries(PANTRY.filter(p => FOODS[p.for].from === 'oven').map(p => [p.id, SHIFT_RULES.startDough])),
       mix: null, ready: 0, drag: null,
       team: team(), help: Object.fromEntries(team().map(h => [h.id, { wait: 2, busy: 0, icon: null, oops: false }])),
@@ -110,8 +112,11 @@ export function createKitchen(api) {
   // New rules that switch on partway through the shifts.
   const coldOn = () => run.i + 1 >= SHIFT_RULES.coldFrom && run.m.complaints !== false;
   const hot = () => SHIFT_RULES.hot * Math.max(1, run.m.patience);
+  // Dirty dishes: from this shift a served plate leaves the board with the customer. When they go,
+  // their dishes (and sometimes a tip) wait on the counter, and nobody new sits there until she taps
+  // them. Tapped dishes go in the dishwasher and come back to the board clean.
   const dirtyOn = () => run.i + 1 >= SHIFT_RULES.dirtyFrom;
-  const used = () => (dirtyOn() ? 'dirty' : null); // what a plate holds after its food is gone
+  const used = () => (dirtyOn() ? 'away' : null); // what a plate slot holds after its food is served
   const doughOn = () => run.i + 1 >= SHIFT_RULES.doughFrom;
   // Doughs on the shelf now (before the mixer shifts, there's always plenty).
   const inStock = id => (doughOn() ? run.stock[id] : Infinity);
@@ -177,11 +182,28 @@ export function createKitchen(api) {
         if (run.mix.t >= run.mix.need) { run.ready = mx.batch; run.mix = null; changed = true; api.buzz('tap'); say('The dough is ready! Drag it onto the bagel or challah shelf.', 3.5); }
       } else if (mx.auto && !run.ready && doughIds().some(id => run.stock[id] <= 1)) { startMix(); changed = true; }
     }
+    // The dishwasher washes what's waiting in one load, then the plates go back on the board.
+    const w = run.wash;
+    if (w.load) {
+      w.t += dt;
+      if (w.t >= SHIFT_RULES.wash) {
+        for (let n = 0, j = 0; j < run.plates.length && n < w.load; j++) if (run.plates[j] === 'away') { run.plates[j] = null; n++; }
+        w.load = 0; changed = true; api.buzz('tap');
+      }
+    } else if (w.waiting) { w.load = w.waiting; w.waiting = 0; w.t = 0; changed = true; }
     if (helpers(dt)) changed = true;
     if (run.over) return;
     run.cust.forEach((cu, i) => {
       if (!cu) return;
-      if (cu.leaving) { cu.leaving -= dt; if (cu.leaving <= 0) { run.cust[i] = null; changed = true; } return; }
+      if (cu.leaving) {
+        cu.leaving -= dt;
+        if (cu.leaving <= 0) {
+          run.cust[i] = null;
+          if (cu.dishes || cu.tipLeft) run.counter[i] = { dishes: cu.dishes || 0, tip: cu.tipLeft || 0 };
+          changed = true;
+        }
+        return;
+      }
       cu.wait += dt;
       if (run.m.complaints !== false && cu.wait >= cu.patience) {
         cu.sad = true; cu.leaving = 1; run.lost++; run.hearts--; changed = true;
@@ -193,7 +215,7 @@ export function createKitchen(api) {
     if (run.sh.rush && timeLeft() <= 0) { endShift(); return; }
     if (run.coming > 0) {
       run.spawnIn -= dt;
-      const free = run.cust.indexOf(null);
+      const free = run.cust.findIndex((x, k) => !x && !run.counter[k]);
       if (run.cust.every(x => !x)) run.spawnIn = Math.min(run.spawnIn, .6);
       else if (run.sh.rush && free >= 0) run.spawnIn = Math.min(run.spawnIn, SHIFT_RULES.rushRefill); // rush hour: the counter is always full
       if (run.spawnIn <= 0 && free >= 0) { run.cust[free] = newCustomer(); run.coming--; run.spawnIn = gap(); changed = true; }
@@ -267,8 +289,12 @@ export function createKitchen(api) {
     const [kind, arg] = what.split(':');
     if (run.toss) {
       run.toss = false;
-      if (kind === 'plate' && run.plates[arg] === 'dirty') { run.plates[arg] = null; say('Washed!'); }
-      else if (kind === 'plate' && run.plates[arg]) { run.plates[arg] = used(); say('Tossed in the bin.'); trash(); }
+      if (kind === 'plate' && run.plates[arg] && run.plates[arg] !== 'away') {
+        run.plates[arg] = used();
+        if (dirtyOn()) run.wash.waiting++;
+        say('Tossed in the bin.');
+        trash();
+      }
       else if (kind === 'cup' && run.cups[arg]) { run.cups[arg] = null; say('Tossed in the bin.'); trash(); }
       else if (kind === 'oven') { const j = run.oven.findIndex(x => x && x.state !== 'bake'); if (j >= 0) { run.oven[j] = null; say('Tossed in the bin.'); trash(); } }
       else say(null, 0);
@@ -277,7 +303,8 @@ export function createKitchen(api) {
       return;
     }
     if (kind === 'bin') { run.toss = true; api.buzz('tap'); say('Now tap a plate, a cup or the oven to toss it.', 5); render(); return; }
-    if (kind === 'pantry') grab(arg);
+    if (kind === 'dish') collect(+arg);
+    else if (kind === 'pantry') grab(arg);
     else if (kind === 'oven') fromOven();
     else if (kind === 'plate') servePlate(+arg);
     else if (kind === 'coffee') coffeeTap();
@@ -396,7 +423,7 @@ export function createKitchen(api) {
     run.oven.forEach((x, k) => { if (x?.state === 'done' && (j < 0 || x.t > run.oven[j].t)) j = k; });
     if (j < 0) { if (run.oven.some(Boolean)) say('Still baking. Wait for it to turn golden.'); else say('Tap some dough in the pantry to start baking.'); render(); return; }
     const p = run.plates.indexOf(null);
-    if (p < 0) { nope(run.plates.includes('dirty') ? 'No clean plate. Tap a dirty plate to wash it.' : 'No free plate. Serve one, or toss it in the green bin.'); return; }
+    if (p < 0) { nope(run.plates.includes('away') ? 'No clean plate. Tap the dirty dishes on the counter so they get washed.' : 'No free plate. Serve one, or toss it in the green bin.'); return; }
     run.plates[p] = run.oven[j].food;
     run.oven[j] = null;
     api.buzz('tap');
@@ -406,8 +433,9 @@ export function createKitchen(api) {
   function servePlate(i) {
     const f = run.plates[i];
     if (!f) { say('Empty plate. Tap the oven to put food on it.'); render(); return; }
-    if (f === 'dirty') { run.plates[i] = null; api.buzz('tap'); say('Washed!', 1.2); render(); return; }
-    if (deliver(f, plateSpot(i))) run.plates[i] = used();
+    if (f === 'away') { say('That plate is out with a customer. It comes back from the dishwasher.'); render(); return; }
+    const cu = deliver(f, plateSpot(i));
+    if (cu) { run.plates[i] = used(); if (dirtyOn()) cu.dishes = (cu.dishes || 0) + 1; }
     render();
   }
 
@@ -449,24 +477,40 @@ export function createKitchen(api) {
     cu.wants.find(w => !w.got && w.f === f).got = true;
     api.buzz('tap');
     if (cu.wants.every(w => w.got)) pay(cu, i);
-    return true;
+    return cu;
   }
   function pay(cu, i) {
     const price = cu.wants.reduce((t, w) => t + FOODS[w.f].price, 0);
     const quick = 1 - cu.wait / cu.patience > .5 || run.m.complaints === false && cu.wait < cu.patience / 2;
-    const tip = quick ? Math.round(price * SHIFT_RULES.speedTip) : 0;
-    const total = Math.round((price + tip) * (1 + (run.m.pay || 0)));
+    const more = 1 + (run.m.pay || 0);
+    const tip = quick ? Math.round(price * SHIFT_RULES.speedTip * more) : 0;
+    let total = Math.round(price * more);
+    // Once there are dishes, a quick-service tip is left on the counter for her to pick up.
+    if (dirtyOn()) cu.tipLeft = tip; else total += tip;
     run.earned += total;
     run.served++;
     cu.leaving = .8;
     api.earn(total);
     api.buzz('serve');
-    floatText(`+$${total}${tip ? ' tip!' : ''}`, custX(i), 60);
+    floatText(`+$${total}${tip && !dirtyOn() ? ' tip!' : ''}`, custX(i), 60);
+  }
+  // Tapping dishes on the counter: the tip goes in the jar, the dishes go in the dishwasher.
+  function collect(i) {
+    const d = run.counter[i];
+    if (!d) return;
+    run.counter[i] = null;
+    run.wash.waiting += d.dishes;
+    if (d.tip) { run.earned += d.tip; api.earn(d.tip); floatText(`+$${d.tip} tip!`, custX(i), 120); }
+    api.buzz(d.tip ? 'serve' : 'tap');
+    render();
   }
 
   function endShift() {
     if (run.over) return;
     run.over = true;
+    // Tips still on the counter go in the jar.
+    const left = run.counter.reduce((t, d) => t + (d?.tip || 0), 0);
+    if (left) { run.earned += left; api.earn(left); }
     const k = data();
     let got;
     if (run.binFull) got = 0;
@@ -507,8 +551,9 @@ export function createKitchen(api) {
     if (cooling >= 0 && wanted('coffee') >= 0) return { text: 'Quick! Serve the coffee before it goes cold!', target: `cup:${cooling}` };
     const cold = run.cups.findIndex(x => x?.state === 'cold');
     if (cold >= 0) return { text: 'That coffee went cold. Tap it to toss it.', target: `cup:${cold}` };
-    const dirty = run.plates.indexOf('dirty');
-    if (dirty >= 0 && !run.plates.includes(null)) return { text: 'No clean plates! Tap a dirty plate to wash it.', target: `plate:${dirty}` };
+    const dish = run.counter.findIndex(Boolean);
+    if (dish >= 0 && (!run.plates.includes(null) || run.coming > 0 && !run.cust.some((x, k) => !x && !run.counter[k])))
+      return { text: run.counter[dish].tip ? 'Tap the dishes on the counter to clear them, and grab the tip!' : 'Tap the dishes on the counter so a new customer can sit there.', target: `dish:${dish}` };
     const helping = run.i < 2 || run.sh.intro;
     const cu = run.cust.find(c => c && !c.leaving);
     if (!cu) return { text: run.coming ? 'Here comes a customer!' : 'Nice work!' };
@@ -580,6 +625,17 @@ export function createKitchen(api) {
       s += A.friend(cu.kind, x, cu.leaving ? 132 : 124, 1.05, '', cu.leaving ? '' : `bob${i ? ' b' : ''}`, cu.sad);
     });
     s += A.roomFront();
+    // Dishes and tips left on the counter.
+    if (run) run.counter.forEach((d, i) => {
+      if (!d) return;
+      const x = custX(i);
+      s += A.dishes(x, 158, d.dishes, d.tip) + tapZone(x - 32, 126, 64, 50, `dish:${i}`);
+    });
+    // The dishwasher, built into the cupboard, once there are dishes.
+    if (run ? dirtyOn() : chosen + 1 >= SHIFT_RULES.dirtyFrom) {
+      const w = run?.wash || { load: 0, waiting: 0, t: 0 };
+      s += A.dishwasher(DISHWASHER[0], DISHWASHER[1], w.load + w.waiting, w.load ? w.t / SHIFT_RULES.wash : null);
+    }
     // The pantry.
     let p = pa.art;
     for (const sp of pa.spots) {
@@ -619,7 +675,8 @@ export function createKitchen(api) {
     // The prep board and plates.
     let pp = pr.art;
     pr.plates.forEach(([x, y], i) => {
-      pp += A.plate(x, y, run?.plates[i] || null, pr.scale) + tapZone(x - 20, y - 20, 40, 34, `plate:${i}`);
+      const pl = run?.plates[i] || null;
+      pp += (pl === 'away' ? A.ell(x, y + 5, 15, 5, '#00000014') : A.plate(x, y, pl, pr.scale)) + tapZone(x - 20, y - 20, 40, 34, `plate:${i}`);
     });
     s += A.g(`translate(${PREP_X} ${PREP_Y})`, pp);
     // The mixer, once dough can run out.
@@ -644,6 +701,7 @@ export function createKitchen(api) {
       else if (kind === 'plate') { const [x, y] = plateSpot(+arg); s += glow(x, y + 2, 22); }
       else if (kind === 'pantry') { const sp = pa.spots.find(q => q.id === arg); if (sp) s += glow(px + sp.x, BOTTOM + sp.y, 24); }
       else if (kind === 'mixer') s += glow(MIXER_X, PREP_Y - 18, mx.W / 2 + 6);
+      else if (kind === 'dish') s += glow(custX(+arg), 154, 30);
     }
     // The helpers on this shift, each standing under the station they mind.
     for (const h of run ? run.team : team()) s += A.helper(h.id, h.x, HELPER_Y, run?.help[h.id].icon || null, run?.help[h.id].oops);
@@ -679,6 +737,8 @@ export function createKitchen(api) {
       el.setAttribute('stroke-dashoffset', (c * (1 - share)).toFixed(1));
       el.setAttribute('stroke', col);
     });
+    const wr = document.getElementById('krw');
+    if (wr && run.wash.load) wr.setAttribute('stroke-dashoffset', (+wr.getAttribute('stroke-dasharray') * (1 - run.wash.t / SHIFT_RULES.wash)).toFixed(1));
     const mr = document.getElementById('krm');
     if (mr && run.mix) mr.setAttribute('stroke-dashoffset', (+mr.getAttribute('stroke-dasharray') * (1 - run.mix.t / run.mix.need)).toFixed(1));
     run.cust.forEach((cu, i) => {

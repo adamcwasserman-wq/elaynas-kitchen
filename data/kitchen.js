@@ -47,7 +47,7 @@ export const SHIFTS = [
   { customers: 7, menu: ['bagel', 'coffee', 'creamBagel'], wantsMax: 2, gap: 6.5, patience: 34,
     intro: { food: 'creamBagel', title: 'New: cream cheese bagels!', line: 'Put a baked bagel on a plate, then tap the cream cheese to spread it on.' } },
   { customers: 8, menu: ['bagel', 'coffee', 'creamBagel'], wantsMax: 2, gap: 6, patience: 32,
-    intro: { food: 'bagel', art: 'dirty', title: 'New: dirty plates!', line: 'After a customer eats, their plate comes back dirty. Tap a dirty plate to wash it before you use it again.' } },
+    intro: { food: 'bagel', art: 'dirty', title: 'New: dirty dishes!', line: 'Customers leave their dishes on the counter, and quick service gets a tip there too. Tap the dishes to clear them: nobody new can sit there until you do. They go in the dishwasher and come back clean.' } },
   { customers: 8, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 6.5, patience: 36,
     intro: { food: 'challah', title: 'New: challah!', line: 'Tap the challah dough to bake it. It takes longer than bagels, so start it early.' } },
   { customers: 0, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 6, patience: 34, rush: { secs: 90, goals: [140, 210, 280] },
@@ -65,7 +65,8 @@ export const SHIFT_RULES = {
   pour: 4,              // seconds to pour a coffee at level 1
   hot: 10,              // seconds a full cup stays hot before it goes cold (moods stretch it)
   coldFrom: 3,          // coffee goes cold from this shift on
-  dirtyFrom: 5,         // plates come back dirty from this shift on
+  dirtyFrom: 5,         // from this shift on, customers leave dirty dishes (and quick-service tips) on the counter
+  wash: 4,              // seconds the dishwasher takes to wash a load of plates
   rushRefill: 1.5,      // rush hour: seconds before an empty spot at the counter fills again
   doughFrom: 3,         // from this shift on, dough runs out and is made at the mixer
   startDough: 2,        // doughs of each kind on the pantry shelf when a shift starts

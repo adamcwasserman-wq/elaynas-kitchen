@@ -214,6 +214,28 @@ export function mixer(level) {
   }
   return { art: s, W, H: 42, slot, ring: rg };
 }
+// Dirty dishes left on the customer counter: a small stack of used plates, and a coin if they tipped.
+export function dishes(x, y, n, tip) {
+  let s = '';
+  for (let k = 0; k < Math.min(n, 3); k++) s += g(`translate(${x - (tip ? 9 : 0)} ${y - k * 5})`, ell(0, 6, 17, 6, '#e8dccb') + ell(0, 5, 16, 5.5, CREAM) + (k === Math.min(n, 3) - 1 ? FOOD.dirty() : ''));
+  if (tip) s += g(`translate(${x + (n ? 20 : 0)} ${y - 2})`, circ(0, 0, 11, '#d99a12') + circ(0, 0, 9, GOLD) + text(0, 5, '$', 14, '#8a5a12', { 'text-anchor': 'middle', 'font-family': 'Righteous' }));
+  return s;
+}
+// The dishwasher, built into a cupboard. "n" plates inside; "share" how far the wash has gone (null when idle).
+export function dishwasher(cx, top, n, share) {
+  const W = 64, H = 80, x = cx - W / 2;
+  let s = rect(x, top, W, H, 8, '#c9c2b8') + rect(x, top, W - 3, H - 3, 8, CHROME) + rect(x + 6, top + 6, W - 15, 10, 4, '#2f8a8f') +
+    circ(x + W - 14, top + 11, 3, n ? '#3f9b3c' : '#c9c2b8') + rect(x + 10, top + 22, W - 23, 6, 3, '#b5ada2');
+  s += circ(cx - 2, top + 52, 19, '#9fc9c6') + circ(cx - 2, top + 52, 16, '#cfeeea');
+  if (n) {
+    s += [0, 1, 2].slice(0, Math.min(n, 3)).map(k => ell(cx - 6 + k * 4, top + 52, 3, 11, CREAM, { stroke: '#e8dccb', 'stroke-width': 1 })).join('');
+    if (share !== null) s += [[-10, 44], [6, 60], [2, 42], [-6, 62]].map(([dx, dy], k) => circ(cx - 2 + dx, top + dy, 2 + (k % 2), '#fff', { opacity: .8, class: `steam${k % 2 ? ' b' : ''}` })).join('');
+    s += circ(x + W - 8, top + 30, 8, n ? '#5b2c6f' : '#e8dccb') + text(x + W - 8, top + 34, n, 11, '#fff', { 'text-anchor': 'middle', 'font-family': 'Righteous' });
+  }
+  if (share !== null) s += ring(x + 12, top + 74, share, '#2f8a8f', 'krw', 7);
+  return s;
+}
+
 // How full the bin is: a row of dots under it, red when nearly full.
 export function binMeter(used, max) {
   let s = '';
