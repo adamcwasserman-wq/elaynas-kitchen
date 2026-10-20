@@ -26,37 +26,77 @@ export const PANTRY = [
   { id: 'challahDough', name: 'Challah dough', for: 'challah' },
 ];
 
-// Shifts, in order. Each has a set number of customers; serving them all ends the shift.
+// Shifts, in order, in five parts that get harder:
+//   1 to 4    just her: one new food at a time, no extra chores
+//   5 to 8    new chores (cold coffee, the mixer, dirty dishes, a rush) and helpers she can hire
+//   9 to 11   everyone's working, it's busy, and VIPs drop in
+//   12 to 13  a helper calls in sick each shift
+//   14 to 15  two helpers call in sick, more VIPs, and a big rush to finish
+// Each has a set number of customers; serving them all ends the shift.
 //   menu      what customers can order
 //   wantsMax  each customer orders at most this many things (moods can lower it)
 //   gap       seconds between customers walking in
 //   patience  seconds a customer waits for a one-item order (each extra item adds itemPatience)
-//   intro     shown on a card the first time this shift starts (new foods and new rules).
+//   intro     shown on a card the first time she plays a shift with it (new foods and new rules).
 //             The first customer asks for intro.food. "art" picks a picture other than that food.
 //   away      how many hired helpers call in sick (picked at random when the shift starts)
+//   vip       the chance a new customer is a VIP (see KITCHEN_VIPS)
 //   rush      a rush hour shift: customers keep coming until the clock runs out, and stars come
 //             from money earned. secs: how long. goals: dollars for 1, 2 and 3 stars at "Just
 //             right" (calmer moods get lower goals, busier ones higher).
 // After the last shift she can replay any shift she has opened.
+const ALL = ['bagel', 'coffee', 'creamBagel', 'challah'];
 export const SHIFTS = [
+  // Part 1: just her.
   { customers: 4, menu: ['bagel'], wantsMax: 1, gap: 7, patience: 40,
-    intro: { food: 'bagel', title: 'Your first shift!', line: 'Tap the bagel dough to put it in the oven. When it turns golden, tap the oven to put it on a plate, then tap the plate to serve it.' } },
-  { customers: 5, menu: ['bagel', 'coffee'], wantsMax: 1, gap: 6.5, patience: 36,
-    intro: { food: 'coffee', title: 'New: coffee!', line: 'Tap the coffee machine to pour a cup. Tap the full cup to serve it.' } },
-  { customers: 6, menu: ['bagel', 'coffee'], wantsMax: 2, gap: 6.5, patience: 34,
-    intro: { food: 'coffee', art: 'coffeeCold', title: 'New: coffee goes cold!', line: 'A full cup only stays hot for a little while. Pour it when someone wants one. A cold cup has to be tossed.' } },
-  { customers: 7, menu: ['bagel', 'coffee', 'creamBagel'], wantsMax: 2, gap: 6.5, patience: 34,
-    intro: { food: 'creamBagel', title: 'New: cream cheese bagels!', line: 'Put a baked bagel on a plate, then tap the cream cheese to spread it on.' } },
-  { away: 1, customers: 8, menu: ['bagel', 'coffee', 'creamBagel'], wantsMax: 2, gap: 6, patience: 32,
-    intro: { food: 'bagel', art: 'dirty', title: 'New: dirty dishes!', line: 'Customers leave their dishes on the counter, and quick service gets a tip there too. Tap the dishes to clear them: nobody new can sit there until you do. They go in the dishwasher and come back clean.' } },
-  { away: 1, customers: 8, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 6.5, patience: 36,
-    intro: { food: 'challah', title: 'New: challah!', line: 'Tap the challah dough to bake it. It takes longer than bagels, so start it early.' } },
-  { away: 1, customers: 0, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 6, patience: 34, rush: { secs: 90, goals: [140, 210, 280] },
-    intro: { food: 'bagel', art: 'clock', title: 'Rush hour!', line: 'Customers keep coming until the clock runs out. Earn the money goal for a star, and more for three stars.' } },
-  { away: 1, customers: 10, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 5.5, patience: 32 },
-  { away: 2, customers: 11, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 5, patience: 30 },
-  { away: 2, customers: 0, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 4.5, patience: 30, rush: { secs: 120, goals: [190, 285, 375] } },
+    intro: { id: 'bagel', food: 'bagel', title: 'Your first shift!', line: 'Tap the bagel dough to put it in the oven. When it turns golden, tap the oven to put it on a plate, then tap the plate to serve it.' } },
+  { customers: 5, menu: ['bagel', 'coffee'], wantsMax: 1, gap: 6.5, patience: 38,
+    intro: { id: 'coffee', food: 'coffee', title: 'New: coffee!', line: 'Tap the coffee machine to pour a cup. Tap the full cup to serve it.' } },
+  { customers: 6, menu: ['bagel', 'coffee', 'creamBagel'], wantsMax: 2, gap: 6.5, patience: 36,
+    intro: { id: 'cream', food: 'creamBagel', title: 'New: cream cheese bagels!', line: 'Put a baked bagel on a plate, then tap the cream cheese to spread it on.' } },
+  { customers: 7, menu: ALL, wantsMax: 2, gap: 6.5, patience: 38,
+    intro: { id: 'challah', food: 'challah', title: 'New: challah!', line: 'Tap the challah dough to bake it. It takes longer than bagels, so start it early.' } },
+  // Part 2: more chores, and helpers to hire.
+  { customers: 7, menu: ALL, wantsMax: 2, gap: 6.5, patience: 36,
+    intro: { id: 'cold', food: 'coffee', art: 'coffeeCold', title: 'New: coffee goes cold!', line: 'A full cup only stays hot for a little while. Pour it when someone wants one. A cold cup has to be tossed.' } },
+  { customers: 8, menu: ALL, wantsMax: 2, gap: 6.5, patience: 36 },
+  { customers: 8, menu: ALL, wantsMax: 2, gap: 6, patience: 34,
+    intro: { id: 'dishes', food: 'bagel', art: 'dirty', title: 'New: dirty dishes!', line: 'Customers leave their dishes on the counter, and quick service gets a tip there too. Tap the dishes to clear them: nobody new can sit there until you do. They go in the dishwasher and come back clean.' } },
+  { customers: 0, menu: ALL, wantsMax: 2, gap: 6, patience: 34, rush: { secs: 90, goals: [120, 180, 240] },
+    intro: { id: 'rush', food: 'bagel', art: 'clock', title: 'Rush hour!', line: 'Customers keep coming until the clock runs out. Earn the money goal for a star, and more for three stars.' } },
+  // Part 3: everyone's working, it's busy, and VIPs drop in.
+  { customers: 9, menu: ALL, wantsMax: 2, gap: 5.5, patience: 32, vip: .2,
+    intro: { id: 'vips', food: 'bagel', art: 'vip', title: 'New: VIP customers!', line: 'Special guests drop in now and then. Zip is in a hurry, Pina orders for a party, Bubbie loves challah, Penny changes her mind, and the food critic reviews how fast you are. They pay extra!' } },
+  { customers: 10, menu: ALL, wantsMax: 2, gap: 5.5, patience: 32, vip: .2 },
+  { customers: 0, menu: ALL, wantsMax: 2, gap: 5, patience: 30, vip: .2, rush: { secs: 100, goals: [160, 240, 310] } },
+  // Part 4: helpers start calling in sick.
+  { away: 1, customers: 10, menu: ALL, wantsMax: 2, gap: 5.5, patience: 32, vip: .25 },
+  { away: 1, customers: 11, menu: ALL, wantsMax: 2, gap: 5, patience: 30, vip: .25 },
+  // Part 5: the big finish.
+  { away: 2, customers: 12, menu: ALL, wantsMax: 2, gap: 5, patience: 30, vip: .3 },
+  { away: 2, customers: 0, menu: ALL, wantsMax: 2, gap: 4.5, patience: 30, vip: .3, rush: { secs: 120, goals: [200, 300, 390] } },
 ];
+
+// VIPs in the kitchen: the same special guests as on the merge board, with kitchen rules.
+// Drawn from the merge game's pictures (art is the picture's id).
+//   patience  times a normal customer's patience
+//   pay       times the normal price
+//   items     orders this many things
+//   wants     always orders this food
+//   tip       always leaves this share of the price as a tip
+//   hearts    hearts lost if they leave unhappy (instead of 1)
+//   changes   changes one thing in the order partway through the wait
+//   review    dollars per golden spoon in the critic's review (3 spoons for very fast, down to 0)
+export const KITCHEN_VIPS = [
+  { id: 'zip', name: 'Zip', art: 'zip', patience: .5, pay: 2, hearts: 2, hello: 'Zip is here and he is in a hurry! Serve him fast for double pay.' },
+  { id: 'party', name: 'Pina', art: 'party', items: 3, pay: 2, hello: 'Pina is ordering for a party: three things, for double pay!' },
+  { id: 'bubbie', name: 'Bubbie', art: 'bubbie', wants: 'challah', patience: 2, tip: .5, hello: 'Bubbie came for challah. She is patient, and she tips well.' },
+  { id: 'penny', name: 'Penny', art: 'penny', pay: 1.5, changes: true, hello: 'Penny is here. Watch out, she might change her mind!' },
+  { id: 'critic', name: 'Monsieur Croissant', art: 'critic', review: 6, hello: 'The food critic! Serve him fast for a three spoon review.' },
+];
+
+// Shown the first time she plays a shift where helpers can be hired.
+export const HELPERS_INTRO = { id: 'helpers', art: 'helpers', title: 'Helpers can join you now!', line: 'Use your tips to hire food friend helpers. Look under Kitchen helpers on the kitchen card. Each one takes care of a station for you.' };
 
 export const SHIFT_RULES = {
   hearts: 3,            // customers who can leave unhappy before the shift ends (moods add or take away)
@@ -65,12 +105,14 @@ export const SHIFT_RULES = {
   keepWarm: 7,          // seconds a baked food stays golden in the oven before it burns
   pour: 4,              // seconds to pour a coffee at level 1
   hot: 10,              // seconds a full cup stays hot before it goes cold (moods stretch it)
-  coldFrom: 3,          // coffee goes cold from this shift on
-  dirtyFrom: 5,         // from this shift on, customers leave dirty dishes (and quick-service tips) on the counter
+  coldFrom: 5,          // coffee goes cold from this shift on
+  dirtyFrom: 7,         // from this shift on, customers leave dirty dishes (and quick-service tips) on the counter
   rushRefill: 1.5,      // rush hour: seconds before an empty spot at the counter fills again
-  doughFrom: 3,         // from this shift on, dough runs out and is made at the mixer
+  doughFrom: 6,         // from this shift on, dough runs out and is made at the mixer
   startDough: 2,        // doughs of each kind on the pantry shelf when a shift starts
-  doughMax: 6,          // the most of each dough the shelf holds
+  doughMax: 6,
+  helpersFrom: 5,       // helpers can be hired from this shift on
+  vipGap: 2,            // at least this many regular customers between two VIPs          // the most of each dough the shelf holds
   speedTip: 0.25,       // served while the bar is still more than half full: a tip this share of the price
   stars: [0.5, 0.8, 1], // share of customers served happily for 1, 2 and 3 stars (3 also means nobody left)
   openNext: 1,          // stars needed on a shift to open the next one
@@ -130,15 +172,15 @@ export const KITCHEN_CITIES = ['toronto'];
 //   opens    the shift number (1 to 10) that has to be open before she can hire them
 //   x        where they stand on the kitchen floor
 export const HELPERS = [
-  { id: 'strawberry', name: 'Strawberry', station: 'oven', cost: 150, opens: 1, x: 190,
+  { id: 'strawberry', name: 'Strawberry', station: 'oven', cost: 150, opens: 5, x: 190,
     job: 'Minds the oven. Puts golden food on a free plate, and tosses anything that burnt.' },
-  { id: 'bean', name: 'Bean', station: 'coffee', cost: 120, opens: 2, x: 300,
+  { id: 'bean', name: 'Bean', station: 'coffee', cost: 120, opens: 5, x: 300,
     job: 'Pours coffee. Starts a cup whenever a customer is waiting for one.' },
-  { id: 'avocado', name: 'Avocado', station: 'topping', cost: 180, opens: 4, x: 112,
+  { id: 'avocado', name: 'Avocado', station: 'topping', cost: 180, opens: 5, x: 112,
     job: 'Spreads cream cheese on a plated bagel when a customer wants one.' },
-  { id: 'mushroom', name: 'Mushroom', station: 'dishes', cost: 160, opens: 5, x: 151,
+  { id: 'mushroom', name: 'Mushroom', station: 'dishes', cost: 160, opens: 7, x: 151,
     job: 'Clears dishes off the counter into the dishwasher, and picks up the tips.' },
-  { id: 'croissant', name: 'Croissant', station: 'mixer', cost: 170, opens: 3, x: 76,
+  { id: 'cinnamon', name: 'Cinnamon Roll', station: 'mixer', cost: 170, opens: 6, x: 76,
     job: 'Runs the mixer. Starts dough when the shelf runs low, and rolls it onto the shelf that needs it.' },
 ];
 

@@ -44,8 +44,9 @@ const FRIEND = {
   mushroom: s => path('M-20,-2 Q-20,-22 0,-22 Q20,-22 20,-2 Z', '#b8321f') + path('M-18,-3 Q-18,-20 0,-20 Q17,-20 17,-3 Z', '#e2412f') +
     circ(-9, -12, 3.2, CREAM) + circ(4, -15, 2.6, CREAM) + circ(11, -7, 2.4, CREAM) + circ(-2, -7, 1.8, CREAM) +
     rect(-12, -3, 24, 23, 9, '#e8dccb') + rect(-12, -3, 22, 21, 9, CREAM) + face(-1, 5, .85, s),
-  croissant: s => ell(-17, 6, 6, 8, '#c47a2a', { transform: 'rotate(-35 -17 6)' }) + ell(17, 6, 6, 8, '#c47a2a', { transform: 'rotate(35 17 6)' }) +
-    ell(0, 1, 18, 15, '#c47a2a') + ell(-1, -.5, 16.5, 13.5, '#e9a443') + line('M-9,-12 Q-6,0 -10,12 M9,-12 Q6,0 10,12', '#c47a2a', 1.8, { opacity: .7 }) + shine(-8, -7, 3.5, 2) + face(0, 0, .9, s),
+  cinnamon: s => circ(0, 1, 19, '#a8611e') + circ(-1, 0, 17.5, '#d99a5c') +
+    line('M0,1 m-4,0 a4,4 0 1,1 8,0 a8,8 0 1,1 -16,0 a12,12 0 1,1 24,0 a15,15 0 0,1 -10,14', '#a8611e', 2, { opacity: .55 }) +
+    line('M-12,-9 Q-4,-14 4,-10 Q10,-6 14,-10', CREAM, 3) + shine(-9, -7, 3.5, 2) + face(0, 2, .9, s),
   peach: s => circ(0, 0, 17, '#e0704a') + circ(-2, -2, 15.5, '#f5a06a') + line('M0,-15 Q-4,-2 0,10', '#e0704a', 1.6, { opacity: .6 }) + path('M1,-17 Q8,-24 14,-20 Q8,-15 1,-17 Z', '#3f9b3c') + shine(-8, -6, 3.5, 2.2) + face(0, 2, 1, s),
 };
 export const CUSTOMER_KINDS = ['eggplant', 'lemon', 'blueberry', 'pear', 'peach'];
@@ -58,6 +59,10 @@ export const helper = (kind, x, y, carry = null, oops = false, moving = false) =
   (carry ? g('translate(0 -38) scale(.9)', FOOD[carry]()) : '') +
   (oops ? g('translate(0 -42)', circ(0, 0, 13, CREAM, { stroke: '#e2412f', 'stroke-width': 2 }) + text(0, 6, '?', 17, '#e2412f', { 'text-anchor': 'middle', 'font-family': 'Righteous' })) : ''),
   moving || oops ? '' : 'bob b', oops);
+
+// A VIP from the merge game's pictures (on the page as #cust-<art>), with a gold star.
+export const vip = (art, x, y, cls = '') => g(`translate(${x} ${y})`, `<g class="${cls}">${ell(0, 21, 15, 3, INK, { opacity: .12 })}<use href="#cust-${art}" x="-29" y="-33" width="58" height="58"/></g>` +
+  text(17, -14, '★', 14, GOLD, { stroke: '#d99a12', 'stroke-width': .6 }));
 
 // ---------- food, drawn around 0,0 at about 24 across ----------
 const RING = (r, h) => `M${-r},0 a${r},${r} 0 1,0 ${2 * r},0 a${r},${r} 0 1,0 ${-2 * r},0 Z M${-h},0 a${h},${h} 0 1,0 ${2 * h},0 a${h},${h} 0 1,0 ${-2 * h},0 Z`;

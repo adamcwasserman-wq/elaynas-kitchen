@@ -4,7 +4,7 @@
 // and taps a finished food to hand it to the first customer who wants it.
 // Tuning lives in data/kitchen.js; the drawings in js/kitchenArt.js.
 
-import { FOODS, PANTRY, SHIFTS, SHIFT_RULES, APPLIANCES, HELPERS, HELPER_LEVELS, OLD_HELPER_JOBS, DOUGH_INTRO, EXCUSES, KITCHEN_CITIES } from '../data/kitchen.js';
+import { FOODS, PANTRY, SHIFTS, SHIFT_RULES, APPLIANCES, HELPERS, HELPER_LEVELS, OLD_HELPER_JOBS, DOUGH_INTRO, HELPERS_INTRO, KITCHEN_VIPS, EXCUSES, KITCHEN_CITIES } from '../data/kitchen.js';
 import * as A from './kitchenArt.js';
 
 const $ = sel => document.querySelector(sel);
@@ -40,6 +40,11 @@ export function createKitchen(api) {
       k.helperLv = {};
       for (const [id, n] of Object.entries(k.helperJobs || {})) k.helperLv[id] = OLD_HELPER_JOBS.filter(j => n >= j).length;
       delete k.helperJobs; delete k.team; delete k.bring;
+    }
+    // The dough helper was briefly called Croissant (the food critic's name), now Cinnamon Roll.
+    if (k.helpers.includes('croissant')) {
+      k.helpers = k.helpers.map(id => (id === 'croissant' ? 'cinnamon' : id));
+      if (k.helperLv.croissant) { k.helperLv.cinnamon = k.helperLv.croissant; delete k.helperLv.croissant; }
     }
     for (const a of APPLIANCES) k.appl[a.id] ??= 1;
     return k;
@@ -92,18 +97,21 @@ export function createKitchen(api) {
       cups: Array(spec('coffee').cups).fill(null),
       plates: Array(spec('prep').plates).fill(null),
       cust: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null),
-      coming: sh.rush ? Infinity : sh.customers, first: true, spawnIn: .6, served: 0, lost: 0, earned: 0,
+      coming: sh.rush ? Infinity : sh.customers, first: true, sinceVip: 0, hadVip: false, spawnIn: .6, served: 0, lost: 0, earned: 0,
       hearts: Math.max(1, SHIFT_RULES.hearts + (m.hearts || 0)),
       toss: false, say: null, sayUntil: 0, over: false, trash: 0,
       counter: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null), wash: { waiting: 0, load: 0, t: 0 },
       stock: Object.fromEntries(PANTRY.filter(p => FOODS[p.for].from === 'oven').map(p => [p.id, SHIFT_RULES.startDough])),
       mix: null, ready: 0, drag: null,
-      team: team(), help: Object.fromEntries(team().map(h => [h.id, { wait: 1.5, trip: null, carry: null, oops: false }])), out: [],
+      // Helpers only work from the shift where their job starts.
+      team: team().filter(h => i + 1 >= h.opens), help: Object.fromEntries(team().map(h => [h.id, { wait: 1.5, trip: null, carry: null, oops: false }])), out: [],
     };
     // New things get a card the first time: the shift's own news, then the mixer.
     run.cards = [];
-    if (sh.intro && !data().introSeen.includes(i)) run.cards.push([i, sh.intro]);
-    if (i + 1 >= SHIFT_RULES.doughFrom && !data().introSeen.includes(DOUGH_INTRO.id)) run.cards.push([DOUGH_INTRO.id, DOUGH_INTRO]);
+    const seen = id => data().introSeen.includes(id);
+    if (sh.intro && !seen(sh.intro.id)) run.cards.push([sh.intro.id, sh.intro]);
+    if (i + 1 >= SHIFT_RULES.helpersFrom && !seen(HELPERS_INTRO.id)) run.cards.push([HELPERS_INTRO.id, HELPERS_INTRO]);
+    if (i + 1 >= SHIFT_RULES.doughFrom && !seen(DOUGH_INTRO.id)) run.cards.push([DOUGH_INTRO.id, DOUGH_INTRO]);
     // Busier shifts: some helpers call in sick (with a silly excuse).
     for (let n = Math.min(sh.away || 0, run.team.length); n > 0; n--) {
       const h = pick(run.team), why = pick(EXCUSES.filter(e => !run.out.some(o => o.why === e)));
@@ -147,12 +155,23 @@ export function createKitchen(api) {
     const max = Math.max(1, Math.min(sh.wantsMax, m.wantsMax ?? 9));
     const min = Math.min(max, m.wantsMin ?? 1);
     const n = min + Math.floor(Math.random() * (max - min + 1));
-    const wants = Array.from({ length: n }, () => pick(sh.menu));
+    // Now and then a VIP (only one at a time, with a few regulars in between). On the shift that
+    // introduces them, the first chance is a sure thing.
+    let vip = null;
+    if (sh.vip && !run.first && run.sinceVip >= SHIFT_RULES.vipGap && !run.cust.some(c => c?.vip) && Math.random() < (sh.intro?.id === 'vips' && !run.hadVip ? 1 : sh.vip)) {
+      vip = pick(KITCHEN_VIPS.filter(v => !v.wants || sh.menu.includes(v.wants)));
+      run.sinceVip = 0; run.hadVip = true;
+    } else run.sinceVip++;
+    const count = vip?.items || n;
+    const wants = Array.from({ length: count }, () => pick(sh.menu));
     if (run.first && sh.intro) wants[0] = sh.intro.food; // the first customer asks for the new food
+    if (vip?.wants) wants[0] = vip.wants;
     run.first = false;
     const here = run.cust.filter(Boolean).map(c => c.kind);
     const kind = pick(A.CUSTOMER_KINDS.filter(k => !here.includes(k)));
-    return { kind, wants: wants.map(f => ({ f, got: false })), wait: 0, patience: (sh.patience + SHIFT_RULES.itemPatience * (n - 1)) * m.patience, leaving: 0, sad: false };
+    if (vip) say(vip.hello, 3.5);
+    return { kind, vip, wants: wants.map(f => ({ f, got: false })), wait: 0, leaving: 0, sad: false,
+      patience: (sh.patience + SHIFT_RULES.itemPatience * (count - 1)) * m.patience * (vip?.patience || 1) };
   }
 
   function tick() {
@@ -220,10 +239,16 @@ export function createKitchen(api) {
         return;
       }
       cu.wait += dt;
+      // Penny changes her mind once, about a third of the way through her wait.
+      if (cu.vip?.changes && !cu.changed && cu.wait >= cu.patience * .35) {
+        cu.changed = true;
+        const w = cu.wants.find(x => !x.got), other = w && run.sh.menu.filter(f => f !== w.f);
+        if (other?.length) { w.f = pick(other); say('Penny changed her mind!'); api.buzz('nope'); changed = true; }
+      }
       if (run.m.complaints !== false && cu.wait >= cu.patience) {
-        cu.sad = true; cu.leaving = 1; run.lost++; run.hearts--; changed = true;
+        cu.sad = true; cu.leaving = 1; run.lost++; run.hearts -= cu.vip?.hearts || 1; changed = true;
         api.buzz('nope');
-        say('A customer got tired of waiting.');
+        say(cu.vip ? `${cu.vip.name} got tired of waiting.` : 'A customer got tired of waiting.');
       }
     });
     if (run.hearts <= 0) { endShift(); return; }
@@ -620,9 +645,16 @@ export function createKitchen(api) {
   function pay(cu, i) {
     const price = cu.wants.reduce((t, w) => t + FOODS[w.f].price, 0);
     const quick = 1 - cu.wait / cu.patience > .5 || run.m.complaints === false && cu.wait < cu.patience / 2;
-    const more = 1 + (run.m.pay || 0);
-    const tip = quick ? Math.round(price * SHIFT_RULES.speedTip * more) : 0;
-    let total = Math.round(price * more);
+    const more = 1 + (run.m.pay || 0), v = cu.vip;
+    let tip = quick ? Math.round(price * SHIFT_RULES.speedTip * more) : 0;
+    if (v?.tip) tip = Math.max(tip, Math.round(price * v.tip * more));
+    let total = Math.round(price * (v?.pay || 1) * more);
+    // The critic's review: golden spoons for speed, each worth a bonus.
+    if (v?.review) {
+      const left = 1 - cu.wait / cu.patience, spoons = left > .66 ? 3 : left > .4 ? 2 : left > .15 ? 1 : 0;
+      total += Math.round(spoons * v.review * more);
+      say(spoons ? `The critic gives you ${spoons} golden spoon${spoons > 1 ? 's' : ''}!` : 'The critic says: too slow. No spoons.', 3);
+    }
     // Once there are dishes, a quick-service tip is left on the counter for her to pick up.
     if (dirtyOn()) cu.tipLeft = tip; else total += tip;
     run.earned += total;
@@ -765,7 +797,8 @@ export function createKitchen(api) {
         s += bubble(x, 76, cu.wants, share, `kb-${i}`);
       } else if (cu.sad) s += A.text(x, 60, '...', 22, '#7a5f52', { 'text-anchor': 'middle', 'font-family': 'Righteous' });
       else s += A.g(`translate(${x} 56)`, A.path(A.heartPath, '#e2412f'));
-      s += A.friend(cu.kind, x, cu.leaving ? 132 : 124, 1.05, '', cu.leaving ? '' : `bob${i ? ' b' : ''}`, cu.sad);
+      if (cu.vip) s += A.vip(cu.vip.art, x, cu.leaving ? 132 : 124, cu.leaving ? '' : `bob${i ? ' b' : ''}`);
+      else s += A.friend(cu.kind, x, cu.leaving ? 132 : 124, 1.05, '', cu.leaving ? '' : `bob${i ? ' b' : ''}`, cu.sad);
     });
     s += A.roomFront();
     // Dishes and tips left on the counter.
@@ -847,7 +880,7 @@ export function createKitchen(api) {
       else if (kind === 'dish') s += glow(custX(+arg), 154, 30);
     }
     // The helpers on this shift, each standing under the station they mind.
-    for (const h of run ? run.team : team()) {
+    for (const h of run ? run.team : team().filter(h => chosen + 1 >= h.opens)) {
       const st = run?.help[h.id], [x, y] = st?.trip ? tripPos(st.trip, st.trip.t) : home(h);
       s += `<g id="kh-${h.id}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})">${A.helper(h.id, 0, 0, st?.carry || null, st?.oops, !!st?.trip)}</g>`;
     }
@@ -955,12 +988,12 @@ export function createKitchen(api) {
       else right = `<button class="btn primary k-buy" data-hire="${h.id}"${s.dollars >= h.cost ? '' : ' disabled'}>Hire<br>$${h.cost.toLocaleString()}</button>`;
       return `<li class="k-appl">${art}<div>${title}<span>${note}</span></div>${right}</li>`;
     }).join('');
-    const sh = SHIFTS[chosen];
+    const sh = SHIFTS[chosen], crew = team().filter(h => chosen + 1 >= h.opens);
     const menu = sh.menu.map(f => FOODS[f].name).join(', ');
     showCard(`<h2>Cooking shifts</h2>
       <p class="muted small">Pick a shift. Serve every customer for three stars. Tips go in this restaurant's tip jar ($${s.dollars.toLocaleString()} now).</p>
       <div class="k-shifts">${shifts}</div>
-      <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.rush ? `Rush hour! ${sh.rush.secs} seconds. Earn $${goals(sh, api.mood()).join(', $')} for 1, 2, 3 stars.` : `${sh.customers} customers.`} Menu: ${menu}.${team().length ? ` Helpers: ${team().map(h => h.name).join(', ')}.` : ''}${sh.away && team().length ? ` Watch out: ${sh.away === 1 ? 'a helper' : 'up to two helpers'} may call in sick.` : ''}</p>
+      <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.rush ? `Rush hour! ${sh.rush.secs} seconds. Earn $${goals(sh, api.mood()).join(', $')} for 1, 2, 3 stars.` : `${sh.customers} customers.`} Menu: ${menu}.${crew.length ? ` Helpers: ${crew.map(h => h.name).join(', ')}.` : ''}${sh.away && crew.length ? ` Watch out: ${sh.away === 1 ? 'a helper' : 'up to two helpers'} may call in sick.` : ''}</p>
       <button class="btn primary k-start" data-start="${chosen}">Start shift ${chosen + 1}</button>
       <h3>Kitchen helpers</h3>
       <p class="muted small">Every helper you hire works every shift. Train them with tips to make them quicker and steadier.</p>
@@ -972,7 +1005,7 @@ export function createKitchen(api) {
   function showIntro(intro) {
     card = 'intro';
     render();
-    const art = intro.art === 'out' ? A.friend(intro.out, 0, 2, 1, A.g('translate(0 -1) scale(.62)', A.chefHat()), '', true) : intro.art === 'dirty' ? A.plate(0, 0, 'dirty', 1.3) : intro.art === 'dough' ? A.g('translate(-17 12) scale(.5)', A.mixer(2).art) : intro.art ? A.food(intro.art, 0, 0, 1.4) : A.plate(0, 0, intro.food, 1.3);
+    const art = intro.art === 'vip' ? '<use href="#cust-zip" x="-22" y="-22" width="44" height="44"/>' : intro.art === 'helpers' ? A.helper('strawberry', 0, 2) : intro.art === 'out' ? A.friend(intro.out, 0, 2, 1, A.g('translate(0 -1) scale(.62)', A.chefHat()), '', true) : intro.art === 'dirty' ? A.plate(0, 0, 'dirty', 1.3) : intro.art === 'dough' ? A.g('translate(-17 12) scale(.5)', A.mixer(2).art) : intro.art ? A.food(intro.art, 0, 0, 1.4) : A.plate(0, 0, intro.food, 1.3);
     showCard(`<div class="k-intro"><svg viewBox="-24 -24 48 48" aria-hidden="true">${art}</svg>
       <h2>${intro.title}</h2><p>${intro.line}</p>
       <button class="btn primary" data-go>Let's cook!</button></div>`);
