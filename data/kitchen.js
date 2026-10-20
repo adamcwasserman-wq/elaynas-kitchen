@@ -31,23 +31,30 @@ export const PANTRY = [
 //   wantsMax  each customer orders at most this many things (moods can lower it)
 //   gap       seconds between customers walking in
 //   patience  seconds a customer waits for a one-item order (each extra item adds itemPatience)
-//   intro     shown on a card the first time this shift starts (new foods)
+//   intro     shown on a card the first time this shift starts (new foods and new rules).
+//             The first customer asks for intro.food. "art" picks a picture other than that food.
+//   rush      a rush hour shift: customers keep coming until the clock runs out, and stars come
+//             from money earned. secs: how long. goals: dollars for 1, 2 and 3 stars at "Just
+//             right" (calmer moods get lower goals, busier ones higher).
 // After the last shift she can replay any shift she has opened.
 export const SHIFTS = [
   { customers: 4, menu: ['bagel'], wantsMax: 1, gap: 7, patience: 40,
     intro: { food: 'bagel', title: 'Your first shift!', line: 'Tap the bagel dough to put it in the oven. When it turns golden, tap the oven to put it on a plate, then tap the plate to serve it.' } },
   { customers: 5, menu: ['bagel', 'coffee'], wantsMax: 1, gap: 6.5, patience: 36,
     intro: { food: 'coffee', title: 'New: coffee!', line: 'Tap the coffee machine to pour a cup. Tap the full cup to serve it.' } },
-  { customers: 6, menu: ['bagel', 'coffee'], wantsMax: 2, gap: 6.5, patience: 34 },
+  { customers: 6, menu: ['bagel', 'coffee'], wantsMax: 2, gap: 6.5, patience: 34,
+    intro: { food: 'coffee', art: 'coffeeCold', title: 'New: coffee goes cold!', line: 'A full cup only stays hot for a little while. Pour it when someone wants one. A cold cup has to be tossed.' } },
   { customers: 7, menu: ['bagel', 'coffee', 'creamBagel'], wantsMax: 2, gap: 6.5, patience: 34,
     intro: { food: 'creamBagel', title: 'New: cream cheese bagels!', line: 'Put a baked bagel on a plate, then tap the cream cheese to spread it on.' } },
-  { customers: 8, menu: ['bagel', 'coffee', 'creamBagel'], wantsMax: 2, gap: 6, patience: 32 },
+  { customers: 8, menu: ['bagel', 'coffee', 'creamBagel'], wantsMax: 2, gap: 6, patience: 32,
+    intro: { food: 'bagel', art: 'dirty', title: 'New: dirty plates!', line: 'After a customer eats, their plate comes back dirty. Tap a dirty plate to wash it before you use it again.' } },
   { customers: 8, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 6.5, patience: 36,
     intro: { food: 'challah', title: 'New: challah!', line: 'Tap the challah dough to bake it. It takes longer than bagels, so start it early.' } },
-  { customers: 9, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 6, patience: 34 },
+  { customers: 0, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 6, patience: 34, rush: { secs: 90, goals: [140, 210, 280] },
+    intro: { food: 'bagel', art: 'clock', title: 'Rush hour!', line: 'Customers keep coming until the clock runs out. Earn the money goal for a star, and more for three stars.' } },
   { customers: 10, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 5.5, patience: 32 },
   { customers: 11, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 5, patience: 30 },
-  { customers: 12, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 4.5, patience: 30 },
+  { customers: 0, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 4.5, patience: 30, rush: { secs: 120, goals: [190, 285, 375] } },
 ];
 
 export const SHIFT_RULES = {
@@ -56,6 +63,10 @@ export const SHIFT_RULES = {
   customersMax: 3,      // spots at the counter
   keepWarm: 7,          // seconds a baked food stays golden in the oven before it burns
   pour: 4,              // seconds to pour a coffee at level 1
+  hot: 10,              // seconds a full cup stays hot before it goes cold (moods stretch it)
+  coldFrom: 3,          // coffee goes cold from this shift on
+  dirtyFrom: 5,         // plates come back dirty from this shift on
+  rushRefill: 1.5,      // rush hour: seconds before an empty spot at the counter fills again
   speedTip: 0.25,       // served while the bar is still more than half full: a tip this share of the price
   stars: [0.5, 0.8, 1], // share of customers served happily for 1, 2 and 3 stars (3 also means nobody left)
   openNext: 1,          // stars needed on a shift to open the next one

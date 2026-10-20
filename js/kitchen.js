@@ -67,7 +67,7 @@ export function createKitchen(api) {
     clearInterval(loop);
     run = null; card = null;
     $('#kitchen').hidden = true;
-    $('#k-stage').innerHTML = '';
+    $('#k-stage .k-scene').innerHTML = '';
     api.save();
     api.renderAll();
   }
@@ -85,7 +85,7 @@ export function createKitchen(api) {
       cups: Array(spec('coffee').cups).fill(null),
       plates: Array(spec('prep').plates).fill(null),
       cust: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null),
-      coming: sh.customers, spawnIn: .6, served: 0, lost: 0, earned: 0,
+      coming: sh.rush ? Infinity : sh.customers, first: true, spawnIn: .6, served: 0, lost: 0, earned: 0,
       hearts: Math.max(1, SHIFT_RULES.hearts + (m.hearts || 0)),
       toss: false, say: null, sayUntil: 0, over: false,
       helper: bringing(), help: { wait: 2, busy: 0, icon: null, oops: false },
@@ -98,6 +98,15 @@ export function createKitchen(api) {
   const gap = () => run.sh.gap * (run.m.patience > 1 ? 1.25 : run.m.patience < 1 ? .85 : 1);
   const noBurn = () => !!spec('oven').noBurn || run.m.complaints === false;
   const keepWarm = () => SHIFT_RULES.keepWarm * Math.max(1, run.m.patience);
+  // New rules that switch on partway through the shifts.
+  const coldOn = () => run.i + 1 >= SHIFT_RULES.coldFrom && run.m.complaints !== false;
+  const hot = () => SHIFT_RULES.hot * Math.max(1, run.m.patience);
+  const dirtyOn = () => run.i + 1 >= SHIFT_RULES.dirtyFrom;
+  const used = () => (dirtyOn() ? 'dirty' : null); // what a plate holds after its food is gone
+  // Rush hour money goals, eased for calmer moods and raised for busier ones (they pay more).
+  const goals = (sh, m) => { const k = (1 + (m.pay || 0)) * (m.customersMax ? .55 : m.patience > 1 ? .8 : 1); return sh.rush.goals.map(g => Math.round(g * k / 5) * 5); };
+  const timeLeft = () => Math.max(0, run.sh.rush.secs - run.t);
+  const clock = secs => { const n = Math.ceil(secs); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
 
   function newCustomer() {
     const { sh, m } = run;
@@ -105,7 +114,8 @@ export function createKitchen(api) {
     const min = Math.min(max, m.wantsMin ?? 1);
     const n = min + Math.floor(Math.random() * (max - min + 1));
     const wants = Array.from({ length: n }, () => pick(sh.menu));
-    if (run.coming === sh.customers && sh.intro) wants[0] = sh.intro.food; // the first customer asks for the new food
+    if (run.first && sh.intro) wants[0] = sh.intro.food; // the first customer asks for the new food
+    run.first = false;
     const here = run.cust.filter(Boolean).map(c => c.kind);
     const kind = pick(A.CUSTOMER_KINDS.filter(k => !here.includes(k)));
     return { kind, wants: wants.map(f => ({ f, got: false })), wait: 0, patience: (sh.patience + SHIFT_RULES.itemPatience * (n - 1)) * m.patience, leaving: 0, sad: false };
@@ -127,7 +137,13 @@ export function createKitchen(api) {
     run.cups.forEach((x, i) => {
       if (!x) { if (c.auto && run.sh.menu.includes('coffee')) { run.cups[i] = { state: 'pour', t: 0, need: c.pour }; changed = true; } return; }
       x.t += dt;
-      if (x.state === 'pour' && x.t >= x.need) { x.state = 'done'; changed = true; }
+      if (x.state === 'pour' && x.t >= x.need) { x.state = 'done'; x.t = 0; changed = true; }
+      else if (x.state === 'done' && coldOn() && x.t >= hot()) {
+        changed = true;
+        // The golden espresso pours a fresh cup by itself; otherwise the cold one waits to be tossed.
+        if (c.auto) run.cups[i] = { state: 'pour', t: 0, need: c.pour };
+        else { x.state = 'cold'; api.buzz('nope'); say('Oh no, a coffee went cold! Tap it to toss it.'); }
+      }
     });
     // The glass fridge spreads cream cheese by itself on a bagel someone wants it on.
     if (spec('pantry').autoTop) {
@@ -147,10 +163,12 @@ export function createKitchen(api) {
       }
     });
     if (run.hearts <= 0) { endShift(); return; }
+    if (run.sh.rush && timeLeft() <= 0) { endShift(); return; }
     if (run.coming > 0) {
       run.spawnIn -= dt;
       const free = run.cust.indexOf(null);
       if (run.cust.every(x => !x)) run.spawnIn = Math.min(run.spawnIn, .6);
+      else if (run.sh.rush && free >= 0) run.spawnIn = Math.min(run.spawnIn, SHIFT_RULES.rushRefill); // rush hour: the counter is always full
       if (run.spawnIn <= 0 && free >= 0) { run.cust[free] = newCustomer(); run.coming--; run.spawnIn = gap(); changed = true; }
     } else if (run.cust.every(x => !x)) { endShift(); return; }
     if (changed) render(); else live();
@@ -177,6 +195,8 @@ export function createKitchen(api) {
     },
     coffee(look) {
       if (!run.sh.menu.includes('coffee')) return null;
+      const cold = run.cups.findIndex(x => x?.state === 'cold');
+      if (cold >= 0) { if (!look) run.cups[cold] = null; return 'coffeeCold'; }
       const free = run.cups.indexOf(null);
       if (free < 0 || stillWanted('coffee') <= run.cups.filter(Boolean).length) return null;
       if (!look) run.cups[free] = { state: 'pour', t: 0, need: spec('coffee').pour };
@@ -221,7 +241,8 @@ export function createKitchen(api) {
     const [kind, arg] = what.split(':');
     if (run.toss) {
       run.toss = false;
-      if (kind === 'plate' && run.plates[arg]) { run.plates[arg] = null; say('Tossed in the bin.'); }
+      if (kind === 'plate' && run.plates[arg] === 'dirty') { run.plates[arg] = null; say('Washed!'); }
+      else if (kind === 'plate' && run.plates[arg]) { run.plates[arg] = used(); say('Tossed in the bin.'); }
       else if (kind === 'cup' && run.cups[arg]) { run.cups[arg] = null; say('Tossed in the bin.'); }
       else if (kind === 'oven') { const j = run.oven.findIndex(x => x && x.state !== 'bake'); if (j >= 0) { run.oven[j] = null; say('Tossed in the bin.'); } }
       else say(null, 0);
@@ -266,7 +287,7 @@ export function createKitchen(api) {
     run.oven.forEach((x, k) => { if (x?.state === 'done' && (j < 0 || x.t > run.oven[j].t)) j = k; });
     if (j < 0) { if (run.oven.some(Boolean)) say('Still baking. Wait for it to turn golden.'); else say('Tap some dough in the pantry to start baking.'); render(); return; }
     const p = run.plates.indexOf(null);
-    if (p < 0) { nope('No free plate. Serve one, or toss it in the green bin.'); return; }
+    if (p < 0) { nope(run.plates.includes('dirty') ? 'No clean plate. Tap a dirty plate to wash it.' : 'No free plate. Serve one, or toss it in the green bin.'); return; }
     run.plates[p] = run.oven[j].food;
     run.oven[j] = null;
     api.buzz('tap');
@@ -276,7 +297,8 @@ export function createKitchen(api) {
   function servePlate(i) {
     const f = run.plates[i];
     if (!f) { say('Empty plate. Tap the oven to put food on it.'); render(); return; }
-    if (deliver(f, plateSpot(i))) run.plates[i] = null;
+    if (f === 'dirty') { run.plates[i] = null; api.buzz('tap'); say('Washed!', 1.2); render(); return; }
+    if (deliver(f, plateSpot(i))) run.plates[i] = used();
     render();
   }
 
@@ -284,7 +306,13 @@ export function createKitchen(api) {
     const ready = run.cups.findIndex(x => x?.state === 'done');
     if (ready >= 0 && wanted('coffee')) { serveCup(ready); return; }
     const free = run.cups.indexOf(null);
-    if (free < 0) { if (ready >= 0) nope('Nobody wants coffee right now.'); else say('Pouring...'); render(); return; }
+    if (free < 0) {
+      const cold = run.cups.findIndex(x => x?.state === 'cold');
+      if (cold >= 0) { serveCup(cold); return; }
+      if (ready >= 0) nope('Nobody wants coffee right now.'); else say('Pouring...');
+      render();
+      return;
+    }
     run.cups[free] = { state: 'pour', t: 0, need: spec('coffee').pour };
     api.buzz('tap');
     render();
@@ -293,6 +321,7 @@ export function createKitchen(api) {
   function serveCup(i) {
     const c = run.cups[i];
     if (!c) { coffeeTap(); return; }
+    if (c.state === 'cold') { run.cups[i] = null; api.buzz('tap'); say('That one went cold, so it went in the bin.'); render(); return; }
     if (c.state !== 'done') { say('Still pouring...'); render(); return; }
     if (deliver('coffee', cupSpot(i))) run.cups[i] = null;
     render();
@@ -328,9 +357,13 @@ export function createKitchen(api) {
 
   function endShift() {
     run.over = true;
-    const k = data(), total = run.sh.customers, share = run.served / total;
-    const [one, two] = SHIFT_RULES.stars;
-    const got = run.hearts <= 0 ? 0 : share >= 1 && run.lost === 0 ? 3 : share >= two ? 2 : share >= one ? 1 : 0;
+    const k = data();
+    let got;
+    if (run.sh.rush) got = run.hearts <= 0 ? 0 : goals(run.sh, run.m).filter(g => run.earned >= g).length;
+    else {
+      const share = run.served / run.sh.customers, [one, two] = SHIFT_RULES.stars;
+      got = run.hearts <= 0 ? 0 : share >= 1 && run.lost === 0 ? 3 : share >= two ? 2 : share >= one ? 1 : 0;
+    }
     const before = k.best[run.i] || 0;
     let gems = 0;
     if (got >= 1 && before < 1) gems += 1;
@@ -355,6 +388,12 @@ export function createKitchen(api) {
     const warm = run.oven.find(x => x?.state === 'done' && !noBurn() && x.t > keepWarm() - 3);
     if (warm) return { text: `Quick! Take the ${FOODS[warm.food].name.toLowerCase()} out before it burns!`, target: 'oven' };
     if (run.oven.some(x => x?.state === 'burnt')) return { text: 'Something burnt. Tap the oven to toss it.', target: 'oven' };
+    const cooling = run.cups.findIndex(x => x?.state === 'done' && coldOn() && x.t > hot() - 3.5);
+    if (cooling >= 0 && wanted('coffee') >= 0) return { text: 'Quick! Serve the coffee before it goes cold!', target: `cup:${cooling}` };
+    const cold = run.cups.findIndex(x => x?.state === 'cold');
+    if (cold >= 0) return { text: 'That coffee went cold. Tap it to toss it.', target: `cup:${cold}` };
+    const dirty = run.plates.indexOf('dirty');
+    if (dirty >= 0 && !run.plates.includes(null)) return { text: 'No clean plates! Tap a dirty plate to wash it.', target: `plate:${dirty}` };
     const helping = run.i < 2 || run.sh.intro;
     const cu = run.cust.find(c => c && !c.leaving);
     if (!cu) return { text: run.coming ? 'Here comes a customer!' : 'Nice work!' };
@@ -391,6 +430,11 @@ export function createKitchen(api) {
   const tapZone = (x, y, w, h, what) => A.rect(x, y, w, h, 10, '#000', { 'fill-opacity': 0, 'pointer-events': 'all', 'data-tap': what });
   const glow = (x, y, r) => A.circ(x, y, r, 'none', { stroke: A.GOLD, 'stroke-width': 4, 'stroke-dasharray': '6 6', class: 'kglow' });
 
+  function cupRing(x) {
+    if (x.state === 'pour') return [x.t / x.need, A.GOLD];
+    const left = 1 - x.t / hot();
+    return [left, left > .4 ? '#3f9b3c' : '#e2412f'];
+  }
   function ovenRing(x) {
     if (x.state === 'bake') return [x.t / x.need, A.GOLD];
     if (x.state === 'burnt') return [1, '#3a2a2a'];
@@ -442,8 +486,12 @@ export function createKitchen(api) {
     if (run && coffeeOn) run.cups.forEach((x, i) => {
       const [ux, uy] = cf.cups[i];
       if (!x) return;
-      if (x.state === 'pour') co += A.line(`M${ux - 2},${cf.spoutY} L${ux - 2},${uy - 4}`, '#6b3a1e', 3) + A.food('cupEmpty', ux, uy, cf.scale) + A.ring(ux + 14, uy - 26, x.t / x.need, A.GOLD, `krc-${i}`, 7);
-      else co += A.food('coffee', ux, uy, cf.scale) + tapZone(ux - 16, uy - 18, 32, 34, `cup:${i}`);
+      if (x.state === 'pour') co += A.line(`M${ux - 2},${cf.spoutY} L${ux - 2},${uy - 4}`, '#6b3a1e', 3) + A.food('cupEmpty', ux, uy, cf.scale) + A.ring(ux + 14, uy - 26, ...cupRing(x), `krc-${i}`, 7);
+      else {
+        co += A.food(x.state === 'cold' ? 'coffeeCold' : 'coffee', ux, uy, cf.scale);
+        if (x.state === 'done' && coldOn()) co += A.ring(ux + 14, uy - 26, ...cupRing(x), `krc-${i}`, 7);
+        co += tapZone(ux - 16, uy - 18, 32, 34, `cup:${i}`);
+      }
     });
     if (!coffeeOn) co += A.rect(0, -cf.H, cf.W, cf.H, 10, '#fdebd0', { opacity: .55 });
     s += A.g(`translate(${cx} ${BOTTOM})`, co);
@@ -493,8 +541,9 @@ export function createKitchen(api) {
     run.cups.forEach((x, i) => {
       const el = document.getElementById(`krc-${i}`);
       if (!el || !x) return;
-      const c = +el.getAttribute('stroke-dasharray');
-      el.setAttribute('stroke-dashoffset', (c * (1 - x.t / x.need)).toFixed(1));
+      const [share, col] = cupRing(x), c = +el.getAttribute('stroke-dasharray');
+      el.setAttribute('stroke-dashoffset', (c * (1 - share)).toFixed(1));
+      el.setAttribute('stroke', col);
     });
     run.cust.forEach((cu, i) => {
       const el = document.getElementById(`kb-${i}`);
@@ -503,12 +552,18 @@ export function createKitchen(api) {
       el.setAttribute('width', (+el.dataset.w * share).toFixed(1));
       el.setAttribute('fill', barColour(share));
     });
+    if (run.sh.rush) status();
     const say = document.getElementById('k-say'), t = guide().text;
     if (say && say.textContent !== t) render();
   }
   function status() {
     $('#k-title').textContent = run ? `Shift ${run.i + 1}` : `${api.cityName()} kitchen`;
-    $('#k-stat').textContent = run ? `${run.served} of ${run.sh.customers} served · $${run.earned}` : `$${S().dollars.toLocaleString()} in the tip jar`;
+    let stat = `$${S().dollars.toLocaleString()} in the tip jar`;
+    if (run?.sh.rush) {
+      const next = goals(run.sh, run.m).find(g => run.earned < g);
+      stat = `${clock(timeLeft())} left · $${run.earned}${next ? ` of $${next}` : ''}`;
+    } else if (run) stat = `${run.served} of ${run.sh.customers} served · $${run.earned}`;
+    $('#k-stat').textContent = stat;
   }
 
   // Floating "+$12" over a customer.
@@ -538,7 +593,7 @@ export function createKitchen(api) {
     const k = data(), s = S();
     const shifts = SHIFTS.map((sh, i) => {
       const openNow = shiftOpen(i), b = k.best[i] || 0;
-      return `<button class="k-shift${i === chosen ? ' on' : ''}" data-shift="${i}"${openNow ? '' : ' disabled'}><b>${i + 1}</b><span>${openNow ? stars(b) : 'Locked'}</span></button>`;
+      return `<button class="k-shift${i === chosen ? ' on' : ''}${sh.rush ? ' rush' : ''}" data-shift="${i}"${openNow ? '' : ' disabled'}><b>${i + 1}</b><span>${openNow ? stars(b) : 'Locked'}</span></button>`;
     }).join('');
     const appliances = APPLIANCES.map(a => {
       const n = level(a.id), now = a.levels[n - 1], next = a.levels[n];
@@ -564,7 +619,7 @@ export function createKitchen(api) {
     showCard(`<h2>Cooking shifts</h2>
       <p class="muted small">Pick a shift. Serve every customer for three stars. Tips go in this restaurant's tip jar ($${s.dollars.toLocaleString()} now).</p>
       <div class="k-shifts">${shifts}</div>
-      <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.customers} customers. Menu: ${menu}.${bringing() ? ` Helper: ${bringing().name}.` : ''}</p>
+      <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.rush ? `Rush hour! ${sh.rush.secs} seconds. Earn $${goals(sh, api.mood()).join(', $')} for 1, 2, 3 stars.` : `${sh.customers} customers.`} Menu: ${menu}.${bringing() ? ` Helper: ${bringing().name}.` : ''}</p>
       <button class="btn primary k-start" data-start="${chosen}">Start shift ${chosen + 1}</button>
       <h3>Kitchen helpers</h3>
       <p class="muted small">Bring one helper on each shift. The more jobs a helper does, the quicker and steadier they get.</p>
@@ -576,7 +631,8 @@ export function createKitchen(api) {
   function showIntro(intro) {
     card = 'intro';
     render();
-    showCard(`<div class="k-intro"><svg viewBox="-24 -24 48 48" aria-hidden="true">${A.plate(0, 0, intro.food, 1.3)}</svg>
+    const art = intro.art === 'dirty' ? A.plate(0, 0, 'dirty', 1.3) : intro.art ? A.food(intro.art, 0, 0, 1.4) : A.plate(0, 0, intro.food, 1.3);
+    showCard(`<div class="k-intro"><svg viewBox="-24 -24 48 48" aria-hidden="true">${art}</svg>
       <h2>${intro.title}</h2><p>${intro.line}</p>
       <button class="btn primary" data-go>Let's cook!</button></div>`);
   }
@@ -587,7 +643,9 @@ export function createKitchen(api) {
     const i = run.i, next = i + 1 < SHIFTS.length && shiftOpen(i + 1);
     const out = run.hearts <= 0;
     const title = out ? 'Shift over' : got === 3 ? 'Perfect shift!' : got ? 'Shift done!' : 'Shift done';
+    const g = run.sh.rush ? goals(run.sh, run.m) : null;
     const line = out ? 'Too many customers left. Try again, maybe on a calmer mood?'
+      : g ? (got === 3 ? `You earned $${run.earned} before the clock ran out!` : `You earned $${run.earned}. Earn $${g[got]} for ${got + 1} star${got ? 's' : ''}.`)
       : got ? `You served ${run.served} of ${run.sh.customers} customers.` : `You served ${run.served} of ${run.sh.customers}. Serve at least ${Math.ceil(run.sh.customers * SHIFT_RULES.stars[0])} for a star.`;
     showCard(`<div class="k-result"><p class="k-stars">${stars(got)}</p><h2>${title}</h2><p>${line}</p>
       <p class="k-earned">+$${run.earned} tips${gems ? ` · +${gems} gem${gems > 1 ? 's' : ''}` : ''}</p>

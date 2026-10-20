@@ -58,9 +58,9 @@ const RING = (r, h) => `M${-r},0 a${r},${r} 0 1,0 ${2 * r},0 a${r},${r} 0 1,0 ${
 const bagelArt = (dark, light, seeds) => g('scale(1 .8)', path(RING(12, 4), dark, { 'fill-rule': 'evenodd' }) + g('translate(-1 -1.5)', path(RING(11, 4.2), light, { 'fill-rule': 'evenodd' })) +
   (seeds ? [[-6, -6], [3, -8], [7, -2], [-8, 2], [5, 5]].map(([x, y]) => ell(x, y, 1.4, .8, CREAM)).join('') : '') + shine(-6, -5, 3, 1.4));
 const challahArt = (dark, light) => ell(0, 3, 15, 8, dark) + [-8, 0, 8].map(x => ell(x, -.5, 6.5, 7.5, light, { transform: `rotate(-25 ${x} 0)` })).join('') + [-8, 0, 8].map(x => shine(x - 2, -3, 2.2, 1.2)).join('');
-const cupArt = full => line('M7,-1 Q13,-1 13,4 Q13,9 7,8', '#226a6e', 3) + rect(-10, -6, 18, 17, 4, '#226a6e') + rect(-10, -6, 16, 16, 4, '#2f8a8f') +
-  ell(-1, -5.5, 8, 2.4, full ? '#6b3a1e' : '#1d5558') + shine(-6, 1, 1.6, 4) +
-  (full ? line('M-4,-10 q-2,-3 0,-6', '#c9b8a8', 1.8, { class: 'steam' }) + line('M2,-10 q2,-3 0,-6', '#c9b8a8', 1.8, { class: 'steam b' }) : '');
+const cupArt = (full, cold) => line('M7,-1 Q13,-1 13,4 Q13,9 7,8', '#226a6e', 3) + rect(-10, -6, 18, 17, 4, '#226a6e') + rect(-10, -6, 16, 16, 4, '#2f8a8f') +
+  ell(-1, -5.5, 8, 2.4, cold ? '#a8876a' : full ? '#6b3a1e' : '#1d5558') + shine(-6, 1, 1.6, 4) +
+  (cold ? line('M-13,-12 l3,3 M-13,-9 l3,-3 M10,-14 l3,3 M10,-11 l3,-3', '#7fb6e6', 1.6) : full ? line('M-4,-10 q-2,-3 0,-6', '#c9b8a8', 1.8, { class: 'steam' }) + line('M2,-10 q2,-3 0,-6', '#c9b8a8', 1.8, { class: 'steam b' }) : '');
 export const FOOD = {
   bagel: () => bagelArt('#b8732f', '#e3a24f', true),
   bagelDough: () => bagelArt('#d9bf94', '#f3e2c2', false),
@@ -71,6 +71,10 @@ export const FOOD = {
   challahBurnt: () => challahArt('#2e1d16', '#57382a'),
   coffee: () => cupArt(true),
   cupEmpty: () => cupArt(false),
+  coffeeCold: () => cupArt(true, true),
+  // A used plate's leftovers (drawn on a plate): a smear and some crumbs.
+  dirty: () => path('M-11,4 Q-7,-2 1,0 Q10,1 9,6 Q2,10 -7,9 Z', '#b8875a', { opacity: .85 }) + path('M-4,3 Q0,1 4,3', '#8a5a2e', { opacity: .6 }) + [[-12, 0], [5, -2], [11, 2], [-2, 8], [2, 4], [-7, 5]].map(([x, y]) => circ(x, y, 1.6, '#8a5a2e')).join(''),
+  clock: () => circ(0, 0, 13, '#e2412f') + circ(0, 0, 10, CREAM) + line('M0,-6 L0,0 L5,3', INK, 2) + rect(-3, -18, 6, 4, 1.5, '#e2412f') + circ(0, 0, 1.5, INK),
   creamCheese: () => rect(-9, -3, 18, 13, 3, '#e8dccb') + rect(-9, -3, 16, 12, 3, CREAM) + rect(-10, -7, 20, 5, 2, '#4a7fd0') + shine(-5, 2, 1.4, 3),
   flour: () => path('M-10,12 L-11,-4 Q-11,-10 -5,-11 L5,-11 Q11,-10 11,-4 L10,12 Z', '#d8c39d') + path('M-9,11 L-10,-4 Q-10,-9 -5,-10 L5,-10 Q9,-9 9,-4 L8,11 Z', '#efe1c3') + rect(-7, -1, 14, 6, 2, '#5b2c6f') + path('M-5,-11 L0,-15 L5,-11 Z', '#d8c39d'),
   beans: () => rect(-8, -8, 16, 20, 4, '#e8dccb', { opacity: .9 }) + rect(-7, -4, 14, 15, 3, '#7a4524') + [[-3, 0], [3, 3], [-2, 7], [3, -2]].map(([x, y]) => ell(x, y, 2.4, 1.6, '#4a2512')).join('') + rect(-9, -11, 18, 4, 2, '#2f8a8f'),
