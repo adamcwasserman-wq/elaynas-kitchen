@@ -75,7 +75,8 @@ export const SHIFT_RULES = {
 // Appliances: three levels each, bought with this restaurant's tips. The art grows with them.
 //   oven     slots: things baking at once. speed: bake time multiplier. noBurn: food never burns.
 //   coffee   cups: cups at once. pour: seconds. auto: empty cups fill by themselves.
-//   pantry   grab: how many doughs one tap puts in the oven. autoTop: toppings go on by themselves when a customer needs them.
+//   pantry   smart: a tap on a dough also starts the bread a customer is still waiting for.
+//            auto: dough for bread a customer is waiting for goes in the oven by itself.
 //   prep     plates: plates on the board.
 export const APPLIANCES = [
   { id: 'oven', name: 'Oven', levels: [
@@ -87,9 +88,9 @@ export const APPLIANCES = [
     { name: 'Double brewer', perk: 'Pours two cups at once.', cost: 200, cups: 2, pour: 3.5 },
     { name: 'Golden espresso', perk: 'Three cups, and it pours by itself.', cost: 750, cups: 3, pour: 3, auto: true }] },
   { id: 'pantry', name: 'Pantry', levels: [
-    { name: 'Open shelves', perk: 'One tap, one dough.', grab: 1 },
-    { name: 'Full shelves', perk: 'One tap puts two doughs in the oven.', cost: 150, grab: 2 },
-    { name: 'Glass fridge', perk: 'Two doughs per tap, and cream cheese spreads itself on bagels that need it.', cost: 600, grab: 2, autoTop: true }] },
+    { name: 'Open shelves', perk: 'One tap, one dough.' },
+    { name: 'Full shelves', perk: 'Each tap also starts the bread a customer is still waiting for.', cost: 150, smart: true },
+    { name: 'Glass fridge', perk: 'Dough for whatever customers are waiting for goes in the oven by itself.', cost: 600, smart: true, auto: true }] },
   { id: 'prep', name: 'Prep counter', levels: [
     { name: 'Small board', perk: 'Room for 2 plates.', plates: 2 },
     { name: 'Long board', perk: 'Room for 3 plates.', cost: 200, plates: 3 },

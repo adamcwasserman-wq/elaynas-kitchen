@@ -34,8 +34,9 @@ export function createKitchen(api) {
     k.introSeen ??= [];
     k.helpers ??= [];
     k.helperJobs ??= {};
-    if (k.bring === undefined) k.bring = k.helpers[0] ?? null;
-    if (k.bring && !k.helpers.includes(k.bring)) k.bring = null;
+    // Who comes on a shift. Older saves kept one helper in "bring".
+    if (!Array.isArray(k.team)) { k.team = k.bring === undefined ? [...k.helpers] : k.bring ? [k.bring] : []; delete k.bring; }
+    k.team = k.team.filter(id => k.helpers.includes(id));
     for (const a of APPLIANCES) k.appl[a.id] ??= 1;
     return k;
   }
@@ -46,10 +47,9 @@ export function createKitchen(api) {
   const hasKitchen = () => KITCHEN_CITIES.includes(api.cityId());
   const hired = id => data().helpers.includes(id);
   const helperLevel = id => { const n = data().helperJobs[id] || 0; let lv = 1; while (lv < HELPER_LEVELS.length && n >= HELPER_LEVELS[lv].jobs) lv++; return lv; };
-  // The one helper coming on the next shift (or the one on this shift).
-  const bringing = () => HELPERS.find(h => h.id === data().bring && hired(h.id)) || null;
+  // The helpers coming on the next shift.
+  const team = () => HELPERS.filter(h => data().team.includes(h.id));
   // Avocado has nothing to do once the glass fridge spreads cream cheese by itself.
-  const helperNeeded = h => !(h.station === 'topping' && spec('pantry').autoTop);
 
   // ---------- opening and closing ----------
   function open() {
@@ -88,7 +88,7 @@ export function createKitchen(api) {
       coming: sh.rush ? Infinity : sh.customers, first: true, spawnIn: .6, served: 0, lost: 0, earned: 0,
       hearts: Math.max(1, SHIFT_RULES.hearts + (m.hearts || 0)),
       toss: false, say: null, sayUntil: 0, over: false,
-      helper: bringing(), help: { wait: 2, busy: 0, icon: null, oops: false },
+      team: team(), help: Object.fromEntries(team().map(h => [h.id, { wait: 2, busy: 0, icon: null, oops: false }])),
     };
     if (sh.intro && !data().introSeen.includes(i)) { showIntro(sh.intro); return; }
     card = null;
@@ -145,11 +145,10 @@ export function createKitchen(api) {
         else { x.state = 'cold'; api.buzz('nope'); say('Oh no, a coffee went cold! Tap it to toss it.'); }
       }
     });
-    // The glass fridge spreads cream cheese by itself on a bagel someone wants it on.
-    if (spec('pantry').autoTop) {
-      const need = run.cust.reduce((t, cu) => t + (cu && !cu.leaving ? cu.wants.filter(w => !w.got && w.f === 'creamBagel').length : 0), 0);
-      const j = run.plates.indexOf('bagel');
-      if (j >= 0 && need > run.plates.filter(p => p === 'creamBagel').length) { run.plates[j] = 'creamBagel'; changed = true; }
+    // The glass fridge puts dough in the oven by itself for bread a customer is waiting for.
+    if (spec('pantry').auto && run.oven.includes(null)) {
+      const f = mostNeeded();
+      if (f) { bake(f); changed = true; }
     }
     if (helpers(dt)) changed = true;
     run.cust.forEach((cu, i) => {
@@ -175,7 +174,7 @@ export function createKitchen(api) {
   }
 
   // ---------- helpers ----------
-  // She brings one helper on a shift. The helper does one job at a time, then rests. Low level
+  // She picks which hired helpers come on a shift. Each does one job at a time, then rests. Low level
   // helpers rest longer and sometimes fumble ("oops"); every job done counts toward the next level.
   const stillWanted = f => run.cust.reduce((t, cu) => t + (cu && !cu.leaving ? cu.wants.filter(w => !w.got && w.f === f).length : 0), 0);
   // Each job returns what the helper handled (for the bubble over their head), or null if there is
@@ -210,20 +209,21 @@ export function createKitchen(api) {
     },
   };
   function helpers(dt) {
-    const h = run.helper, st = run.help;
-    if (!h) return false;
     let changed = false;
-    if (st.busy > 0) { st.busy -= dt; if (st.busy <= 0) { st.icon = null; st.oops = false; changed = true; } }
-    st.wait -= dt;
-    if (st.wait > 0 || !helperNeeded(h) || !JOBS[h.station](true)) return changed;
-    const lv = helperLevel(h.id), how = HELPER_LEVELS[lv - 1];
-    st.wait = how.every; st.busy = .9;
-    if (Math.random() > how.hit) { st.icon = 'oops'; st.oops = true; return true; }
-    st.icon = JOBS[h.station]();
-    const k = data();
-    k.helperJobs[h.id] = (k.helperJobs[h.id] || 0) + 1;
-    if (helperLevel(h.id) > lv) { api.buzz('serve'); say(`${h.name} is getting good! Now level ${lv + 1}.`, 3); api.save(); }
-    return true;
+    for (const h of run.team) {
+      const st = run.help[h.id];
+      if (st.busy > 0) { st.busy -= dt; if (st.busy <= 0) { st.icon = null; st.oops = false; changed = true; } }
+      st.wait -= dt;
+      if (st.wait > 0 || !JOBS[h.station](true)) continue;
+      const lv = helperLevel(h.id), how = HELPER_LEVELS[lv - 1];
+      st.wait = how.every; st.busy = .9; changed = true;
+      if (Math.random() > how.hit) { st.icon = 'oops'; st.oops = true; continue; }
+      st.icon = JOBS[h.station]();
+      const k = data();
+      k.helperJobs[h.id] = (k.helperJobs[h.id] || 0) + 1;
+      if (helperLevel(h.id) > lv) { api.buzz('serve'); say(`${h.name} is getting good! Now level ${lv + 1}.`, 3); api.save(); }
+    }
+    return changed;
   }
 
   // ---------- taps ----------
@@ -268,15 +268,30 @@ export function createKitchen(api) {
       return;
     }
     const f = Object.keys(FOODS).find(k => FOODS[k].dough === id);
-    let n = 0;
-    for (let j = 0; j < run.oven.length && n < spec('pantry').grab; j++) {
-      if (run.oven[j]) continue;
-      run.oven[j] = { food: f, state: 'bake', t: 0, need: FOODS[f].bake * spec('oven').speed };
-      n++;
-    }
-    if (!n) { nope('The oven is full. Take something out first.'); return; }
+    if (!bake(f)) { nope('The oven is full. Take something out first.'); return; }
+    // Full shelves and up: the same tap also starts the bread a customer is still waiting for.
+    if (spec('pantry').smart) { const more = mostNeeded(); if (more) bake(more); }
     api.buzz('tap');
     render();
+  }
+  // Put one dough in a free oven slot. False if the oven is full.
+  function bake(f) {
+    const j = run.oven.indexOf(null);
+    if (j < 0) return false;
+    run.oven[j] = { food: f, state: 'bake', t: 0, need: FOODS[f].bake * spec('oven').speed };
+    return true;
+  }
+  // The oven bread customers are waiting for that isn't baking, golden or on a plate yet (the one
+  // short the most), or null. A cream cheese bagel needs a bagel.
+  function mostNeeded() {
+    let best = null, short = 0;
+    for (const f of run.sh.menu.filter(x => FOODS[x].from === 'oven')) {
+      const tops = Object.keys(FOODS).filter(t => FOODS[t].on === f);
+      const want = stillWanted(f) + tops.reduce((n, t) => n + stillWanted(t), 0);
+      const have = run.oven.filter(x => x && x.food === f && x.state !== 'burnt').length + run.plates.filter(p => p === f || tops.includes(p)).length;
+      if (want - have > short) { short = want - have; best = f; }
+    }
+    return best;
   }
 
   function fromOven() {
@@ -512,9 +527,8 @@ export function createKitchen(api) {
       else if (kind === 'plate') { const [x, y] = plateSpot(+arg); s += glow(x, y + 2, 22); }
       else if (kind === 'pantry') { const sp = pa.spots.find(q => q.id === arg); if (sp) s += glow(px + sp.x, BOTTOM + sp.y, 24); }
     }
-    // The helper on this shift, standing under the station they mind.
-    const hp = run ? run.helper : bringing();
-    if (hp) s += A.helper(hp.id, hp.x, HELPER_Y, run?.help.icon || null, run?.help.oops);
+    // The helpers on this shift, each standing under the station they mind.
+    for (const h of run ? run.team : team()) s += A.helper(h.id, h.x, HELPER_Y, run?.help[h.id].icon || null, run?.help[h.id].oops);
     // Tomato, the head chef, says what to do next.
     s += A.friend('tomato', 46, 604, 1.2, A.chefHat(), 'bob');
     s += A.rect(84, 572, 250, 64, 16, A.CREAM, { stroke: '#e8dccb', 'stroke-width': 1.5 }) + A.path('M86,596 L74,604 L86,608 Z', A.CREAM);
@@ -608,21 +622,20 @@ export function createKitchen(api) {
         const lv = helperLevel(h.id), next = HELPER_LEVELS[lv], done = k.helperJobs[h.id] || 0;
         title = `<b>${h.name} ${pips(lv, HELPER_LEVELS.length)}</b>`;
         note = `${h.job} ${next ? `<b>${next.jobs - done} more job${next.jobs - done === 1 ? '' : 's'} to level ${lv + 1}.</b>` : '<b>Top level!</b>'}`;
-        right = k.bring === h.id ? `<button class="btn primary k-buy" data-bring="">Coming<br>along</button>` : `<button class="btn k-buy k-bring" data-bring="${h.id}">Bring</button>`;
+        right = k.team.includes(h.id) ? `<button class="btn primary k-buy" data-bring="${h.id}">Coming<br>along</button>` : `<button class="btn k-buy k-bring" data-bring="${h.id}">Bring</button>`;
       } else if (!shiftOpen(h.opens - 1)) right = `<span class="k-done k-later">Opens at<br>shift ${h.opens}</span>`;
       else right = `<button class="btn primary k-buy" data-hire="${h.id}"${s.dollars >= h.cost ? '' : ' disabled'}>Hire<br>$${h.cost.toLocaleString()}</button>`;
-      if (!helperNeeded(h)) note = 'Your glass fridge spreads the cream cheese already.';
-      return `<li class="k-appl${k.bring === h.id ? ' on' : ''}">${art}<div>${title}<span>${note}</span></div>${right}</li>`;
+      return `<li class="k-appl${k.team.includes(h.id) ? ' on' : ''}">${art}<div>${title}<span>${note}</span></div>${right}</li>`;
     }).join('');
     const sh = SHIFTS[chosen];
     const menu = sh.menu.map(f => FOODS[f].name).join(', ');
     showCard(`<h2>Cooking shifts</h2>
       <p class="muted small">Pick a shift. Serve every customer for three stars. Tips go in this restaurant's tip jar ($${s.dollars.toLocaleString()} now).</p>
       <div class="k-shifts">${shifts}</div>
-      <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.rush ? `Rush hour! ${sh.rush.secs} seconds. Earn $${goals(sh, api.mood()).join(', $')} for 1, 2, 3 stars.` : `${sh.customers} customers.`} Menu: ${menu}.${bringing() ? ` Helper: ${bringing().name}.` : ''}</p>
+      <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.rush ? `Rush hour! ${sh.rush.secs} seconds. Earn $${goals(sh, api.mood()).join(', $')} for 1, 2, 3 stars.` : `${sh.customers} customers.`} Menu: ${menu}.${team().length ? ` Helpers: ${team().map(h => h.name).join(', ')}.` : ''}</p>
       <button class="btn primary k-start" data-start="${chosen}">Start shift ${chosen + 1}</button>
       <h3>Kitchen helpers</h3>
-      <p class="muted small">Bring one helper on each shift. The more jobs a helper does, the quicker and steadier they get.</p>
+      <p class="muted small">Tap Bring for each helper you want on a shift. Leave some home for more of a challenge. The more jobs a helper does, the quicker and steadier they get.</p>
       <ul class="list k-appls">${helpers}</ul>
       <h3>Kitchen upgrades</h3>
       <ul class="list k-appls">${appliances}</ul>`);
@@ -667,13 +680,19 @@ export function createKitchen(api) {
       if (!h || k.helpers.includes(h.id) || S().dollars < h.cost) return;
       S().dollars -= h.cost;
       k.helpers.push(h.id);
-      k.bring ??= h.id;
+      k.team.push(h.id);
       api.buzz('serve');
       api.save();
       showHome();
       return;
     }
-    if (b.dataset.bring !== undefined) { data().bring = b.dataset.bring || null; api.save(); showHome(); return; }
+    if (b.dataset.bring) {
+      const k = data(), id = b.dataset.bring;
+      k.team = k.team.includes(id) ? k.team.filter(x => x !== id) : [...k.team, id];
+      api.save();
+      showHome();
+      return;
+    }
     if (b.dataset.buy) {
       const a = APPLIANCES.find(x => x.id === b.dataset.buy), next = a.levels[level(a.id)];
       if (!next || S().dollars < next.cost) return;
