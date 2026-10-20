@@ -726,3 +726,14 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .install-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; }
 .install-link { color: var(--eggplant); font-weight: 700; }
 a.btn { display: inline-flex; align-items: center; justify-content: center; text-decoration: none; color: inherit; }
+
+/* ---------- rounds: progress and the replay picker (restaurant sheet) ---------- */
+.rounds { display: flex; flex-direction: column; gap: 8px; background: var(--panel); border-radius: 14px; padding: 10px 12px; }
+.rounds-note { margin: 0; font-size: .92rem; }
+.rounds-note b { font-family: var(--display); font-weight: 400; color: var(--eggplant); }
+.round-picks { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 6px; }
+.round-pick { min-height: 44px; border: 0; border-radius: 12px; background: var(--card); font-family: var(--display); font-size: 1.1rem; color: var(--eggplant); cursor: pointer; box-shadow: 0 2px 0 var(--edge); }
+.round-pick.on { background: var(--eggplant); color: #fff; }
+.round-pick.crazy { grid-column: 1 / -1; background: #e8475f; color: #fff; }
+.round-pick.crazy.on { box-shadow: inset 0 0 0 3px #fff3dc, 0 2px 0 var(--edge); }
+.cele-stars small { font-size: .5em; opacity: .7; }

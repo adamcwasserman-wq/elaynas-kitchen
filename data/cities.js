@@ -7,7 +7,7 @@
 // starts: starter blocks on the board when she first arrives.
 // unlocks: starter blocks that arrive after she has served this many orders in that city.
 // firstOrders: the first few orders, set by hand (later ones are made up; see data/orders.js).
-// starGoals: stars needed for 1, 2 and 3 star ratings. opensNextAt: the star rating that opens the next city.
+// goalScale: each round's star goal (data/orders.js ROUNDS) is multiplied by this, so later restaurants ask a bit more.
 // upgradeCost: upgrades cost this many times the Toronto price.
 // look: the restaurant's starting colours. Its style and upgrade names are in data/restaurant.js (THEMES).
 
@@ -23,8 +23,7 @@ export const CITIES = [
       [{ chain: 'dairy', tier: 1 }],
       [{ chain: 'dairy', tier: 2 }],
     ],
-    starGoals: [40, 100, 180], opensNextAt: 2,
-    starRewards: [{ gems: 3, dollars: 50 }, { gems: 5, dollars: 150 }, { gems: 15, dollars: 400 }],
+    goalScale: 1,
     upgradeCost: 1,
     look: { wall: '#f3ead8', awning: '#5b2c6f' },
   },
@@ -38,8 +37,7 @@ export const CITIES = [
       [{ chain: 'garden', tier: 2 }],
       [{ dish: 'chipssalsa' }],
     ],
-    starGoals: [50, 130, 220], opensNextAt: 2,
-    starRewards: [{ gems: 4, dollars: 80 }, { gems: 6, dollars: 220 }, { gems: 18, dollars: 600 }],
+    goalScale: 1.05,
     upgradeCost: 1.5,
     look: { wall: '#f8d2b4', awning: '#e8475f' },
   },
@@ -53,8 +51,7 @@ export const CITIES = [
       [{ chain: 'garden', tier: 2 }],
       [{ dish: 'pomodoro' }],
     ],
-    starGoals: [60, 150, 250], opensNextAt: 2,
-    starRewards: [{ gems: 5, dollars: 120 }, { gems: 8, dollars: 300 }, { gems: 20, dollars: 800 }],
+    goalScale: 1.1,
     upgradeCost: 2,
     look: { wall: '#f5dfae', awning: '#3f9b3c' },
   },
@@ -68,8 +65,7 @@ export const CITIES = [
       [{ chain: 'tea', tier: 2 }],
       [{ dish: 'ochazuke' }],
     ],
-    starGoals: [70, 170, 280], opensNextAt: 2,
-    starRewards: [{ gems: 6, dollars: 160 }, { gems: 10, dollars: 400 }, { gems: 22, dollars: 1000 }],
+    goalScale: 1.15,
     upgradeCost: 2.5,
     look: { wall: '#fbeee6', awning: '#c8323a' },
   },
@@ -83,8 +79,7 @@ export const CITIES = [
       [{ chain: 'fruit', tier: 2 }],
       [{ dish: 'berrybrew' }],
     ],
-    starGoals: [80, 190, 310], opensNextAt: 2,
-    starRewards: [{ gems: 7, dollars: 200 }, { gems: 12, dollars: 500 }, { gems: 25, dollars: 1200 }],
+    goalScale: 1.2,
     upgradeCost: 3,
     look: { wall: '#fff3c4', awning: '#f39a1e' },
   },
@@ -98,8 +93,7 @@ export const CITIES = [
       [{ chain: 'icecream', tier: 2 }],
       [{ dish: 'hotchocolate' }],
     ],
-    starGoals: [90, 210, 340], opensNextAt: 2,
-    starRewards: [{ gems: 8, dollars: 250 }, { gems: 14, dollars: 600 }, { gems: 30, dollars: 1500 }],
+    goalScale: 1.25,
     upgradeCost: 3.5,
     look: { wall: '#ffe1ec', awning: '#e8659a' },
   },

@@ -48,8 +48,8 @@ export const VIPS = [
 ];
 
 // When VIPs show up.
-// afterStars: no VIPs until the restaurant has this many stars (the second order stage).
+// fromRound: no VIPs before this round.
 // chance: how often a new customer is a VIP once they can show up.
 // gap: at least this many regular customers between two VIPs.
 // Only one VIP waits at a time.
-export const VIP_RULES = { afterStars: 8, chance: 0.2, gap: 3 };
+export const VIP_RULES = { fromRound: 2, chance: 0.2, gap: 3 };

@@ -98,7 +98,7 @@ export const HOOD_CHOICES = {
 };
 
 // Buzz from her restaurants, in every city.
-export const RESTAURANT_BUZZ = { perStar: 40, perUpgrade: 6 };
+export const RESTAURANT_BUZZ = { perStar: 12, perUpgrade: 6 };
 
 // Neighbourhood levels. "bonus": customers in all restaurants pay this much more.
 // "gems" and "bia": the reward for reaching it (Island dollars go straight into the neighbourhood fund).

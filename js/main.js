@@ -16,7 +16,7 @@ import { BADGES, BADGE_REWARD, BADGE_TIER_NAMES } from '../data/badges.js';
 import { UPGRADES, LEVEL_NEEDS, themeFor } from '../data/restaurant.js';
 import { CUSTOMERS } from '../data/customers.js';
 import { VIPS, VIP_RULES } from '../data/vips.js';
-import { ORDER_STAGES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS, COMPLAINTS, MAX_WANTS } from '../data/orders.js';
+import { ROUNDS, CRAZY, ROUND_RULES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS, COMPLAINTS, MAX_WANTS } from '../data/orders.js';
 import { MOODS, DEFAULT_MOOD } from '../data/moods.js';
 import { buildSprite, use, ICONS, badgeSvg, restaurantSvg } from './art.js';
 import { islandSvg, islandGeom, isoPoint, isoTile, isLand, fromCentre } from './island.js';
@@ -61,7 +61,7 @@ let lastAction = Date.now();
 // ---------- cities ----------
 // Each city keeps these for itself; everything else (gems, Island dollars, badges, recipes) is shared.
 // "dollars" is the restaurant's own tip jar: tips earned in one restaurant only buy upgrades there.
-const CITY_KEYS = ['board', 'orders', 'orderSeq', 'served', 'dollars', 'producers', 'upLv', 'choices', 'decor', 'cityStars', 'starLevel', 'complaints'];
+const CITY_KEYS = ['board', 'orders', 'orderSeq', 'served', 'dollars', 'producers', 'upLv', 'choices', 'decor', 'cityStars', 'starLevel', 'complaints', 'playLevel'];
 const cityOf = id => CITIES.find(c => c.id === id) || CITIES[0];
 const city = () => cityOf(S?.city);
 
@@ -72,7 +72,7 @@ function newCityState(id) {
   c.starts.forEach((p, n) => { board[idx(2 + n, 3)] = { producer: p }; });
   const first = PRODUCERS[c.starts[0]].makes[0];
   board[idx(1, 4)] = { chain: first.chain, tier: 1 };
-  return { board, orders: [], orderSeq: 0, served: 0, dollars: 0, producers: [...c.starts], upLv: {}, choices: {}, decor: [], cityStars: 0, starLevel: 0, complaints: 0 };
+  return { board, orders: [], orderSeq: 0, served: 0, dollars: 0, producers: [...c.starts], upLv: {}, choices: {}, decor: [], cityStars: 0, starLevel: 0, complaints: 0, playLevel: null };
 }
 
 function travel(id) {
@@ -231,7 +231,7 @@ function islandScene({ crop = false, focus = null, event = S.hood.event?.id || n
   const shops = CITIES.map(c => {
     const d = c.id === S.city ? S : S.cityData[c.id] || {}, [x, y] = lotOf(c.slot);
     return { x, y, open: S.openCities.includes(c.id), sign: c.sign, wall: c.look.wall, roof: c.look.awning, awning: c.look.awning,
-      stars: d.starLevel || 0, ups: Object.values(d.upLv || {}).reduce((t, n) => t + n, 0), here: c.id === S.city, label: 'For lease' };
+      stars: Math.round((d.starLevel || 0) * 3 / ROUND_RULES.stars), ups: Object.values(d.upLv || {}).reduce((t, n) => t + n, 0), here: c.id === S.city, label: 'For lease' };
   }).concat(COMING_SOON.map(c => ({ x: lotOf(c.slot)[0], y: lotOf(c.slot)[1], open: false, label: 'Coming soon' })));
   const pieces = isl().pieces.map(p => { const [w, d] = sizeOf(p.kind, p.type); return { ...p, w, d, stage: p.kind === 'imp' ? stageOf(p.type) : 1 }; });
   const dock = pieces.find(p => p.type === 'streetcar');
@@ -382,7 +382,7 @@ function renderIslandPanel() {
       const here = c.id === S.city, open = S.openCities.includes(c.id);
       const lv = here ? S.starLevel : (S.cityData[c.id]?.starLevel || 0), prev = CITIES[i - 1];
       const right = here ? '<span class="map-here">You\'re here</span>' : open ? `<button class="btn primary" data-travel="${c.id}">Go there</button>` : '<span class="upg-cost">For lease</span>';
-      const note = open ? `${c.cuisine} · ${'★'.repeat(lv)}${'☆'.repeat(3 - lv)}` : `Opens when ${prev.name} reaches ${prev.opensNextAt} stars.`;
+      const note = open ? `${c.cuisine} · ★ ${lv} of ${ROUND_RULES.stars}` : `Opens when ${prev.name} has ${ROUND_RULES.opensNextAt} stars.`;
       return `<li class="${here ? 'upg next' : open ? 'upg' : 'upg later'}"><div class="upg-text"><b>${c.name}</b><span>${note}</span></div>${right}</li>`;
     }).join('') + COMING_SOON.map(c => `<li class="upg later"><div class="upg-text"><b>${c.name}</b><span>${c.cuisine} · coming in a later update.</span></div></li>`).join('')}</ul>`;
   }
@@ -634,8 +634,16 @@ $('#welcome-form').addEventListener('submit', e => {
 });
 
 // A new restaurant opens on her street.
-function openNextCity() {
-  const i = CITIES.findIndex(c => c.id === S.city), next = CITIES[i + 1];
+function openNextCity() { openCityAfter(S.city); }
+// Any restaurant with enough stars opens the one after it (also catches up older saves).
+function openEarnedCities() {
+  for (const c of CITIES) {
+    const d = c.id === S.city ? S : S.cityData[c.id];
+    if (S.openCities.includes(c.id) && (d?.starLevel || 0) >= ROUND_RULES.opensNextAt) openCityAfter(c.id);
+  }
+}
+function openCityAfter(id) {
+  const i = CITIES.findIndex(c => c.id === id), next = CITIES[i + 1];
   if (!next || S.openCities.includes(next.id)) return;
   S.openCities.push(next.id);
   celebrate({ art: islandScene({ crop: true }), wide: true, title: `${next.name} opens on ${S.hood.name}!`, name: `A new ${next.cuisine.toLowerCase()} restaurant`,
@@ -716,6 +724,16 @@ function migrate(s) {
   }
   s.cityData ??= {};
   s.missions ??= {};
+  // Restaurants went from 3 star ratings to 10 rounds: 1 old star is 3 new ones, 2 is 6 (the next
+  // restaurant opens), and 3 is all 10. Stars toward the next round start fresh.
+  if (!s.tenStars) {
+    for (const d of [s, ...Object.values(s.cityData)]) {
+      d.starLevel = [0, 3, 6, 10][Math.min(3, d.starLevel || 0)];
+      d.cityStars = 0; d.complaints = 0; d.orders = []; // fresh customers on the new, quicker clocks
+      d.playLevel = d.starLevel >= 10 ? 10 : null;
+    }
+    s.tenStars = true;
+  }
   // Customers now ask for two things at most: trim any bigger orders already waiting (pay and stars shrink to match).
   const allowed = Math.max(MAX_WANTS, MOODS.find(m => m.id === s.settings?.mood)?.wantsMax || 0);
   for (const d of [s, ...Object.values(s.cityData)]) for (const o of d.orders || []) {
@@ -793,7 +811,6 @@ const upgradeCost = st => Math.round(st.cost * (city().upgradeCost || 1) / 5) * 
 // The ladder: level 2 opens at a 1-star rating, level 3 at 2 stars.
 const levelOpen = u => S.starLevel >= LEVEL_NEEDS[upLevel(u.id)];
 // The stars a restaurant needs before level n + 1 opens.
-const levelGoal = n => city().starGoals[LEVEL_NEEDS[n] - 1] || 0;
 // Each restaurant names (and draws) its upgrades its own way.
 const theme = () => themeFor(S.city);
 const upName = u => theme().upgrades[u.id]?.name || u.id;
@@ -827,10 +844,18 @@ function availableChains() {
 }
 
 // How hard customers are right now: set by the stars the restaurant has earned.
+// cityStars: stars earned so far in the round being played (they start at 0 each round).
 const cityStars = () => S.cityStars || 0;
+// ---------- rounds: 10 per restaurant, each one a star kept for good (data/orders.js) ----------
+const maxed = () => S.starLevel >= ROUND_RULES.stars;
+// The round being played: the next star, or the one she picked to replay once all 10 are won.
+const roundNo = () => (S.playLevel === 'crazy' ? 'crazy' : S.playLevel || Math.min(S.starLevel + 1, ROUND_RULES.stars));
+const roundSpec = () => (roundNo() === 'crazy' ? CRAZY : ROUNDS[roundNo() - 1]);
+const roundGoal = () => Math.round(roundSpec().goal * (city().goalScale || 1));
+const roundShort = () => (roundNo() === 'crazy' ? 'Crazy mode' : `Round ${roundNo()}`);
 // The stage, adjusted for today's mood (fewer customers, smaller foods, more or fewer things per order).
 function currentStage() {
-  const st = ORDER_STAGES.find(x => cityStars() < x.untilStars) || ORDER_STAGES[ORDER_STAGES.length - 1], m = mood();
+  const st = roundSpec(), m = mood();
   const shift = m.tierShift || 0, lo = Math.max(1, st.plainTiers[0] + shift), hi = Math.max(lo, st.plainTiers[1] + shift);
   // Big orders (past 100 stars) can go up to the mood's limit; earlier stages keep their own.
   const cap = m.wantsMax || MAX_WANTS, most = st.wants[1] >= MAX_WANTS ? cap : Math.min(cap, st.wants[1]);
@@ -915,7 +940,7 @@ function dishChoices(stage, opts = {}) {
 // Now and then a new customer is a VIP. Only one waits at a time, with a few regulars in between.
 function maybeVip() {
   const called = !!boostOf()?.boost.vip; // "Call a VIP" from the gem shop skips the usual wait
-  if (!called && (cityStars() < VIP_RULES.afterStars || (S.sinceVip || 0) < VIP_RULES.gap)) return null;
+  if (!called && ((roundNo() !== 'crazy' && roundNo() < VIP_RULES.fromRound) || (S.sinceVip || 0) < VIP_RULES.gap)) return null;
   if (S.orders.some(o => o.vip) || (!called && Math.random() >= VIP_RULES.chance + perks().vipChance)) return null;
   const stage = currentStage();
   const made = VIPS.filter(v => !(mood().calm && v.kind === 'rush')).map(v => [v, vipOrder(v, stage)]).filter(([, o]) => o);
@@ -1002,11 +1027,10 @@ function vipLine(o) {
   return orderName(o);
 }
 
-// Zip ran out of time: he leaves, and the restaurant loses a few stars (never a star rating it already has).
+// Zip ran out of time: he leaves, taking a few of this round's stars with him (never a star the restaurant has won).
 function vipLeaves(oi) {
   const o = S.orders[oi], v = vipOf(o);
-  const floor = S.starLevel > 0 ? city().starGoals[S.starLevel - 1] : 0;
-  const lost = Math.min(v.lose, Math.max(0, cityStars() - floor));
+  const lost = Math.min(v.lose, cityStars());
   S.cityStars = cityStars() - lost;
   if (orderPick?.o === oi) orderPick = null;
   nextCustomer(oi);
@@ -1075,12 +1099,9 @@ function complain(oi) {
   save();
 }
 
-// Too many complaints: this star level starts over. The food on the board stays.
+// Too many complaints: this round starts over. Stars the restaurant has won stay, and so does the food on the board.
 function failRound(cust) {
-  const goals = city().starGoals;
-  const floor = S.starLevel === 0 ? 0 : goals[S.starLevel - 1];
-  const lost = Math.max(0, cityStars() - floor);
-  S.cityStars = floor;
+  S.cityStars = 0;
   S.complaints = 0;
   orderPick = null;
   S.orders = [];
@@ -1088,7 +1109,7 @@ function failRound(cust) {
   celebrate({
     art: `<div class="cele-emoji">${use(`cust-${cust.id}`)}</div>`, title: 'Rough shift!',
     name: `${maxHearts()} customers left unhappy`,
-    line: `This round starts over${lost ? `, back to ${floor} stars` : ''}. Your food is still on the board. Serve faster to keep your hearts!`,
+    line: `${roundShort()} starts over. Your stars and your food are safe. Tip: upgrades that make customers wait longer, and gem abilities like Fresh tip, help a lot.`,
   });
   renderAll();
   save();
@@ -1379,30 +1400,37 @@ function vipThanks(o, v) {
   toast(line, { icon: `cust-${v.id}`, ms: 3500 });
 }
 
-// Stars move the restaurant toward winning. Each goal reached is a new star rating.
+// Stars from customers fill the round. Reaching the goal passes it.
 function addStars(n, speedy, lucky = 0) {
   S.cityStars = cityStars() + n;
   floatText(`+${n} ★${speedy ? ' speedy!' : lucky ? ' bonus!' : ''}`, $('#brand'));
-  const CITY = city(), goals = CITY.starGoals;
-  while (S.starLevel < goals.length && S.cityStars >= goals[S.starLevel]) {
-    const lv = S.starLevel++;
-    const r = CITY.starRewards[lv];
-    S.gems += r.gems;
-    S.dollars += r.dollars;
-    S.stats.earned += r.dollars;
-    const won = S.starLevel === goals.length;
-    celebrate({
-      art: `<div class="cele-stars">${'★'.repeat(lv + 1)}${'☆'.repeat(goals.length - lv - 1)}</div>`,
-      title: won ? `You won ${CITY.name}!` : `${lv + 1}-star restaurant!`,
-      name: `${CITY.restaurant}, ${CITY.name}`,
-      line: won ? 'Three stars! You can keep cooking here, or travel on.' :
-        `Customers love it. Level ${lv + 2} upgrades are open! Next: ${goals[lv + 1]} stars. Orders will get a little trickier.`,
-      reward: r.dollars, gems: r.gems,
-    });
-    S.complaints = 0; // a new star is a fresh round: hearts refill
-    setTimeout(checkHood, 50);
-    if (S.starLevel >= CITY.opensNextAt) openNextCity();
-  }
+  if (S.cityStars >= roundGoal()) passRound();
+}
+// A round passed. The first time, the restaurant earns its next star for good; replays and Crazy
+// mode pay again. Every new round starts fresh: new customers, full hearts.
+function passRound() {
+  const CITY = city(), no = roundNo(), spec = roundSpec(), first = no !== 'crazy' && !maxed() && no === S.starLevel + 1;
+  const tips = share => Math.round(spec.reward.dollars * (CITY.upgradeCost || 1) * share / 5) * 5;
+  const gems = first || no === 'crazy' ? spec.reward.gems : ROUND_RULES.replay.gems;
+  const dollars = tips(first || no === 'crazy' ? 1 : ROUND_RULES.replay.dollars);
+  if (first) S.starLevel++;
+  const done = first && maxed();
+  if (done) S.playLevel = ROUND_RULES.stars;
+  S.gems += gems; S.dollars += dollars; S.stats.earned += dollars;
+  S.cityStars = 0; S.complaints = 0; orderPick = null; S.orders = [];
+  fillOrders();
+  const lv = S.starLevel, opens = LEVEL_NEEDS.indexOf(lv);
+  celebrate({
+    art: `<div class="cele-stars">★ ${lv}<small>/${ROUND_RULES.stars}</small></div>`,
+    title: done ? `${CITY.restaurant}: all 10 stars!` : first ? `Star ${lv} for ${CITY.restaurant}!` : no === 'crazy' ? 'Crazy round cleared!' : `Round ${no} cleared again!`,
+    name: done ? 'A 10-star restaurant!' : first ? `${lv} of ${ROUND_RULES.stars} stars, yours for good` : CITY.restaurant,
+    line: done ? 'Every round won! Off to your island to celebrate. Come back any time to replay any round, or try Crazy mode.'
+      : first ? `${opens > 0 ? `Level ${opens + 1} upgrades are open! ` : ''}${lv === ROUND_RULES.opensNextAt - 1 ? 'One more star opens your next restaurant! ' : ''}Round ${lv + 1}: ${roundGoal()} stars, and customers are a little more impatient.`
+      : `Keep going: ${roundShort()} again, or pick another round in your restaurant.`,
+    reward: dollars, gems, then: done ? openHood : null,
+  });
+  setTimeout(checkHood, 50);
+  if (first && lv >= ROUND_RULES.opensNextAt) openNextCity();
 }
 
 const skipCost = o => Math.max(2, Math.ceil(payFor(o) / GEMS.skipOrderPer));
@@ -1554,6 +1582,7 @@ function missionStat(stat) {
     case 'served': return sumCities(d => d.served || 0);
     case 'recipes': return Object.keys(S.recipes).length;
     case 'stars': return sumCities(d => d.starLevel || 0);
+    case 'maxedRestaurants': return allCities().filter(d => (d.starLevel || 0) >= ROUND_RULES.stars).length;
     case 'hoodLevels': return Object.values(S.hood.stages).reduce((t, n) => t + n, 0) + S.hood.built.length;
     case 'upgradeLevels': return sumCities(d => Object.values(d.upLv || {}).reduce((t, n) => t + n, 0));
     case 'maxedUpgrades': return sumCities(d => Object.values(d.upLv || {}).filter(n => n >= 3).length);
@@ -1639,7 +1668,8 @@ function showCelebration() {
   if (!reduceMotion) el.querySelector('.cele-card').animate([{ transform: 'scale(.6)', opacity: 0 }, { transform: 'scale(1.04)', opacity: 1, offset: .7 }, { transform: 'scale(1)' }], { duration: 420, easing: 'ease-out' });
 }
 $('#celebrate').addEventListener('click', () => {
-  celebrations.shift();
+  const done = celebrations.shift();
+  if (done?.then) setTimeout(done.then, 250); // some big moments lead somewhere (all 10 stars: the island)
   $('#celebrate').hidden = true;
   renderAll();
   bump($('#money'));
@@ -1790,13 +1820,12 @@ function renderHeader() {
   if (arcade) $('#nav-today .dot').hidden = !arcade.somethingNew();
   $('#charges-t').textContent = S.charges < perks().chargesMax ? `+1 in ${mmss(nextChargeIn())}` : 'Full';
   const can = upgradeAffordable();
-  const CITY = city(), goals = CITY.starGoals, lv = S.starLevel, goal = goals[Math.min(lv, goals.length - 1)];
-  const prev = lv === 0 ? 0 : goals[lv - 1];
-  $('#brand-city').innerHTML = `${CITY.name} <span class="brand-stars">${'★'.repeat(lv)}${'☆'.repeat(goals.length - lv)}</span>`;
+  const CITY = city(), lv = S.starLevel, goal = roundGoal();
+  $('#brand-city').innerHTML = `${CITY.name} <span class="brand-stars">★ ${lv}/${ROUND_RULES.stars}</span>`;
   // In the Cozy mood nobody ever leaves, so there are no hearts to show.
   const hearts = mood().complaints === false ? '' : '♥'.repeat(Math.max(0, maxHearts() - (S.complaints || 0))) + '♡'.repeat(Math.min(maxHearts(), S.complaints || 0));
-  $('#brand-next').innerHTML = `${lv >= goals.length ? `${cityStars()} stars. You won ${CITY.name}!` : `${cityStars()} of ${goal} stars`} <span class="hearts" title="Complaints left before the round starts over">${hearts}</span>`;
-  $('#brand-fill').style.width = `${lv >= goals.length ? 100 : Math.min(100, Math.round((cityStars() - prev) / (goal - prev) * 100))}%`;
+  $('#brand-next').innerHTML = `${roundShort()}: ${cityStars()} of ${goal} ★ <span class="hearts" title="Customers who can leave unhappy before the round starts over">${hearts}</span>`;
+  $('#brand-fill').style.width = `${Math.min(100, Math.round(cityStars() / goal * 100))}%`;
   $('#brand-dot').hidden = !hoodNews();
   $('#nav-restaurant .dot').hidden = !can;
   $('#gems .dot').hidden = !missionReady();
@@ -2188,15 +2217,16 @@ function renderRestaurant() {
     : !restFocusPreview || upLevel(fu.id) >= 3 ? `${fShown}, outlined in purple.` : `Preview: ${fShown}, outlined in purple.`;
   const levels = Object.values(S.upLv).reduce((t, n) => t + n, 0);
   $('#rest-count').textContent = `${levels} of ${UPGRADES.length * 3} upgrade levels`;
+  renderRounds();
   $('#rest-list').innerHTML = UPGRADES.map(u => {
     const n = upLevel(u.id), st = nextLevel(u), top = !st, open = !top && levelOpen(u);
     const can = open && S.dollars >= upgradeCost(st);
     const pips = `<span class="pips">${u.levels.map((_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
     const right = top ? `<span class="upg-done">${ICONS.check}</span>`
-      : !open ? `<span class="upg-cost">Level ${n + 1}<br>at ${levelGoal(n)}★</span>`
+      : !open ? `<span class="upg-cost">Level ${n + 1}<br>at ${LEVEL_NEEDS[n]}★</span>`
       : `<button class="btn primary upg-buy" data-upg="${u.id}"${can ? '' : ' disabled'}>${n ? 'Upgrade' : 'Buy'}<br>$${upgradeCost(st).toLocaleString()}</button>`;
     const short = open && !can ? `<em>$${(upgradeCost(st) - S.dollars).toLocaleString()} more to go</em>`
-      : !top && !open ? `<em>Level ${n + 1} opens at ${levelGoal(n)} stars (${cityStars()} now).</em>` : '';
+      : !top && !open ? `<em>Level ${n + 1} opens when this restaurant has ${LEVEL_NEEDS[n]} stars (it has ${S.starLevel}).</em>` : '';
     const note = top ? `${levelName(u, 2)}. All 3 levels done!` : `${n ? `Now: ${levelName(u, n - 1)}. Next: ` : ''}${levelName(u, n)}. ${st.perk}`;
     const swatches = n && u.choice ? `<div class="swatches">${choiceList(u.choice).map(c =>
       `<button class="swatch${choiceColour(u.choice) === c.colour ? ' on' : ''}" data-choice="${u.choice}" data-colour="${c.colour}" style="background:${c.colour}" aria-label="${c.name}"></button>`).join('')}</div>` : '';
@@ -2204,6 +2234,29 @@ function renderRestaurant() {
       `<div class="upg-text"><b>${upName(u)} ${pips}</b><small class="upg-what">${u.what}</small><span>${note}</span>${short}${swatches}</div>${right}</li>`;
   }).join('');
 }
+// Rounds: her progress, and once all 10 stars are won, any round (or Crazy mode) to replay.
+function renderRounds() {
+  const el = $('#rest-rounds'), now = roundNo();
+  if (!maxed()) {
+    el.innerHTML = `<p class="rounds-note"><b>★ ${S.starLevel} of ${ROUND_RULES.stars}</b> · now playing round ${now}. Win all 10 to replay any round and unlock Crazy mode.</p>`;
+    return;
+  }
+  el.innerHTML = '<p class="rounds-note"><b>All 10 stars!</b> Pick a round to play:</p><div class="round-picks">' +
+    [...ROUNDS.keys()].map(i => `<button class="round-pick${now === i + 1 ? ' on' : ''}" data-round="${i + 1}">${i + 1}</button>`).join('') +
+    `<button class="round-pick crazy${now === 'crazy' ? ' on' : ''}" data-round="crazy">Crazy mode</button></div>`;
+}
+$('#rest-rounds').addEventListener('click', e => {
+  const b = e.target.closest('[data-round]');
+  if (!b || !maxed()) return;
+  S.playLevel = b.dataset.round === 'crazy' ? 'crazy' : +b.dataset.round;
+  S.cityStars = 0; S.complaints = 0; orderPick = null; S.orders = [];
+  fillOrders();
+  buzz('serve');
+  closeSheets();
+  renderAll();
+  save();
+  toast(`${roundShort()}: earn ${roundGoal()} stars. Good luck!`, { ms: 3000 });
+});
 function openRestaurant() {
   restFocus = null;
   renderRestaurant();
@@ -2483,7 +2536,7 @@ function boot() {
   unlockProducers();
   fillOrders();
   // An older save that already reached 2 stars in Toronto opens Mexico City now.
-  if (S.starLevel >= city().opensNextAt) openNextCity();
+  openEarnedCities();
   accrueBia();
   checkHood();
   checkBadges();

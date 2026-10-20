@@ -3,7 +3,7 @@
 export const MISSIONS = [
   { id: 'serve10', name: 'Serve 10 customers', stat: 'served', n: 10, gems: 2 },
   { id: 'recipes3', name: 'Discover 3 recipes', stat: 'recipes', n: 3, gems: 2 },
-  { id: 'star1', name: 'Earn a 1-star rating', stat: 'stars', n: 1, gems: 2 },
+  { id: 'star1', name: 'Earn your first restaurant star', stat: 'stars', n: 1, gems: 2 },
   { id: 'build1', name: 'Build something on your island', stat: 'hoodLevels', n: 1, gems: 2 },
   { id: 'upgrade3', name: 'Buy 3 restaurant upgrades', stat: 'upgradeLevels', n: 3, gems: 3 },
   { id: 'serve50', name: 'Serve 50 customers', stat: 'served', n: 50, gems: 3 },
@@ -16,7 +16,8 @@ export const MISSIONS = [
   { id: 'amazing1', name: 'Take an island landmark to stage 3', stat: 'maxedImprovements', n: 1, gems: 5 },
   { id: 'buzz3', name: 'Make your island a Busy food street', stat: 'buzzLevel', n: 3, gems: 6 },
   { id: 'serve200', name: 'Serve 200 customers', stat: 'served', n: 200, gems: 6 },
-  { id: 'stars6', name: 'Earn 6 restaurant stars in all', stat: 'stars', n: 6, gems: 8 },
+  { id: 'stars15', name: 'Earn 15 restaurant stars in all', stat: 'stars', n: 15, gems: 8 },
+  { id: 'master1', name: 'Win all 10 stars at a restaurant', stat: 'maxedRestaurants', n: 1, gems: 10 },
   { id: 'open3', name: 'Open three restaurants', stat: 'restaurants', n: 3, gems: 8 },
   { id: 'open6', name: 'Open all six restaurants', stat: 'restaurants', n: 6, gems: 20 },
   { id: 'buzz5', name: 'Become a Famous food district', stat: 'buzzLevel', n: 5, gems: 15 },

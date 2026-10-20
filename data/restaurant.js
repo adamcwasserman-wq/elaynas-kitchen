@@ -2,7 +2,7 @@
 // its own way. Each has three levels: buy level 1 first, then climb. The look and the names
 // change with the restaurant (see THEMES below), but what an upgrade does is the same everywhere.
 //
-// The ladder: level 2 opens when the restaurant has a 1-star rating, level 3 at 2 stars
+// The ladder: level 2 opens when the restaurant has 2 stars, level 3 at 5 stars
 // (LEVEL_NEEDS). Level 2 costs about 2.5 times level 1, and level 3 about 5 times, and each
 // level does more than the one before, so climbing is always worth it.
 // "cost" is the Toronto price (see upgradeCost in data/cities.js for the other restaurants).
@@ -22,7 +22,7 @@
 //   gemChance     chance a happy customer leaves a gem
 //   wildEvery     a wild card appears every this many customers served (the smallest number counts)
 
-export const LEVEL_NEEDS = [0, 1, 2];
+export const LEVEL_NEEDS = [0, 2, 5];
 
 export const UPGRADES = [
   { id: 'paint', choice: 'paint', what: 'Customers pay more', levels: [
