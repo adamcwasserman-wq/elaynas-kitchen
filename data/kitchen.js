@@ -66,7 +66,6 @@ export const SHIFT_RULES = {
   hot: 10,              // seconds a full cup stays hot before it goes cold (moods stretch it)
   coldFrom: 3,          // coffee goes cold from this shift on
   dirtyFrom: 5,         // from this shift on, customers leave dirty dishes (and quick-service tips) on the counter
-  wash: 4,              // seconds the dishwasher takes to wash a load of plates
   rushRefill: 1.5,      // rush hour: seconds before an empty spot at the counter fills again
   doughFrom: 3,         // from this shift on, dough runs out and is made at the mixer
   startDough: 2,        // doughs of each kind on the pantry shelf when a shift starts
@@ -86,6 +85,7 @@ export const DOUGH_INTRO = { id: 'dough', art: 'dough', title: 'New: the mixer!'
 //   pantry   smart: a tap on a dough also starts the bread a customer is still waiting for.
 //            auto: dough for bread a customer is waiting for goes in the oven by itself.
 //   prep     plates: plates on the board.
+//   dishwasher  secs: how long a load of plates takes to wash.
 //   mixer    batch: doughs made at a time. secs: how long a batch takes. auto: starts a batch by itself when a dough runs low.
 //            The finished dough waits in the mixer until she drags it onto a shelf.
 export const APPLIANCES = [
@@ -105,6 +105,10 @@ export const APPLIANCES = [
     { name: 'Mixing bowl', perk: 'Makes 2 doughs at a time.', batch: 2, secs: 5 },
     { name: 'Stand mixer', perk: 'Makes 3 doughs at a time, a bit faster.', cost: 220, batch: 3, secs: 4 },
     { name: 'Dough machine', perk: 'Makes 4 doughs quickly, and starts by itself when a dough runs low.', cost: 800, batch: 4, secs: 3, auto: true }] },
+  { id: 'dishwasher', name: 'Dishwasher', levels: [
+    { name: 'Little dishwasher', perk: 'Washes a load in 4 seconds.', secs: 4 },
+    { name: 'Big dishwasher', perk: 'Washes a load in 2.5 seconds.', cost: 200, secs: 2.5 },
+    { name: 'Steam washer', perk: 'Washes a load in just 1 second.', cost: 650, secs: 1 }] },
   { id: 'prep', name: 'Prep counter', levels: [
     { name: 'Small board', perk: 'Room for 2 plates.', plates: 2 },
     { name: 'Long board', perk: 'Room for 3 plates.', cost: 200, plates: 3 },
@@ -126,6 +130,8 @@ export const HELPERS = [
     job: 'Pours coffee. Starts a cup whenever a customer is waiting for one.' },
   { id: 'avocado', name: 'Avocado', station: 'topping', cost: 180, opens: 4, x: 112,
     job: 'Spreads cream cheese on a plated bagel when a customer wants one.' },
+  { id: 'mushroom', name: 'Mushroom', station: 'dishes', cost: 160, opens: 5, x: 151,
+    job: 'Clears dishes off the counter into the dishwasher, and picks up the tips.' },
 ];
 
 // Helpers get better when she trains them with tips. Level 1 is where they start when hired.

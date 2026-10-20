@@ -41,6 +41,9 @@ const FRIEND = {
   bean: s => ell(0, 1, 15, 19, '#5a321c') + ell(-1.5, -.5, 13.5, 17.5, '#a8673a') + line('M3,-17 Q-3,-12 1,-6', '#5a321c', 2.2) + shine(-7, -7, 3.5, 2) + face(0, 4, 1, s),
   avocado: s => path('M0,-20 C9,-20 11,-10 12,-3 C17,5 16,20 0,20 C-16,20 -17,5 -12,-3 C-11,-10 -9,-20 0,-20 Z', '#2f6b2a') +
     path('M-1,-18 C7,-18 9,-9 10,-3 C15,5 13,17 -1,17 C-14,17 -15,5 -11,-3 C-10,-9 -8,-18 -1,-18 Z', '#d6e89a') + circ(-1, 9, 6, '#8a5a2e') + circ(-2.5, 7.5, 2, '#b07a46') + face(-1, -6, .85, s),
+  mushroom: s => path('M-20,-2 Q-20,-22 0,-22 Q20,-22 20,-2 Z', '#b8321f') + path('M-18,-3 Q-18,-20 0,-20 Q17,-20 17,-3 Z', '#e2412f') +
+    circ(-9, -12, 3.2, CREAM) + circ(4, -15, 2.6, CREAM) + circ(11, -7, 2.4, CREAM) + circ(-2, -7, 1.8, CREAM) +
+    rect(-12, -3, 24, 23, 9, '#e8dccb') + rect(-12, -3, 22, 21, 9, CREAM) + face(-1, 5, .85, s),
   peach: s => circ(0, 0, 17, '#e0704a') + circ(-2, -2, 15.5, '#f5a06a') + line('M0,-15 Q-4,-2 0,10', '#e0704a', 1.6, { opacity: .6 }) + path('M1,-17 Q8,-24 14,-20 Q8,-15 1,-17 Z', '#3f9b3c') + shine(-8, -6, 3.5, 2.2) + face(0, 2, 1, s),
 };
 export const CUSTOMER_KINDS = ['eggplant', 'lemon', 'blueberry', 'pear', 'peach'];
@@ -74,6 +77,8 @@ export const FOOD = {
   coffeeCold: () => cupArt(true, true),
   // A used plate's leftovers (drawn on a plate): a smear and some crumbs.
   dirty: () => path('M-11,4 Q-7,-2 1,0 Q10,1 9,6 Q2,10 -7,9 Z', '#b8875a', { opacity: .85 }) + path('M-4,3 Q0,1 4,3', '#8a5a2e', { opacity: .6 }) + [[-12, 0], [5, -2], [11, 2], [-2, 8], [2, 4], [-7, 5]].map(([x, y]) => circ(x, y, 1.6, '#8a5a2e')).join(''),
+  dirtyPlate: () => ell(0, 4, 13, 5, '#e8dccb') + ell(0, 3, 12, 4.5, CREAM) + g('translate(0 -1) scale(.8)', FOOD.dirty()),
+  coin: () => circ(0, 0, 10, '#d99a12') + circ(0, 0, 8.5, GOLD) + text(0, 5, '$', 13, '#8a5a12', { 'text-anchor': 'middle', 'font-family': 'Righteous' }),
   clock: () => circ(0, 0, 13, '#e2412f') + circ(0, 0, 10, CREAM) + line('M0,-6 L0,0 L5,3', INK, 2) + rect(-3, -18, 6, 4, 1.5, '#e2412f') + circ(0, 0, 1.5, INK),
   creamCheese: () => rect(-9, -3, 18, 13, 3, '#e8dccb') + rect(-9, -3, 16, 12, 3, CREAM) + rect(-10, -7, 20, 5, 2, '#4a7fd0') + shine(-5, 2, 1.4, 3),
   flour: () => path('M-10,12 L-11,-4 Q-11,-10 -5,-11 L5,-11 Q11,-10 11,-4 L10,12 Z', '#d8c39d') + path('M-9,11 L-10,-4 Q-10,-9 -5,-10 L5,-10 Q9,-9 9,-4 L8,11 Z', '#efe1c3') + rect(-7, -1, 14, 6, 2, '#5b2c6f') + path('M-5,-11 L0,-15 L5,-11 Z', '#d8c39d'),
@@ -221,12 +226,15 @@ export function dishes(x, y, n, tip) {
   if (tip) s += g(`translate(${x + (n ? 20 : 0)} ${y - 2})`, circ(0, 0, 11, '#d99a12') + circ(0, 0, 9, GOLD) + text(0, 5, '$', 14, '#8a5a12', { 'text-anchor': 'middle', 'font-family': 'Righteous' }));
   return s;
 }
-// The dishwasher, built into a cupboard. "n" plates inside; "share" how far the wash has gone (null when idle).
-export function dishwasher(cx, top, n, share) {
+// The dishwasher, built into a cupboard, at level 1 to 3. "n" plates inside; "share" how far the
+// wash has gone (null when idle).
+export function dishwasher(level, cx, top, n, share) {
   const W = 64, H = 80, x = cx - W / 2;
-  let s = rect(x, top, W, H, 8, '#c9c2b8') + rect(x, top, W - 3, H - 3, 8, CHROME) + rect(x + 6, top + 6, W - 15, 10, 4, '#2f8a8f') +
-    circ(x + W - 14, top + 11, 3, n ? '#3f9b3c' : '#c9c2b8') + rect(x + 10, top + 22, W - 23, 6, 3, '#b5ada2');
-  s += circ(cx - 2, top + 52, 19, '#9fc9c6') + circ(cx - 2, top + 52, 16, '#cfeeea');
+  const [edge, body, panel] = level === 3 ? ['#d99a12', '#fff4d6', '#5b2c6f'] : level === 2 ? ['#1d5558', '#cfeeea', '#226a6e'] : ['#c9c2b8', CHROME, '#2f8a8f'];
+  let s = rect(x, top, W, H, 8, edge) + rect(x, top, W - 3, H - 3, 8, body) + rect(x + 6, top + 6, W - 15, 10, 4, panel) +
+    circ(x + W - 14, top + 11, 3, n ? '#3f9b3c' : '#c9c2b8') + rect(x + 10, top + 22, W - 23, 6, 3, level === 3 ? GOLD : '#b5ada2');
+  s += circ(cx - 2, top + 52, level > 1 ? 21 : 19, level === 3 ? GOLD : '#9fc9c6') + circ(cx - 2, top + 52, level > 1 ? 18 : 16, '#cfeeea');
+  if (level === 3) s += path(`M${x + 8},${top + 34} l2,-5 l2,5 l5,2 l-5,2 l-2,5 l-2,-5 l-5,-2 Z`, GOLD);
   if (n) {
     s += [0, 1, 2].slice(0, Math.min(n, 3)).map(k => ell(cx - 6 + k * 4, top + 52, 3, 11, CREAM, { stroke: '#e8dccb', 'stroke-width': 1 })).join('');
     if (share !== null) s += [[-10, 44], [6, 60], [2, 42], [-6, 62]].map(([dx, dy], k) => circ(cx - 2 + dx, top + dy, 2 + (k % 2), '#fff', { opacity: .8, class: `steam${k % 2 ? ' b' : ''}` })).join('');

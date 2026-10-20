@@ -186,7 +186,7 @@ export function createKitchen(api) {
     const w = run.wash;
     if (w.load) {
       w.t += dt;
-      if (w.t >= SHIFT_RULES.wash) {
+      if (w.t >= spec('dishwasher').secs) {
         for (let n = 0, j = 0; j < run.plates.length && n < w.load; j++) if (run.plates[j] === 'away') { run.plates[j] = null; n++; }
         w.load = 0; changed = true; api.buzz('tap');
       }
@@ -250,6 +250,12 @@ export function createKitchen(api) {
       if (free < 0 || stillWanted('coffee') <= run.cups.filter(Boolean).length) return null;
       if (!look) run.cups[free] = { state: 'pour', t: 0, need: spec('coffee').pour };
       return 'cupEmpty';
+    },
+    dishes(look) {
+      const i = run.counter.findIndex(Boolean);
+      if (i < 0) return null;
+      const d = look ? run.counter[i] : clearSpot(i);
+      return d.dishes ? 'dirtyPlate' : 'coin';
     },
     topping(look) {
       const j = run.plates.indexOf('bagel');
@@ -496,13 +502,18 @@ export function createKitchen(api) {
   }
   // Tapping dishes on the counter: the tip goes in the jar, the dishes go in the dishwasher.
   function collect(i) {
+    if (!clearSpot(i)) return;
+    api.buzz('tap');
+    render();
+  }
+  // Clears one counter spot (by her tap or Mushroom). Returns what was there, or null.
+  function clearSpot(i) {
     const d = run.counter[i];
-    if (!d) return;
+    if (!d) return null;
     run.counter[i] = null;
     run.wash.waiting += d.dishes;
-    if (d.tip) { run.earned += d.tip; api.earn(d.tip); floatText(`+$${d.tip} tip!`, custX(i), 120); }
-    api.buzz(d.tip ? 'serve' : 'tap');
-    render();
+    if (d.tip) { run.earned += d.tip; api.earn(d.tip); api.buzz('serve'); floatText(`+$${d.tip} tip!`, custX(i), 120); }
+    return d;
   }
 
   function endShift() {
@@ -634,7 +645,7 @@ export function createKitchen(api) {
     // The dishwasher, built into the cupboard, once there are dishes.
     if (run ? dirtyOn() : chosen + 1 >= SHIFT_RULES.dirtyFrom) {
       const w = run?.wash || { load: 0, waiting: 0, t: 0 };
-      s += A.dishwasher(DISHWASHER[0], DISHWASHER[1], w.load + w.waiting, w.load ? w.t / SHIFT_RULES.wash : null);
+      s += A.dishwasher(level('dishwasher'), DISHWASHER[0], DISHWASHER[1], w.load + w.waiting, w.load ? w.t / spec('dishwasher').secs : null);
     }
     // The pantry.
     let p = pa.art;
@@ -738,7 +749,7 @@ export function createKitchen(api) {
       el.setAttribute('stroke', col);
     });
     const wr = document.getElementById('krw');
-    if (wr && run.wash.load) wr.setAttribute('stroke-dashoffset', (+wr.getAttribute('stroke-dasharray') * (1 - run.wash.t / SHIFT_RULES.wash)).toFixed(1));
+    if (wr && run.wash.load) wr.setAttribute('stroke-dashoffset', (+wr.getAttribute('stroke-dasharray') * (1 - run.wash.t / spec('dishwasher').secs)).toFixed(1));
     const mr = document.getElementById('krm');
     if (mr && run.mix) mr.setAttribute('stroke-dashoffset', (+mr.getAttribute('stroke-dasharray') * (1 - run.mix.t / run.mix.need)).toFixed(1));
     run.cust.forEach((cu, i) => {
