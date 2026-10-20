@@ -66,9 +66,12 @@ export function createKitchen(api) {
     last = performance.now();
     clearInterval(loop);
     loop = setInterval(tick, 100);
+    cancelAnimationFrame(frame);
+    if (!reduceMotion) frame = requestAnimationFrame(glide);
   }
   function close() {
     clearInterval(loop);
+    cancelAnimationFrame(frame);
     run = null; card = null;
     $('#kitchen').hidden = true;
     $('#k-stage .k-scene').innerHTML = '';
@@ -95,7 +98,7 @@ export function createKitchen(api) {
       counter: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null), wash: { waiting: 0, load: 0, t: 0 },
       stock: Object.fromEntries(PANTRY.filter(p => FOODS[p.for].from === 'oven').map(p => [p.id, SHIFT_RULES.startDough])),
       mix: null, ready: 0, drag: null,
-      team: team(), help: Object.fromEntries(team().map(h => [h.id, { wait: 2, busy: 0, icon: null, oops: false }])),
+      team: team(), help: Object.fromEntries(team().map(h => [h.id, { wait: 1.5, trip: null, carry: null, oops: false }])),
     };
     // New things get a card the first time: the shift's own news, then the mixer.
     run.cards = [];
@@ -147,6 +150,7 @@ export function createKitchen(api) {
   function tick() {
     const now = performance.now(), dt = Math.min(.25, (now - last) / 1000);
     last = now;
+    lastTick = now;
     if (!run || run.over || card || document.visibilityState !== 'visible') return;
     run.t += dt;
     let changed = false;
@@ -224,59 +228,151 @@ export function createKitchen(api) {
   }
 
   // ---------- helpers ----------
-  // Every hired helper works the shift. Each does one job at a time, then rests. Low level helpers
-  // rest longer and sometimes fumble ("oops"); she trains them up with tips on the kitchen card.
+  // Every hired helper works the shift. When there's a job, the helper walks (and hops) from their
+  // spot on the floor to the station, does the job when they get there, carries things where they
+  // go, and walks back. Then they rest. Low level helpers walk slower, rest longer, and sometimes
+  // fumble ("oops"); she trains them up with tips on the kitchen card.
   const stillWanted = f => run.cust.reduce((t, cu) => t + (cu && !cu.leaving ? cu.wants.filter(w => !w.got && w.f === f).length : 0), 0);
-  // Each job returns what the helper handled (for the bubble over their head), or null if there is
-  // nothing to do. With "look" set it only checks, and changes nothing.
-  const JOBS = {
-    oven(look) {
+  const DWELL = .25;                  // seconds a helper pauses at each stop to do their bit
+  const home = h => [h.x, HELPER_Y];
+  const ovenPt = () => [CENTRE.oven, BOTTOM + 20];
+  const binPt = () => [BIN[0], BIN[1] - 8];
+  const atPlate = p => { const [x, y] = plateSpot(p); return [x, y + 16]; };
+  const atCup = j => { const [x, y] = cupSpot(j); return [x, y + 22]; };
+  const atCounter = i => [custX(i), 172];
+  const washerPt = () => [DISHWASHER[0], DISHWASHER[1] + 52];
+  function creamPt() {
+    const pa = A.pantry(level('pantry'), pantryItems()), sp = pa.spots.find(q => q.id === 'creamCheese');
+    return sp ? [CENTRE.pantry - pa.W / 2 + sp.x, BOTTOM + sp.y + 22] : [CENTRE.pantry, BOTTOM + 20];
+  }
+  // Each plan: the stops to walk to, what happens at each stop (return false if it can't be done
+  // any more, and the helper heads home), what they carry when they set off, and what to undo if
+  // the trip is cut short.
+  const PLANS = {
+    oven(h) {
       const burnt = run.oven.findIndex(x => x?.state === 'burnt');
-      if (burnt >= 0) { const f = run.oven[burnt].food; if (!look) { run.oven[burnt] = null; trash(); } return `${f}Burnt`; }
+      if (burnt >= 0) {
+        const f = run.oven[burnt].food;
+        return { pts: [home(h), ovenPt(), binPt(), home(h)], acts: {
+          1: st => { if (run.oven[burnt]?.state !== 'burnt') return false; run.oven[burnt] = null; st.carry = `${f}Burnt`; return true; },
+          2: st => { st.carry = null; trash(); return true; } } };
+      }
       const p = run.plates.indexOf(null);
       if (p < 0) return null;
       let j = -1;
       run.oven.forEach((x, k) => { if (x?.state === 'done' && x.t >= .6 && (j < 0 || x.t > run.oven[j].t)) j = k; });
       if (j < 0) return null;
-      const f = run.oven[j].food;
-      if (!look) { run.plates[p] = f; run.oven[j] = null; }
-      return f;
+      run.plates[p] = 'held'; // saved for the food she's bringing
+      return { pts: [home(h), ovenPt(), atPlate(p), home(h)],
+        undo: () => { if (run.plates[p] === 'held') run.plates[p] = null; },
+        acts: {
+          1: st => { const x = run.oven[j]; if (x?.state !== 'done') return false; run.oven[j] = null; st.carry = x.food; return true; },
+          2: st => { run.plates[p] = st.carry; st.carry = null; return true; } } };
     },
-    coffee(look) {
+    coffee(h) {
       if (!run.sh.menu.includes('coffee')) return null;
       const cold = run.cups.findIndex(x => x?.state === 'cold');
-      if (cold >= 0) { if (!look) { run.cups[cold] = null; trash(); } return 'coffeeCold'; }
-      const free = run.cups.indexOf(null);
-      if (free < 0 || stillWanted('coffee') <= run.cups.filter(Boolean).length) return null;
-      if (!look) run.cups[free] = { state: 'pour', t: 0, need: spec('coffee').pour };
-      return 'cupEmpty';
+      if (cold >= 0) return { pts: [home(h), atCup(cold), binPt(), home(h)], acts: {
+        1: st => { if (run.cups[cold]?.state !== 'cold') return false; run.cups[cold] = null; st.carry = 'coffeeCold'; return true; },
+        2: st => { st.carry = null; trash(); return true; } } };
+      if (!run.cups.includes(null) || stillWanted('coffee') <= run.cups.filter(Boolean).length) return null;
+      return { carry: 'cupEmpty', pts: [home(h), [CENTRE.coffee, BOTTOM + 20], home(h)], acts: {
+        1: st => {
+          const free = run.cups.indexOf(null);
+          if (free < 0 || stillWanted('coffee') <= run.cups.filter(Boolean).length) return false;
+          run.cups[free] = { state: 'pour', t: 0, need: spec('coffee').pour };
+          st.carry = null;
+          return true;
+        } } };
     },
-    dishes(look) {
-      const i = run.counter.findIndex(Boolean);
-      if (i < 0) return null;
-      const d = look ? run.counter[i] : clearSpot(i);
-      return d.dishes ? 'dirtyPlate' : 'coin';
-    },
-    topping(look) {
+    topping(h) {
       const j = run.plates.indexOf('bagel');
       if (j < 0 || stillWanted('creamBagel') <= run.plates.filter(p => p === 'creamBagel').length) return null;
-      if (!look) run.plates[j] = 'creamBagel';
-      return 'creamCheese';
+      return { pts: [home(h), creamPt(), atPlate(j), home(h)], acts: {
+        1: st => { st.carry = 'creamCheese'; return true; },
+        2: st => {
+          const k = run.plates[j] === 'bagel' ? j : run.plates.indexOf('bagel');
+          if (k < 0 || stillWanted('creamBagel') <= run.plates.filter(p => p === 'creamBagel').length) return false;
+          run.plates[k] = 'creamBagel';
+          st.carry = null;
+          return true;
+        } } };
+    },
+    dishes(h) {
+      const i = run.counter.findIndex(Boolean);
+      if (i < 0) return null;
+      const withDishes = run.counter[i].dishes > 0;
+      return { pts: withDishes ? [home(h), atCounter(i), washerPt(), home(h)] : [home(h), atCounter(i), home(h)], acts: {
+        1: st => { const d = clearSpot(i, false); if (!d) return false; st.carry = d.dishes ? 'dirtyPlate' : null; st.dishes = d.dishes; return true; },
+        2: st => { run.wash.waiting += st.dishes || 0; st.dishes = 0; st.carry = null; return true; } } };
     },
   };
+  // Lay a plan out in time: walking legs (quicker for trained helpers) with a short stop at each act.
+  function makeTrip(plan, speed) {
+    const segs = [], at = {};
+    let t = 0;
+    for (let k = 1; k < plan.pts.length; k++) {
+      const [a, b] = [plan.pts[k - 1], plan.pts[k]], dur = Math.max(.2, Math.hypot(b[0] - a[0], b[1] - a[1]) / speed);
+      segs.push({ a, b, t0: t, t1: t + dur });
+      t += dur;
+      if (plan.acts[k]) { at[k] = t; segs.push({ a: b, b, t0: t, t1: t + DWELL }); t += DWELL; }
+    }
+    return { ...plan, segs, at, end: t, t: 0, done: {} };
+  }
+  // Where a helper is t seconds into a trip. Each leg is a little hop.
+  function tripPos(tr, t) {
+    const sg = tr.segs.find(q => t < q.t1) || tr.segs[tr.segs.length - 1];
+    const u = Math.max(0, Math.min(1, (t - sg.t0) / (sg.t1 - sg.t0 || 1)));
+    const e = u * u * (3 - 2 * u), len = Math.hypot(sg.b[0] - sg.a[0], sg.b[1] - sg.a[1]);
+    return [sg.a[0] + (sg.b[0] - sg.a[0]) * e, sg.a[1] + (sg.b[1] - sg.a[1]) * e - Math.sin(Math.PI * u) * Math.min(26, len * .2)];
+  }
+  const speedOf = id => 300 + 70 * (helperLevel(id) - 1);
+  // Cut a trip short from stop k: undo anything saved, and walk home.
+  function headHome(h, st, k) {
+    st.trip.undo?.();
+    st.carry = null;
+    st.trip = makeTrip({ pts: [st.trip.pts[k], home(h)], acts: {} }, speedOf(h.id));
+  }
   function helpers(dt) {
     let changed = false;
     for (const h of run.team) {
-      const st = run.help[h.id];
-      if (st.busy > 0) { st.busy -= dt; if (st.busy <= 0) { st.icon = null; st.oops = false; changed = true; } }
+      const st = run.help[h.id], how = HELPER_LEVELS[helperLevel(h.id) - 1];
+      if (st.trip) {
+        const tr = st.trip;
+        tr.t += dt;
+        for (const k of Object.keys(tr.at)) {
+          if (tr.done[k] || tr.t < tr.at[k]) continue;
+          tr.done[k] = true;
+          changed = true;
+          // The first stop is where a low level helper might fumble.
+          if (+k === 1 && Math.random() > how.hit) { st.oops = true; headHome(h, st, 1); break; }
+          if (!tr.acts[k](st)) { headHome(h, st, +k); break; }
+        }
+        if (st.trip.t >= st.trip.end) { st.trip = null; st.oops = false; st.carry = null; st.wait = how.every; changed = true; }
+        continue;
+      }
       st.wait -= dt;
-      if (st.wait > 0 || !JOBS[h.station](true)) continue;
-      const lv = helperLevel(h.id), how = HELPER_LEVELS[lv - 1];
-      st.wait = how.every; st.busy = .9; changed = true;
-      if (Math.random() > how.hit) { st.icon = 'oops'; st.oops = true; continue; }
-      st.icon = JOBS[h.station]();
+      if (st.wait > 0) continue;
+      const plan = PLANS[h.station](h);
+      if (!plan) continue;
+      st.trip = makeTrip(plan, speedOf(h.id));
+      st.carry = plan.carry || null;
+      changed = true;
     }
     return changed;
+  }
+  // Between game ticks, slide the helpers along so they move smoothly.
+  let lastTick = 0, frame = 0;
+  function glide() {
+    frame = requestAnimationFrame(glide);
+    if (!run || run.over || card) return;
+    const extra = Math.min(.1, (performance.now() - lastTick) / 1000);
+    for (const h of run.team) {
+      const tr = run.help[h.id].trip, el = document.getElementById(`kh-${h.id}`);
+      if (!tr || !el) continue;
+      const [x, y] = tripPos(tr, tr.t + extra);
+      el.setAttribute('transform', `translate(${x.toFixed(1)} ${y.toFixed(1)})`);
+    }
   }
 
   // ---------- taps ----------
@@ -295,7 +391,7 @@ export function createKitchen(api) {
     const [kind, arg] = what.split(':');
     if (run.toss) {
       run.toss = false;
-      if (kind === 'plate' && run.plates[arg] && run.plates[arg] !== 'away') {
+      if (kind === 'plate' && run.plates[arg] && run.plates[arg] !== 'away' && run.plates[arg] !== 'held') {
         run.plates[arg] = used();
         if (dirtyOn()) run.wash.waiting++;
         say('Tossed in the bin.');
@@ -440,6 +536,7 @@ export function createKitchen(api) {
     const f = run.plates[i];
     if (!f) { say('Empty plate. Tap the oven to put food on it.'); render(); return; }
     if (f === 'away') { say('That plate is out with a customer. It comes back from the dishwasher.'); render(); return; }
+    if (f === 'held') { say('A helper is bringing food for that plate.'); render(); return; }
     const cu = deliver(f, plateSpot(i));
     if (cu) { run.plates[i] = used(); if (dirtyOn()) cu.dishes = (cu.dishes || 0) + 1; }
     render();
@@ -507,11 +604,11 @@ export function createKitchen(api) {
     render();
   }
   // Clears one counter spot (by her tap or Mushroom). Returns what was there, or null.
-  function clearSpot(i) {
+  function clearSpot(i, toWasher = true) {
     const d = run.counter[i];
     if (!d) return null;
     run.counter[i] = null;
-    run.wash.waiting += d.dishes;
+    if (toWasher) run.wash.waiting += d.dishes;
     if (d.tip) { run.earned += d.tip; api.earn(d.tip); api.buzz('serve'); floatText(`+$${d.tip} tip!`, custX(i), 120); }
     return d;
   }
@@ -687,7 +784,7 @@ export function createKitchen(api) {
     let pp = pr.art;
     pr.plates.forEach(([x, y], i) => {
       const pl = run?.plates[i] || null;
-      pp += (pl === 'away' ? A.ell(x, y + 5, 15, 5, '#00000014') : A.plate(x, y, pl, pr.scale)) + tapZone(x - 20, y - 20, 40, 34, `plate:${i}`);
+      pp += (pl === 'away' ? A.ell(x, y + 5, 15, 5, '#00000014') : A.plate(x, y, pl === 'held' ? null : pl, pr.scale)) + tapZone(x - 20, y - 20, 40, 34, `plate:${i}`);
     });
     s += A.g(`translate(${PREP_X} ${PREP_Y})`, pp);
     // The mixer, once dough can run out.
@@ -715,7 +812,10 @@ export function createKitchen(api) {
       else if (kind === 'dish') s += glow(custX(+arg), 154, 30);
     }
     // The helpers on this shift, each standing under the station they mind.
-    for (const h of run ? run.team : team()) s += A.helper(h.id, h.x, HELPER_Y, run?.help[h.id].icon || null, run?.help[h.id].oops);
+    for (const h of run ? run.team : team()) {
+      const st = run?.help[h.id], [x, y] = st?.trip ? tripPos(st.trip, st.trip.t) : home(h);
+      s += `<g id="kh-${h.id}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})">${A.helper(h.id, 0, 0, st?.carry || null, st?.oops, !!st?.trip)}</g>`;
+    }
     // Tomato, the head chef, says what to do next.
     s += A.friend('tomato', 46, 604, 1.2, A.chefHat(), 'bob');
     s += A.rect(84, 572, 250, 64, 16, A.CREAM, { stroke: '#e8dccb', 'stroke-width': 1.5 }) + A.path('M86,596 L74,604 L86,608 Z', A.CREAM);
