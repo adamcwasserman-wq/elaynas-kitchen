@@ -4,7 +4,7 @@
 // and taps a finished food to hand it to the first customer who wants it.
 // Tuning lives in data/kitchen.js; the drawings in js/kitchenArt.js.
 
-import { FOODS, PANTRY, SHIFTS, SHIFT_RULES, APPLIANCES, HELPERS, HELPER_LEVELS, OLD_HELPER_JOBS, DOUGH_INTRO, HELPERS_INTRO, KITCHEN_VIPS, EXCUSES, KITCHEN_CITIES } from '../data/kitchen.js';
+import { FOODS, PANTRY, SHIFTS, SHIFT_RULES, APPLIANCES, HELPERS, HELPER_LEVELS, OLD_HELPER_JOBS, DOUGH_INTRO, KITCHEN_VIPS, EXCUSES, KITCHEN_CITIES } from '../data/kitchen.js';
 import * as A from './kitchenArt.js';
 
 const $ = sel => document.querySelector(sel);
@@ -109,7 +109,9 @@ export function createKitchen(api) {
     run.cards = [];
     const seen = id => data().introSeen.includes(id);
     if (sh.intro && !seen(sh.intro.id)) run.cards.push([sh.intro.id, sh.intro]);
-    if (i + 1 >= SHIFT_RULES.helpersFrom && !seen(HELPERS_INTRO.id)) run.cards.push([HELPERS_INTRO.id, HELPERS_INTRO]);
+    // A card for each helper who can now be hired (one joins at a time as the shifts get harder).
+    for (const h of HELPERS) if (i + 1 >= h.opens && !hired(h.id) && !seen(`helper-${h.id}`))
+      run.cards.push([`helper-${h.id}`, { art: 'helper', helper: h.id, title: `New helper: ${h.name}!`, line: `${h.job} Hire ${h.name} with tips on the kitchen card, then train them to make them quicker.` }]);
     if (i + 1 >= SHIFT_RULES.doughFrom && !seen(DOUGH_INTRO.id)) run.cards.push([DOUGH_INTRO.id, DOUGH_INTRO]);
     // Busier shifts: some helpers call in sick (with a silly excuse).
     for (let n = Math.min(sh.away || 0, run.team.length); n > 0; n--) {
@@ -975,7 +977,10 @@ export function createKitchen(api) {
       const note = next ? `Next: <b>${next.name}</b>. ${next.perk}` : now.perk;
       return `<li class="k-appl"><div><b>${a.name}: ${now.name} ${pips(n, a.levels.length)}</b><span>${note}</span></div>${right}</li>`;
     }).join('');
-    const helpers = HELPERS.map(h => {
+    // Helpers show up on the card once their shift is open (or once hired).
+    const ready = HELPERS.filter(h => hired(h.id) || shiftOpen(h.opens - 1)).sort((a, b) => a.opens - b.opens);
+    const coming = HELPERS.filter(h => !ready.includes(h)).sort((a, b) => a.opens - b.opens)[0];
+    const helpers = ready.map(h => {
       const art = `<svg class="k-helper" viewBox="-22 -32 44 56" aria-hidden="true">${A.helper(h.id, 0, 0)}</svg>`;
       let right, title = `<b>${h.name}</b>`, note = h.job;
       if (hired(h.id)) {
@@ -983,8 +988,7 @@ export function createKitchen(api) {
         title = `<b>${h.name} ${pips(lv, HELPER_LEVELS.length)}</b>`;
         if (!next) note = `${h.job} <b>Top level!</b>`;
         right = next ? `<button class="btn primary k-buy" data-train="${h.id}"${s.dollars >= next.cost ? '' : ' disabled'}>Train<br>$${next.cost.toLocaleString()}</button>` : `<span class="k-done">All done!</span>`;
-      } else if (!shiftOpen(h.opens - 1)) right = `<span class="k-done k-later">Opens at<br>shift ${h.opens}</span>`;
-      else right = `<button class="btn primary k-buy" data-hire="${h.id}"${s.dollars >= h.cost ? '' : ' disabled'}>Hire<br>$${h.cost.toLocaleString()}</button>`;
+      } else right = `<button class="btn primary k-buy" data-hire="${h.id}"${s.dollars >= h.cost ? '' : ' disabled'}>Hire<br>$${h.cost.toLocaleString()}</button>`;
       return `<li class="k-appl">${art}<div>${title}<span>${note}</span></div>${right}</li>`;
     }).join('');
     const sh = SHIFTS[chosen], crew = team().filter(h => chosen + 1 >= h.opens);
@@ -995,8 +999,9 @@ export function createKitchen(api) {
       <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.rush ? `Rush hour! ${sh.rush.secs} seconds. Earn $${goals(sh, api.mood()).join(', $')} for 1, 2, 3 stars.` : `${sh.customers} customers.`} Menu: ${menu}.${crew.length ? ` Helpers: ${crew.map(h => h.name).join(', ')}.` : ''}${sh.away && crew.length ? ` Watch out: ${sh.away === 1 ? 'a helper' : 'up to two helpers'} may call in sick.` : ''}</p>
       <button class="btn primary k-start" data-start="${chosen}">Start shift ${chosen + 1}</button>
       <h3>Kitchen helpers</h3>
-      <p class="muted small">Every helper you hire works every shift. Train them with tips to make them quicker and steadier.</p>
-      <ul class="list k-appls">${helpers}</ul>
+      ${ready.length ? `<p class="muted small">Helpers you hire work every shift. Train them with tips to make them quicker and steadier.</p>
+      <ul class="list k-appls">${helpers}</ul>` : ''}
+      ${coming ? `<p class="muted small">${ready.length ? 'The next helper' : 'Your first helper'} can join at shift ${coming.opens}.</p>` : ''}
       <h3>Kitchen upgrades</h3>
       <ul class="list k-appls">${appliances}</ul>`);
   }
@@ -1004,10 +1009,17 @@ export function createKitchen(api) {
   function showIntro(intro) {
     card = 'intro';
     render();
-    const art = intro.art === 'vip' ? '<use href="#cust-zip" x="-22" y="-22" width="44" height="44"/>' : intro.art === 'helpers' ? A.helper('strawberry', 0, 2) : intro.art === 'out' ? A.friend(intro.out, 0, 2, 1, A.g('translate(0 -1) scale(.62)', A.chefHat()), '', true) : intro.art === 'dirty' ? A.plate(0, 0, 'dirty', 1.3) : intro.art === 'dough' ? A.g('translate(-17 12) scale(.5)', A.mixer(2).art) : intro.art ? A.food(intro.art, 0, 0, 1.4) : A.plate(0, 0, intro.food, 1.3);
+    const art = intro.art === 'vip' ? '<use href="#cust-zip" x="-22" y="-22" width="44" height="44"/>' : intro.art === 'helper' ? A.helper(intro.helper, 0, 2) : intro.art === 'out' ? A.friend(intro.out, 0, 2, 1, A.g('translate(0 -1) scale(.62)', A.chefHat()), '', true) : intro.art === 'dirty' ? A.plate(0, 0, 'dirty', 1.3) : intro.art === 'dough' ? A.g('translate(-17 12) scale(.5)', A.mixer(2).art) : intro.art ? A.food(intro.art, 0, 0, 1.4) : A.plate(0, 0, intro.food, 1.3);
     showCard(`<div class="k-intro"><svg viewBox="-24 -24 48 48" aria-hidden="true">${art}</svg>
       <h2>${intro.title}</h2><p>${intro.line}</p>
-      <button class="btn primary" data-go>Let's cook!</button></div>`);
+      ${hireNow(intro)}<button class="btn${intro.helper && !hired(intro.helper) && canHire(intro.helper) ? ' ghost' : ' primary'}" data-go>Let's cook!</button></div>`);
+  }
+  // On a new helper's card: hire them right there and they join this shift.
+  const canHire = id => S().dollars >= HELPERS.find(h => h.id === id).cost;
+  function hireNow(intro) {
+    if (!intro.helper || hired(intro.helper)) return '';
+    const h = HELPERS.find(x => x.id === intro.helper);
+    return canHire(h.id) ? `<button class="btn primary" data-go data-hire-now="${h.id}">Hire ${h.name} for $${h.cost}</button>` : `<p class="muted small">You need $${h.cost} in tips to hire ${h.name}.</p>`;
   }
 
   function showResult(got, gems) {
@@ -1036,6 +1048,14 @@ export function createKitchen(api) {
     if (b.dataset.start !== undefined) { start(+b.dataset.start); return; }
     if (b.dataset.home !== undefined) { showHome(); return; }
     if (b.dataset.go !== undefined) {
+      const id = b.dataset.hireNow, h = id && HELPERS.find(x => x.id === id), k = data();
+      if (h && !k.helpers.includes(id) && S().dollars >= h.cost) {
+        S().dollars -= h.cost;
+        k.helpers.push(id);
+        run.team.push(h);
+        run.help[id] = { wait: 1.5, trip: null, carry: null, oops: false };
+        api.buzz('serve');
+      }
       const [key] = run.cards.shift();
       if (key !== null) data().introSeen.push(key);
       api.save();

@@ -95,9 +95,6 @@ export const KITCHEN_VIPS = [
   { id: 'critic', name: 'Monsieur Croissant', art: 'critic', review: 6, hello: 'The food critic! Serve him fast for a three spoon review.' },
 ];
 
-// Shown the first time she plays a shift where helpers can be hired.
-export const HELPERS_INTRO = { id: 'helpers', art: 'helpers', title: 'Helpers can join you now!', line: 'Use your tips to hire food friend helpers. Look under Kitchen helpers on the kitchen card. Each one takes care of a station for you.' };
-
 export const SHIFT_RULES = {
   hearts: 3,            // customers who can leave unhappy before the shift ends (moods add or take away)
   itemPatience: 12,     // extra seconds of waiting for each extra item in an order
@@ -111,7 +108,6 @@ export const SHIFT_RULES = {
   doughFrom: 6,         // from this shift on, dough runs out and is made at the mixer
   startDough: 2,        // doughs of each kind on the pantry shelf when a shift starts
   doughMax: 6,
-  helpersFrom: 5,       // helpers can be hired from this shift on
   vipGap: 2,            // at least this many regular customers between two VIPs          // the most of each dough the shelf holds
   speedTip: 0.25,       // served while the bar is still more than half full: a tip this share of the price
   stars: [0.5, 0.8, 1], // share of customers served happily for 1, 2 and 3 stars (3 also means nobody left)
@@ -166,17 +162,18 @@ export const APPLIANCES = [
 // Which restaurants have a kitchen. More arrive one at a time.
 export const KITCHEN_CITIES = ['toronto'];
 
-// Helpers: food friends hired once with this restaurant's tips. Every hired helper works every
-// shift, minding one station and standing on the kitchen floor under it.
+// Helpers: food friends hired once with this restaurant's tips. They join one at a time as the
+// shifts get harder (each one takes over a chore that just got busier). Every hired helper works
+// every shift from their "opens" shift on, minding one station and standing on the floor under it.
 //   station  which station they mind: 'oven', 'coffee' or 'topping'
 //   opens    the shift number (1 to 10) that has to be open before she can hire them
 //   x        where they stand on the kitchen floor
 export const HELPERS = [
-  { id: 'strawberry', name: 'Strawberry', station: 'oven', cost: 150, opens: 5, x: 190,
+  { id: 'strawberry', name: 'Strawberry', station: 'oven', cost: 150, opens: 8, x: 190,
     job: 'Minds the oven. Puts golden food on a free plate, and tosses anything that burnt.' },
   { id: 'bean', name: 'Bean', station: 'coffee', cost: 120, opens: 5, x: 300,
     job: 'Pours coffee. Starts a cup whenever a customer is waiting for one.' },
-  { id: 'avocado', name: 'Avocado', station: 'topping', cost: 180, opens: 5, x: 112,
+  { id: 'avocado', name: 'Avocado', station: 'topping', cost: 180, opens: 9, x: 112,
     job: 'Sprinkles salt on a plated pretzel when a customer wants one.' },
   { id: 'mushroom', name: 'Mushroom', station: 'dishes', cost: 160, opens: 7, x: 151,
     job: 'Clears dishes off the counter into the dishwasher, and picks up the tips.' },
