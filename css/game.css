@@ -810,3 +810,5 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 @media (prefers-reduced-motion: reduce) { .kglow, .kitchen .bob, .kitchen .steam, .kitchen .flame, .k-float { animation: none; } }
 .k-appl > div > span b { display: inline; font: inherit; font-weight: 700; color: var(--ink); }
 .k-appl > div > b { display: block; font-family: var(--display); font-weight: 400; font-size: 1rem; }
+.k-appl .k-helper { flex: none; width: 40px; height: 50px; }
+.k-done.k-later { color: var(--muted); text-align: center; }

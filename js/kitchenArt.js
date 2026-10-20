@@ -34,11 +34,23 @@ const FRIEND = {
   lemon: s => ell(0, 0, 20, 15, '#d9a400') + ell(-1.5, -1.5, 18.5, 13.5, '#f8d23a') + ell(-20, 0, 3, 2.4, '#d9a400') + ell(20, 0, 3, 2.4, '#d9a400') + shine(-9, -6, 4, 2.2) + face(0, 0, 1, s),
   blueberry: s => circ(0, 0, 16, '#2f3f9a') + circ(-2, -2, 14.5, '#4a63c9') + path('M0,-17 L-4,-12 L-1,-13 L0,-10 L1,-13 L4,-12 Z', '#2a2f6b') + shine(-7, -6, 3.5, 2.2) + face(0, 1, 1, s),
   pear: s => path('M0,-20 C8,-20 9,-10 10,-4 C18,0 18,20 0,20 C-18,20 -18,0 -10,-4 C-9,-10 -8,-20 0,-20 Z', '#7da82e') + path('M-1,-18 C6,-18 7,-9 8,-4 C15,0 15,17 -1,17 C-16,17 -16,0 -10,-4 C-9,-10 -8,-18 -1,-18 Z', '#a8cf45') + line('M0,-20 L2,-26', '#6b3a1e', 2.4) + shine(-7, 2, 3.5, 2.2) + face(0, 5, 1, s),
+  // The kitchen helpers.
+  strawberry: s => path('M0,-13 C10,-18 19,-9 17,2 C15,13 6,19 0,20 C-6,19 -15,13 -17,2 C-19,-9 -10,-18 0,-13 Z', '#b8243a') + path('M-1,-12 C8,-16 16,-8 15,2 C13,12 5,17 -1,18 C-7,17 -14,11 -16,1 C-17,-8 -9,-16 -1,-12 Z', '#e83f55') +
+    [[-10, -4], [10, -4], [-12, 6], [12, 6], [-6, 14], [6, 14], [0, 16]].map(([x, y]) => ell(x, y, 1.1, 1.6, '#ffe08a')).join('') +
+    path('M0,-13 L-9,-18 L-4,-12 L-11,-9 L0,-11 L11,-9 L4,-12 L9,-18 Z', '#3f9b3c') + shine(-9, -4, 3.5, 2) + face(0, 2, 1, s),
+  bean: s => ell(0, 1, 15, 19, '#5a321c') + ell(-1.5, -.5, 13.5, 17.5, '#a8673a') + line('M3,-17 Q-3,-12 1,-6', '#5a321c', 2.2) + shine(-7, -7, 3.5, 2) + face(0, 4, 1, s),
+  avocado: s => path('M0,-20 C9,-20 11,-10 12,-3 C17,5 16,20 0,20 C-16,20 -17,5 -12,-3 C-11,-10 -9,-20 0,-20 Z', '#2f6b2a') +
+    path('M-1,-18 C7,-18 9,-9 10,-3 C15,5 13,17 -1,17 C-14,17 -15,5 -11,-3 C-10,-9 -8,-18 -1,-18 Z', '#d6e89a') + circ(-1, 9, 6, '#8a5a2e') + circ(-2.5, 7.5, 2, '#b07a46') + face(-1, -6, .85, s),
   peach: s => circ(0, 0, 17, '#e0704a') + circ(-2, -2, 15.5, '#f5a06a') + line('M0,-15 Q-4,-2 0,10', '#e0704a', 1.6, { opacity: .6 }) + path('M1,-17 Q8,-24 14,-20 Q8,-15 1,-17 Z', '#3f9b3c') + shine(-8, -6, 3.5, 2.2) + face(0, 2, 1, s),
 };
 export const CUSTOMER_KINDS = ['eggplant', 'lemon', 'blueberry', 'pear', 'peach'];
 export const friend = (kind, x, y, s = 1, extra = '', cls = '', sad = false) =>
   g(`translate(${x} ${y}) scale(${s})`, `<g class="${cls}">${ell(0, 21, 14, 3, INK, { opacity: .12 })}${FRIEND[kind](sad)}${extra}</g>`);
+
+// A kitchen helper standing on the floor: a small chef's hat, and when "busy" a hop and the thing
+// they just handled floating over their head.
+export const helper = (kind, x, y, busy = null) => friend(kind, x, y - (busy ? 6 : 0), .9, g('translate(0 -1) scale(.62)', chefHat()) +
+  (busy ? g('translate(0 -42)', circ(0, 0, 15, CREAM, { stroke: GOLD, 'stroke-width': 2 }) + FOOD[busy]()) : ''), busy ? '' : 'bob b');
 
 // ---------- food, drawn around 0,0 at about 24 across ----------
 const RING = (r, h) => `M${-r},0 a${r},${r} 0 1,0 ${2 * r},0 a${r},${r} 0 1,0 ${-2 * r},0 Z M${-h},0 a${h},${h} 0 1,0 ${2 * h},0 a${h},${h} 0 1,0 ${-2 * h},0 Z`;

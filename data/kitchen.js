@@ -87,3 +87,18 @@ export const APPLIANCES = [
 
 // Which restaurants have a kitchen. More arrive one at a time.
 export const KITCHEN_CITIES = ['toronto'];
+
+// Helpers: food friends hired once with this restaurant's tips. Each minds one station during a
+// shift and stands on the kitchen floor under it.
+//   station  which station they mind: 'oven', 'coffee' or 'topping'
+//   opens    the shift number (1 to 10) that has to be open before she can hire them
+//   every    seconds between jobs: how quick they are
+//   x        where they stand on the kitchen floor
+export const HELPERS = [
+  { id: 'strawberry', name: 'Strawberry', station: 'oven', cost: 150, opens: 1, every: 1.4, x: 190,
+    job: 'Minds the oven. Puts golden food on a free plate, and tosses anything that burnt.' },
+  { id: 'bean', name: 'Bean', station: 'coffee', cost: 120, opens: 2, every: 1.2, x: 300,
+    job: 'Pours coffee. Starts a cup whenever a customer is waiting for one.' },
+  { id: 'avocado', name: 'Avocado', station: 'topping', cost: 180, opens: 4, every: 1.4, x: 112,
+    job: 'Spreads cream cheese on a plated bagel when a customer wants one.' },
+];

@@ -4,7 +4,7 @@
 // and taps a finished food to hand it to the first customer who wants it.
 // Tuning lives in data/kitchen.js; the drawings in js/kitchenArt.js.
 
-import { FOODS, PANTRY, SHIFTS, SHIFT_RULES, APPLIANCES, KITCHEN_CITIES } from '../data/kitchen.js';
+import { FOODS, PANTRY, SHIFTS, SHIFT_RULES, APPLIANCES, HELPERS, KITCHEN_CITIES } from '../data/kitchen.js';
 import * as A from './kitchenArt.js';
 
 const $ = sel => document.querySelector(sel);
@@ -14,6 +14,7 @@ const BOTTOM = 388;                       // where the appliances stand
 const CENTRE = { pantry: 64, oven: 190, coffee: 300 };
 const PREP_X = 10, PREP_Y = 430;
 const BIN = [314, 430];
+const HELPER_Y = 540;                     // helpers stand on the floor, in front of the cupboards
 const stars = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 const article = f => (/^[aeiou]/i.test(FOODS[f].name) ? 'an' : 'a');
 
@@ -31,6 +32,7 @@ export function createKitchen(api) {
     s.kitchen ??= {};
     const k = (s.kitchen[api.cityId()] ??= { best: [], appl: {}, introSeen: [] });
     k.introSeen ??= [];
+    k.helpers ??= [];
     for (const a of APPLIANCES) k.appl[a.id] ??= 1;
     return k;
   }
@@ -39,6 +41,9 @@ export function createKitchen(api) {
   const shiftOpen = i => i === 0 || (data().best[i - 1] || 0) >= SHIFT_RULES.openNext;
   const firstUnbeaten = () => { let i = 0; while (i < SHIFTS.length - 1 && shiftOpen(i + 1) && (data().best[i] || 0) > 0) i++; return i; };
   const hasKitchen = () => KITCHEN_CITIES.includes(api.cityId());
+  const hired = () => HELPERS.filter(h => data().helpers.includes(h.id));
+  // Avocado has nothing to do once the glass fridge spreads cream cheese by itself.
+  const helperNeeded = h => !(h.station === 'topping' && spec('pantry').autoTop);
 
   // ---------- opening and closing ----------
   function open() {
@@ -77,6 +82,7 @@ export function createKitchen(api) {
       coming: sh.customers, spawnIn: .6, served: 0, lost: 0, earned: 0,
       hearts: Math.max(1, SHIFT_RULES.hearts + (m.hearts || 0)),
       toss: false, say: null, sayUntil: 0, over: false,
+      help: Object.fromEntries(hired().map(h => [h.id, { wait: h.every, busy: 0, icon: null }])),
     };
     if (sh.intro && !data().introSeen.includes(i)) { showIntro(sh.intro); return; }
     card = null;
@@ -123,6 +129,7 @@ export function createKitchen(api) {
       const j = run.plates.indexOf('bagel');
       if (j >= 0 && need > run.plates.filter(p => p === 'creamBagel').length) { run.plates[j] = 'creamBagel'; changed = true; }
     }
+    if (helpers(dt)) changed = true;
     run.cust.forEach((cu, i) => {
       if (!cu) return;
       if (cu.leaving) { cu.leaving -= dt; if (cu.leaving <= 0) { run.cust[i] = null; changed = true; } return; }
@@ -141,6 +148,52 @@ export function createKitchen(api) {
       if (run.spawnIn <= 0 && free >= 0) { run.cust[free] = newCustomer(); run.coming--; run.spawnIn = gap(); changed = true; }
     } else if (run.cust.every(x => !x)) { endShift(); return; }
     if (changed) render(); else live();
+  }
+
+  // ---------- helpers ----------
+  // Each hired helper does one job at a time, then rests for "every" seconds. Returns true when
+  // something changed on screen.
+  const stillWanted = f => run.cust.reduce((t, cu) => t + (cu && !cu.leaving ? cu.wants.filter(w => !w.got && w.f === f).length : 0), 0);
+  const JOBS = {
+    oven() {
+      const burnt = run.oven.findIndex(x => x?.state === 'burnt');
+      if (burnt >= 0) { const f = run.oven[burnt].food; run.oven[burnt] = null; return `${f}Burnt`; }
+      const p = run.plates.indexOf(null);
+      if (p < 0) return null;
+      let j = -1;
+      run.oven.forEach((x, k) => { if (x?.state === 'done' && x.t >= .6 && (j < 0 || x.t > run.oven[j].t)) j = k; });
+      if (j < 0) return null;
+      run.plates[p] = run.oven[j].food;
+      run.oven[j] = null;
+      return run.plates[p];
+    },
+    coffee() {
+      if (!run.sh.menu.includes('coffee')) return null;
+      const free = run.cups.indexOf(null);
+      if (free < 0 || stillWanted('coffee') <= run.cups.filter(Boolean).length) return null;
+      run.cups[free] = { state: 'pour', t: 0, need: spec('coffee').pour };
+      return 'cupEmpty';
+    },
+    topping() {
+      const j = run.plates.indexOf('bagel');
+      if (j < 0 || stillWanted('creamBagel') <= run.plates.filter(p => p === 'creamBagel').length) return null;
+      run.plates[j] = 'creamBagel';
+      return 'creamCheese';
+    },
+  };
+  function helpers(dt) {
+    let changed = false;
+    for (const h of hired()) {
+      const st = run.help[h.id];
+      if (!st) continue;
+      if (st.busy > 0) { st.busy -= dt; if (st.busy <= 0) { st.icon = null; changed = true; } }
+      st.wait -= dt;
+      if (st.wait > 0 || !helperNeeded(h)) continue;
+      const did = JOBS[h.station]();
+      if (!did) continue;
+      st.wait = h.every; st.busy = .9; st.icon = did; changed = true;
+    }
+    return changed;
   }
 
   // ---------- taps ----------
@@ -401,6 +454,8 @@ export function createKitchen(api) {
       else if (kind === 'plate') { const [x, y] = plateSpot(+arg); s += glow(x, y + 2, 22); }
       else if (kind === 'pantry') { const sp = pa.spots.find(q => q.id === arg); if (sp) s += glow(px + sp.x, BOTTOM + sp.y, 24); }
     }
+    // The helpers, each standing under the station they mind.
+    for (const h of hired()) s += A.helper(h.id, h.x, HELPER_Y, run?.help[h.id]?.icon || null);
     // Tomato, the head chef, says what to do next.
     s += A.friend('tomato', 46, 604, 1.2, A.chefHat(), 'bob');
     s += A.rect(84, 572, 250, 64, 16, A.CREAM, { stroke: '#e8dccb', 'stroke-width': 1.5 }) + A.path('M86,596 L74,604 L86,608 Z', A.CREAM);
@@ -480,6 +535,16 @@ export function createKitchen(api) {
       const note = next ? `Next: <b>${next.name}</b>. ${next.perk}` : now.perk;
       return `<li class="k-appl"><div><b>${a.name}: ${now.name} ${pips}</b><span>${note}</span></div>${right}</li>`;
     }).join('');
+    const helpers = HELPERS.map(h => {
+      const art = `<svg class="k-helper" viewBox="-22 -32 44 56" aria-hidden="true">${A.helper(h.id, 0, 0)}</svg>`;
+      let right;
+      if (k.helpers.includes(h.id)) right = `<span class="k-done">Hired!</span>`;
+      else if (!shiftOpen(h.opens - 1)) right = `<span class="k-done k-later">Opens at<br>shift ${h.opens}</span>`;
+      else if (!helperNeeded(h)) right = `<span class="k-done k-later">Not needed</span>`;
+      else right = `<button class="btn primary k-buy" data-hire="${h.id}"${s.dollars >= h.cost ? '' : ' disabled'}>Hire<br>$${h.cost.toLocaleString()}</button>`;
+      const note = helperNeeded(h) ? h.job : 'Your glass fridge spreads the cream cheese already.';
+      return `<li class="k-appl">${art}<div><b>${h.name}</b><span>${note}</span></div>${right}</li>`;
+    }).join('');
     const sh = SHIFTS[chosen];
     const menu = sh.menu.map(f => FOODS[f].name).join(', ');
     showCard(`<h2>Cooking shifts</h2>
@@ -487,6 +552,8 @@ export function createKitchen(api) {
       <div class="k-shifts">${shifts}</div>
       <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.customers} customers. Menu: ${menu}.</p>
       <button class="btn primary k-start" data-start="${chosen}">Start shift ${chosen + 1}</button>
+      <h3>Kitchen helpers</h3>
+      <ul class="list k-appls">${helpers}</ul>
       <h3>Kitchen upgrades</h3>
       <ul class="list k-appls">${appliances}</ul>`);
   }
@@ -522,6 +589,16 @@ export function createKitchen(api) {
     if (b.dataset.start !== undefined) { start(+b.dataset.start); return; }
     if (b.dataset.home !== undefined) { showHome(); return; }
     if (b.dataset.go !== undefined) { data().introSeen.push(run.i); api.save(); card = null; hideCard(); render(); return; }
+    if (b.dataset.hire) {
+      const h = HELPERS.find(x => x.id === b.dataset.hire), k = data();
+      if (!h || k.helpers.includes(h.id) || S().dollars < h.cost) return;
+      S().dollars -= h.cost;
+      k.helpers.push(h.id);
+      api.buzz('serve');
+      api.save();
+      showHome();
+      return;
+    }
     if (b.dataset.buy) {
       const a = APPLIANCES.find(x => x.id === b.dataset.buy), next = a.levels[level(a.id)];
       if (!next || S().dollars < next.cost) return;
