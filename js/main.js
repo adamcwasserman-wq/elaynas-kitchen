@@ -1417,12 +1417,11 @@ function addStars(n, speedy, lucky = 0) {
 function passRound() {
   const CITY = city(), no = roundNo(), spec = roundSpec(), first = no !== 'crazy' && !maxed() && no === S.starLevel + 1;
   const tips = share => Math.round(spec.reward.dollars * (CITY.upgradeCost || 1) * share / 5) * 5;
-  const gems = first || no === 'crazy' ? spec.reward.gems : ROUND_RULES.replay.gems;
   const dollars = tips(first || no === 'crazy' ? 1 : ROUND_RULES.replay.dollars);
   if (first) S.starLevel++;
   const done = first && maxed();
   if (done) S.playLevel = ROUND_RULES.stars;
-  S.gems += gems; S.dollars += dollars; S.stats.earned += dollars;
+  S.dollars += dollars; S.stats.earned += dollars;
   S.cityStars = 0; S.complaints = 0; orderPick = null; S.orders = [];
   fillOrders();
   const lv = S.starLevel, opens = LEVEL_NEEDS.indexOf(lv);
@@ -1433,7 +1432,7 @@ function passRound() {
     line: done ? 'Every round won! Off to your island to celebrate. Come back any time to replay any round, or try Crazy mode.'
       : first ? `${opens > 0 ? `Level ${opens + 1} upgrades are open! ` : ''}${lv === ROUND_RULES.opensNextAt - 1 ? 'One more star opens your next restaurant! ' : ''}Round ${lv + 1}: ${roundGoal()} stars, and customers are a little more impatient.`
       : `Keep going: ${roundShort()} again, or pick another round in your restaurant.`,
-    reward: dollars, gems, then: done ? openHood : null,
+    reward: dollars, then: done ? openHood : null,
   });
   setTimeout(checkHood, 50);
   if (first && lv >= ROUND_RULES.opensNextAt) openNextCity();
@@ -2549,7 +2548,6 @@ function boot() {
   kitchen = createKitchen({
     getS: () => S, save, buzz, mood, renderAll,
     earn: n => { S.dollars += n; S.stats.earned += n; visitorsSpend(n); },
-    gems: n => { S.gems += n; },
     cityId: () => S.city, cityName: () => city().name,
   });
   $('#brand-pin').innerHTML = ICONS.pin;

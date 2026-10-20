@@ -21,7 +21,7 @@ const stars = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 const article = f => (/^[aeiou]/i.test(FOODS[f].name) ? 'an' : 'a');
 
 export function createKitchen(api) {
-  // api: getS, save, buzz, mood, earn(dollars), gems(n), cityId, cityName, renderAll
+  // api: getS, save, buzz, mood, earn(dollars), cityId, cityName, renderAll
   const S = () => api.getS();
   let run = null;        // the shift being played (not saved: leaving ends it)
   let card = null;       // 'home' | 'intro' | 'result' while a card covers the kitchen
@@ -702,14 +702,9 @@ export function createKitchen(api) {
       const share = run.served / run.sh.customers, [one, two] = SHIFT_RULES.stars;
       got = run.hearts <= 0 ? 0 : share >= 1 && run.lost === 0 ? 3 : share >= two ? 2 : share >= one ? 1 : 0;
     }
-    const before = k.best[run.i] || 0;
-    let gems = 0;
-    if (got >= 1 && before < 1) gems += 1;
-    if (got >= 3 && before < 3) gems += 2;
-    k.best[run.i] = Math.max(before, got);
-    if (gems) api.gems(gems);
+    k.best[run.i] = Math.max(k.best[run.i] || 0, got);
     api.save();
-    showResult(got, gems);
+    showResult(got);
   }
 
   // ---------- where things are on screen ----------
@@ -1032,7 +1027,7 @@ export function createKitchen(api) {
     return canHire(h.id) ? `<button class="btn primary" data-go data-hire-now="${h.id}">Hire ${h.name} for $${h.cost}</button>` : `<p class="muted small">You need $${h.cost} in tips to hire ${h.name}.</p>`;
   }
 
-  function showResult(got, gems) {
+  function showResult(got) {
     card = 'result';
     render();
     const i = run.i, next = i + 1 < SHIFTS.length && shiftOpen(i + 1);
@@ -1044,7 +1039,7 @@ export function createKitchen(api) {
       : g ? (got === 3 ? `You earned $${run.earned} before the clock ran out!` : `You earned $${run.earned}. Earn $${g[got]} for ${got + 1} star${got ? 's' : ''}.`)
       : got ? `You served ${run.served} of ${run.sh.customers} customers.` : `You served ${run.served} of ${run.sh.customers}. Serve at least ${Math.ceil(run.sh.customers * SHIFT_RULES.stars[0])} for a star.`;
     showCard(`<div class="k-result"><p class="k-stars">${stars(got)}</p><h2>${title}</h2><p>${line}</p>
-      <p class="k-earned">+$${run.earned} tips${gems ? ` · +${gems} gem${gems > 1 ? 's' : ''}` : ''}</p>
+      <p class="k-earned">+$${run.earned} tips</p>
       <div class="k-btns">${next ? `<button class="btn primary" data-start="${i + 1}">Next shift</button>` : ''}
       <button class="btn${next ? '' : ' primary'}" data-start="${i}">Play again</button>
       <button class="btn ghost" data-home>Kitchen</button></div></div>`);

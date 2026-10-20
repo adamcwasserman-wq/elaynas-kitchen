@@ -24,26 +24,27 @@ export const FIRST_ORDERS = [
 //                 up to level 3, "advanced" goes higher). A dish's foods are never above the top plain level.
 //   wants         how many things one customer asks for (never more than MAX_WANTS)
 //   fastSeconds   serve within this for the speed bonus; a customer leaves at twice this
-//   reward        for passing the round the first time: gems, and tips (times the restaurant's upgradeCost)
+//   reward        for passing the round the first time: tips (times the restaurant's upgradeCost).
+//                 Rounds never pay gems (badges and missions do).
 // The time limits come from how much work each round's orders take: early rounds leave about
 // four times the time needed, round 10 about one and a half.
 export const ROUNDS = [
-  { goal: 12, customers: 1, plainTiers: [1, 3], dishChance: 0, dishLevels: [], wants: [1, 1], fastSeconds: 50, reward: { gems: 2, dollars: 30 } },
-  { goal: 22, customers: 2, plainTiers: [2, 3], dishChance: 0.5, dishLevels: ['simple'], wants: [1, 1], fastSeconds: 35, reward: { gems: 2, dollars: 50 } },
-  { goal: 26, customers: 2, plainTiers: [2, 4], dishChance: 0.6, dishLevels: ['simple'], wants: [1, 1], fastSeconds: 40, reward: { gems: 3, dollars: 80 } },
-  { goal: 28, customers: 3, plainTiers: [2, 4], dishChance: 0.6, dishLevels: ['simple'], wants: [1, 1], fastSeconds: 50, reward: { gems: 3, dollars: 110 } },
-  { goal: 34, customers: 3, plainTiers: [3, 4], dishChance: 0.65, dishLevels: ['simple', 'advanced'], wants: [1, 1], fastSeconds: 75, reward: { gems: 4, dollars: 150 } },
-  { goal: 40, customers: 3, plainTiers: [3, 5], dishChance: 0.7, dishLevels: ['simple', 'advanced', 'advanced'], wants: [1, 1], fastSeconds: 100, reward: { gems: 5, dollars: 200 } },
-  { goal: 50, customers: 3, plainTiers: [3, 5], dishChance: 0.6, dishLevels: ['simple', 'advanced'], wants: [1, 2], fastSeconds: 120, reward: { gems: 5, dollars: 260 } },
-  { goal: 55, customers: 3, plainTiers: [3, 5], dishChance: 0.65, dishLevels: ['simple', 'advanced'], wants: [1, 2], fastSeconds: 110, reward: { gems: 6, dollars: 330 } },
-  { goal: 60, customers: 3, plainTiers: [3, 5], dishChance: 0.7, dishLevels: ['advanced', 'simple', 'advanced'], wants: [1, 2], fastSeconds: 110, reward: { gems: 8, dollars: 420 } },
-  { goal: 65, customers: 3, plainTiers: [4, 5], dishChance: 0.7, dishLevels: ['simple', 'advanced', 'advanced'], wants: [1, 2], fastSeconds: 105, reward: { gems: 20, dollars: 800 } },
+  { goal: 12, customers: 1, plainTiers: [1, 3], dishChance: 0, dishLevels: [], wants: [1, 1], fastSeconds: 50, reward: { dollars: 30 } },
+  { goal: 22, customers: 2, plainTiers: [2, 3], dishChance: 0.5, dishLevels: ['simple'], wants: [1, 1], fastSeconds: 35, reward: { dollars: 50 } },
+  { goal: 26, customers: 2, plainTiers: [2, 4], dishChance: 0.6, dishLevels: ['simple'], wants: [1, 1], fastSeconds: 40, reward: { dollars: 80 } },
+  { goal: 28, customers: 3, plainTiers: [2, 4], dishChance: 0.6, dishLevels: ['simple'], wants: [1, 1], fastSeconds: 50, reward: { dollars: 110 } },
+  { goal: 34, customers: 3, plainTiers: [3, 4], dishChance: 0.65, dishLevels: ['simple', 'advanced'], wants: [1, 1], fastSeconds: 75, reward: { dollars: 150 } },
+  { goal: 40, customers: 3, plainTiers: [3, 5], dishChance: 0.7, dishLevels: ['simple', 'advanced', 'advanced'], wants: [1, 1], fastSeconds: 100, reward: { dollars: 200 } },
+  { goal: 50, customers: 3, plainTiers: [3, 5], dishChance: 0.6, dishLevels: ['simple', 'advanced'], wants: [1, 2], fastSeconds: 120, reward: { dollars: 260 } },
+  { goal: 55, customers: 3, plainTiers: [3, 5], dishChance: 0.65, dishLevels: ['simple', 'advanced'], wants: [1, 2], fastSeconds: 110, reward: { dollars: 330 } },
+  { goal: 60, customers: 3, plainTiers: [3, 5], dishChance: 0.7, dishLevels: ['advanced', 'simple', 'advanced'], wants: [1, 2], fastSeconds: 110, reward: { dollars: 420 } },
+  { goal: 65, customers: 3, plainTiers: [4, 5], dishChance: 0.7, dishLevels: ['simple', 'advanced', 'advanced'], wants: [1, 2], fastSeconds: 105, reward: { dollars: 800 } },
 ];
 // Crazy mode opens once a restaurant has all 10 stars: big orders, short fuses, big rewards (every time it's cleared).
-export const CRAZY = { goal: 70, customers: 3, plainTiers: [4, 5], dishChance: 0.75, dishLevels: ['advanced'], wants: [2, 2], fastSeconds: 75, reward: { gems: 10, dollars: 1200 } };
+export const CRAZY = { goal: 70, customers: 3, plainTiers: [4, 5], dishChance: 0.75, dishLevels: ['advanced'], wants: [2, 2], fastSeconds: 75, reward: { dollars: 1200 } };
 // stars: rounds per restaurant. opensNextAt: stars that open the next restaurant.
-// replay: what replaying a round she's already won pays (gems, and this share of its tips).
-export const ROUND_RULES = { stars: 10, opensNextAt: 6, replay: { gems: 1, dollars: 0.5 } };
+// replay: what replaying a round she's already won pays (this share of its tips).
+export const ROUND_RULES = { stars: 10, opensNextAt: 6, replay: { dollars: 0.5 } };
 
 // No customer asks for more than this many things (VIPs included). More got too hard to juggle,
 // except in the Dinner rush mood from round 7 on (see wantsMax in data/moods.js).
