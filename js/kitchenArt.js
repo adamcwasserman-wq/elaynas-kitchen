@@ -48,9 +48,10 @@ export const friend = (kind, x, y, s = 1, extra = '', cls = '', sad = false) =>
   g(`translate(${x} ${y}) scale(${s})`, `<g class="${cls}">${ell(0, 21, 14, 3, INK, { opacity: .12 })}${FRIEND[kind](sad)}${extra}</g>`);
 
 // A kitchen helper standing on the floor: a small chef's hat, and when "busy" a hop and the thing
-// they just handled floating over their head.
-export const helper = (kind, x, y, busy = null) => friend(kind, x, y - (busy ? 6 : 0), .9, g('translate(0 -1) scale(.62)', chefHat()) +
-  (busy ? g('translate(0 -42)', circ(0, 0, 15, CREAM, { stroke: GOLD, 'stroke-width': 2 }) + FOOD[busy]()) : ''), busy ? '' : 'bob b');
+// they just handled floating over their head ('oops' when they fumbled).
+export const helper = (kind, x, y, busy = null, oops = false) => friend(kind, x, y - (busy && !oops ? 6 : 0), .9, g('translate(0 -1) scale(.62)', chefHat()) +
+  (busy ? g('translate(0 -42)', circ(0, 0, 15, CREAM, { stroke: oops ? '#e2412f' : GOLD, 'stroke-width': 2 }) +
+    (oops ? text(0, 6, '?', 18, '#e2412f', { 'text-anchor': 'middle', 'font-family': 'Righteous' }) : FOOD[busy]())) : ''), busy ? '' : 'bob b', oops);
 
 // ---------- food, drawn around 0,0 at about 24 across ----------
 const RING = (r, h) => `M${-r},0 a${r},${r} 0 1,0 ${2 * r},0 a${r},${r} 0 1,0 ${-2 * r},0 Z M${-h},0 a${h},${h} 0 1,0 ${2 * h},0 a${h},${h} 0 1,0 ${-2 * h},0 Z`;

@@ -4,7 +4,7 @@
 // and taps a finished food to hand it to the first customer who wants it.
 // Tuning lives in data/kitchen.js; the drawings in js/kitchenArt.js.
 
-import { FOODS, PANTRY, SHIFTS, SHIFT_RULES, APPLIANCES, HELPERS, KITCHEN_CITIES } from '../data/kitchen.js';
+import { FOODS, PANTRY, SHIFTS, SHIFT_RULES, APPLIANCES, HELPERS, HELPER_LEVELS, KITCHEN_CITIES } from '../data/kitchen.js';
 import * as A from './kitchenArt.js';
 
 const $ = sel => document.querySelector(sel);
@@ -33,6 +33,9 @@ export function createKitchen(api) {
     const k = (s.kitchen[api.cityId()] ??= { best: [], appl: {}, introSeen: [] });
     k.introSeen ??= [];
     k.helpers ??= [];
+    k.helperJobs ??= {};
+    if (k.bring === undefined) k.bring = k.helpers[0] ?? null;
+    if (k.bring && !k.helpers.includes(k.bring)) k.bring = null;
     for (const a of APPLIANCES) k.appl[a.id] ??= 1;
     return k;
   }
@@ -41,7 +44,10 @@ export function createKitchen(api) {
   const shiftOpen = i => i === 0 || (data().best[i - 1] || 0) >= SHIFT_RULES.openNext;
   const firstUnbeaten = () => { let i = 0; while (i < SHIFTS.length - 1 && shiftOpen(i + 1) && (data().best[i] || 0) > 0) i++; return i; };
   const hasKitchen = () => KITCHEN_CITIES.includes(api.cityId());
-  const hired = () => HELPERS.filter(h => data().helpers.includes(h.id));
+  const hired = id => data().helpers.includes(id);
+  const helperLevel = id => { const n = data().helperJobs[id] || 0; let lv = 1; while (lv < HELPER_LEVELS.length && n >= HELPER_LEVELS[lv].jobs) lv++; return lv; };
+  // The one helper coming on the next shift (or the one on this shift).
+  const bringing = () => HELPERS.find(h => h.id === data().bring && hired(h.id)) || null;
   // Avocado has nothing to do once the glass fridge spreads cream cheese by itself.
   const helperNeeded = h => !(h.station === 'topping' && spec('pantry').autoTop);
 
@@ -82,7 +88,7 @@ export function createKitchen(api) {
       coming: sh.customers, spawnIn: .6, served: 0, lost: 0, earned: 0,
       hearts: Math.max(1, SHIFT_RULES.hearts + (m.hearts || 0)),
       toss: false, say: null, sayUntil: 0, over: false,
-      help: Object.fromEntries(hired().map(h => [h.id, { wait: h.every, busy: 0, icon: null }])),
+      helper: bringing(), help: { wait: 2, busy: 0, icon: null, oops: false },
     };
     if (sh.intro && !data().introSeen.includes(i)) { showIntro(sh.intro); return; }
     card = null;
@@ -151,49 +157,53 @@ export function createKitchen(api) {
   }
 
   // ---------- helpers ----------
-  // Each hired helper does one job at a time, then rests for "every" seconds. Returns true when
-  // something changed on screen.
+  // She brings one helper on a shift. The helper does one job at a time, then rests. Low level
+  // helpers rest longer and sometimes fumble ("oops"); every job done counts toward the next level.
   const stillWanted = f => run.cust.reduce((t, cu) => t + (cu && !cu.leaving ? cu.wants.filter(w => !w.got && w.f === f).length : 0), 0);
+  // Each job returns what the helper handled (for the bubble over their head), or null if there is
+  // nothing to do. With "look" set it only checks, and changes nothing.
   const JOBS = {
-    oven() {
+    oven(look) {
       const burnt = run.oven.findIndex(x => x?.state === 'burnt');
-      if (burnt >= 0) { const f = run.oven[burnt].food; run.oven[burnt] = null; return `${f}Burnt`; }
+      if (burnt >= 0) { const f = run.oven[burnt].food; if (!look) run.oven[burnt] = null; return `${f}Burnt`; }
       const p = run.plates.indexOf(null);
       if (p < 0) return null;
       let j = -1;
       run.oven.forEach((x, k) => { if (x?.state === 'done' && x.t >= .6 && (j < 0 || x.t > run.oven[j].t)) j = k; });
       if (j < 0) return null;
-      run.plates[p] = run.oven[j].food;
-      run.oven[j] = null;
-      return run.plates[p];
+      const f = run.oven[j].food;
+      if (!look) { run.plates[p] = f; run.oven[j] = null; }
+      return f;
     },
-    coffee() {
+    coffee(look) {
       if (!run.sh.menu.includes('coffee')) return null;
       const free = run.cups.indexOf(null);
       if (free < 0 || stillWanted('coffee') <= run.cups.filter(Boolean).length) return null;
-      run.cups[free] = { state: 'pour', t: 0, need: spec('coffee').pour };
+      if (!look) run.cups[free] = { state: 'pour', t: 0, need: spec('coffee').pour };
       return 'cupEmpty';
     },
-    topping() {
+    topping(look) {
       const j = run.plates.indexOf('bagel');
       if (j < 0 || stillWanted('creamBagel') <= run.plates.filter(p => p === 'creamBagel').length) return null;
-      run.plates[j] = 'creamBagel';
+      if (!look) run.plates[j] = 'creamBagel';
       return 'creamCheese';
     },
   };
   function helpers(dt) {
+    const h = run.helper, st = run.help;
+    if (!h) return false;
     let changed = false;
-    for (const h of hired()) {
-      const st = run.help[h.id];
-      if (!st) continue;
-      if (st.busy > 0) { st.busy -= dt; if (st.busy <= 0) { st.icon = null; changed = true; } }
-      st.wait -= dt;
-      if (st.wait > 0 || !helperNeeded(h)) continue;
-      const did = JOBS[h.station]();
-      if (!did) continue;
-      st.wait = h.every; st.busy = .9; st.icon = did; changed = true;
-    }
-    return changed;
+    if (st.busy > 0) { st.busy -= dt; if (st.busy <= 0) { st.icon = null; st.oops = false; changed = true; } }
+    st.wait -= dt;
+    if (st.wait > 0 || !helperNeeded(h) || !JOBS[h.station](true)) return changed;
+    const lv = helperLevel(h.id), how = HELPER_LEVELS[lv - 1];
+    st.wait = how.every; st.busy = .9;
+    if (Math.random() > how.hit) { st.icon = 'oops'; st.oops = true; return true; }
+    st.icon = JOBS[h.station]();
+    const k = data();
+    k.helperJobs[h.id] = (k.helperJobs[h.id] || 0) + 1;
+    if (helperLevel(h.id) > lv) { api.buzz('serve'); say(`${h.name} is getting good! Now level ${lv + 1}.`, 3); api.save(); }
+    return true;
   }
 
   // ---------- taps ----------
@@ -454,8 +464,9 @@ export function createKitchen(api) {
       else if (kind === 'plate') { const [x, y] = plateSpot(+arg); s += glow(x, y + 2, 22); }
       else if (kind === 'pantry') { const sp = pa.spots.find(q => q.id === arg); if (sp) s += glow(px + sp.x, BOTTOM + sp.y, 24); }
     }
-    // The helpers, each standing under the station they mind.
-    for (const h of hired()) s += A.helper(h.id, h.x, HELPER_Y, run?.help[h.id]?.icon || null);
+    // The helper on this shift, standing under the station they mind.
+    const hp = run ? run.helper : bringing();
+    if (hp) s += A.helper(hp.id, hp.x, HELPER_Y, run?.help.icon || null, run?.help.oops);
     // Tomato, the head chef, says what to do next.
     s += A.friend('tomato', 46, 604, 1.2, A.chefHat(), 'bob');
     s += A.rect(84, 572, 250, 64, 16, A.CREAM, { stroke: '#e8dccb', 'stroke-width': 1.5 }) + A.path('M86,596 L74,604 L86,608 Z', A.CREAM);
@@ -519,6 +530,7 @@ export function createKitchen(api) {
   function showCard(html) { const el = $('#k-card'); el.innerHTML = html; el.hidden = false; el.scrollTop = 0; }
   function hideCard() { $('#k-card').hidden = true; }
 
+  const pips = (n, of) => `<span class="pips">${Array.from({ length: of }, (_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
   function showHome() {
     card = 'home';
     run = null;
@@ -530,29 +542,32 @@ export function createKitchen(api) {
     }).join('');
     const appliances = APPLIANCES.map(a => {
       const n = level(a.id), now = a.levels[n - 1], next = a.levels[n];
-      const pips = `<span class="pips">${a.levels.map((_, i) => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
       const right = next ? `<button class="btn primary k-buy" data-buy="${a.id}"${s.dollars >= next.cost ? '' : ' disabled'}>Upgrade<br>$${next.cost.toLocaleString()}</button>` : `<span class="k-done">All done!</span>`;
       const note = next ? `Next: <b>${next.name}</b>. ${next.perk}` : now.perk;
-      return `<li class="k-appl"><div><b>${a.name}: ${now.name} ${pips}</b><span>${note}</span></div>${right}</li>`;
+      return `<li class="k-appl"><div><b>${a.name}: ${now.name} ${pips(n, a.levels.length)}</b><span>${note}</span></div>${right}</li>`;
     }).join('');
     const helpers = HELPERS.map(h => {
       const art = `<svg class="k-helper" viewBox="-22 -32 44 56" aria-hidden="true">${A.helper(h.id, 0, 0)}</svg>`;
-      let right;
-      if (k.helpers.includes(h.id)) right = `<span class="k-done">Hired!</span>`;
-      else if (!shiftOpen(h.opens - 1)) right = `<span class="k-done k-later">Opens at<br>shift ${h.opens}</span>`;
-      else if (!helperNeeded(h)) right = `<span class="k-done k-later">Not needed</span>`;
+      let right, title = `<b>${h.name}</b>`, note = h.job;
+      if (hired(h.id)) {
+        const lv = helperLevel(h.id), next = HELPER_LEVELS[lv], done = k.helperJobs[h.id] || 0;
+        title = `<b>${h.name} ${pips(lv, HELPER_LEVELS.length)}</b>`;
+        note = `${h.job} ${next ? `<b>${next.jobs - done} more job${next.jobs - done === 1 ? '' : 's'} to level ${lv + 1}.</b>` : '<b>Top level!</b>'}`;
+        right = k.bring === h.id ? `<button class="btn primary k-buy" data-bring="">Coming<br>along</button>` : `<button class="btn k-buy k-bring" data-bring="${h.id}">Bring</button>`;
+      } else if (!shiftOpen(h.opens - 1)) right = `<span class="k-done k-later">Opens at<br>shift ${h.opens}</span>`;
       else right = `<button class="btn primary k-buy" data-hire="${h.id}"${s.dollars >= h.cost ? '' : ' disabled'}>Hire<br>$${h.cost.toLocaleString()}</button>`;
-      const note = helperNeeded(h) ? h.job : 'Your glass fridge spreads the cream cheese already.';
-      return `<li class="k-appl">${art}<div><b>${h.name}</b><span>${note}</span></div>${right}</li>`;
+      if (!helperNeeded(h)) note = 'Your glass fridge spreads the cream cheese already.';
+      return `<li class="k-appl${k.bring === h.id ? ' on' : ''}">${art}<div>${title}<span>${note}</span></div>${right}</li>`;
     }).join('');
     const sh = SHIFTS[chosen];
     const menu = sh.menu.map(f => FOODS[f].name).join(', ');
     showCard(`<h2>Cooking shifts</h2>
       <p class="muted small">Pick a shift. Serve every customer for three stars. Tips go in this restaurant's tip jar ($${s.dollars.toLocaleString()} now).</p>
       <div class="k-shifts">${shifts}</div>
-      <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.customers} customers. Menu: ${menu}.</p>
+      <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.customers} customers. Menu: ${menu}.${bringing() ? ` Helper: ${bringing().name}.` : ''}</p>
       <button class="btn primary k-start" data-start="${chosen}">Start shift ${chosen + 1}</button>
       <h3>Kitchen helpers</h3>
+      <p class="muted small">Bring one helper on each shift. The more jobs a helper does, the quicker and steadier they get.</p>
       <ul class="list k-appls">${helpers}</ul>
       <h3>Kitchen upgrades</h3>
       <ul class="list k-appls">${appliances}</ul>`);
@@ -594,11 +609,13 @@ export function createKitchen(api) {
       if (!h || k.helpers.includes(h.id) || S().dollars < h.cost) return;
       S().dollars -= h.cost;
       k.helpers.push(h.id);
+      k.bring ??= h.id;
       api.buzz('serve');
       api.save();
       showHome();
       return;
     }
+    if (b.dataset.bring !== undefined) { data().bring = b.dataset.bring || null; api.save(); showHome(); return; }
     if (b.dataset.buy) {
       const a = APPLIANCES.find(x => x.id === b.dataset.buy), next = a.levels[level(a.id)];
       if (!next || S().dollars < next.cost) return;
