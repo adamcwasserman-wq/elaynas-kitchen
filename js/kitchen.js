@@ -211,7 +211,7 @@ export function createKitchen(api) {
       const mx = spec('mixer');
       if (run.mix) {
         run.mix.t += dt;
-        if (run.mix.t >= run.mix.need) { run.ready = mx.batch; run.mix = null; changed = true; api.buzz('tap'); say('The dough is ready! Drag it onto the pretzel or challah shelf.', 3.5); }
+        if (run.mix.t >= run.mix.need) { run.ready = mx.batch; run.mix = null; changed = true; api.buzz('tap'); say('The dough is ready! Drag it onto the bagel or pretzel shelf.', 3.5); }
       } else if (mx.auto && !run.ready && doughIds().some(id => run.stock[id] <= 1)) { startMix(); changed = true; }
     }
     // The dishwasher washes what's waiting in one load, then the plates go back on the board.
@@ -278,8 +278,8 @@ export function createKitchen(api) {
   const atCup = j => { const [x, y] = cupSpot(j); return [x, y + 22]; };
   const atCounter = i => [custX(i), 172];
   const washerPt = () => [DISHWASHER[0], DISHWASHER[1] + 52];
-  function saltPt() {
-    const pa = A.pantry(level('pantry'), pantryItems()), sp = pa.spots.find(q => q.id === 'salt');
+  function pantryPt(id) {
+    const pa = A.pantry(level('pantry'), pantryItems()), sp = pa.spots.find(q => q.id === id);
     return sp ? [CENTRE.pantry - pa.W / 2 + sp.x, BOTTOM + sp.y + 22] : [CENTRE.pantry, BOTTOM + 20];
   }
   // Each plan: the stops to walk to, what happens at each stop (return false if it can't be done
@@ -323,14 +323,15 @@ export function createKitchen(api) {
         } } };
     },
     topping(h) {
-      const j = run.plates.indexOf('pretzel');
-      if (j < 0 || stillWanted('saltPretzel') <= run.plates.filter(p => p === 'saltPretzel').length) return null;
-      return { pts: [home(h), saltPt(), atPlate(j), home(h)], acts: {
-        1: st => { st.carry = 'salt'; return true; },
+      const t = toppingNeeded();
+      if (!t) return null;
+      const { on, topping } = FOODS[t], j = run.plates.indexOf(on);
+      return { pts: [home(h), pantryPt(topping), atPlate(j), home(h)], acts: {
+        1: st => { st.carry = topping; return true; },
         2: st => {
-          const k = run.plates[j] === 'pretzel' ? j : run.plates.indexOf('pretzel');
-          if (k < 0 || stillWanted('saltPretzel') <= run.plates.filter(p => p === 'saltPretzel').length) return false;
-          run.plates[k] = 'saltPretzel';
+          const k = run.plates[j] === on ? j : run.plates.indexOf(on);
+          if (k < 0 || stillWanted(t) <= run.plates.filter(p => p === t).length) return false;
+          run.plates[k] = t;
           st.carry = null;
           return true;
         } } };
@@ -368,6 +369,8 @@ export function createKitchen(api) {
         2: st => { run.wash.waiting += st.dishes || 0; st.dishes = 0; st.carry = null; return true; } } };
     },
   };
+  // A topped food a customer is waiting for, with its plain food already on a plate, or null.
+  const toppingNeeded = () => run.sh.menu.find(t => FOODS[t].on && run.plates.includes(FOODS[t].on) && stillWanted(t) > run.plates.filter(p => p === t).length) || null;
   // Lay a plan out in time: walking legs (quicker for trained helpers) with a short stop at each act.
   function makeTrip(plan, speed) {
     const segs = [], at = {};
@@ -476,10 +479,12 @@ export function createKitchen(api) {
   }
 
   function grab(id) {
-    if (id === 'salt') {
-      const j = run.plates.indexOf('pretzel');
-      if (j < 0) { nope('Put a baked pretzel on a plate first, then add salt.'); return; }
-      run.plates[j] = 'saltPretzel';
+    // A topping (cream cheese, salt) goes on the first plate with its plain food.
+    const top = Object.keys(FOODS).find(k => FOODS[k].topping === id);
+    if (top) {
+      const on = FOODS[top].on, j = run.plates.indexOf(on), what = PANTRY.find(p => p.id === id).name.toLowerCase();
+      if (j < 0) { nope(`Put a baked ${FOODS[on].name.toLowerCase()} on a plate first, then add ${what}.`); return; }
+      run.plates[j] = top;
       api.buzz('tap');
       render();
       return;
@@ -505,7 +510,7 @@ export function createKitchen(api) {
   function startMix() { run.mix = { t: 0, need: spec('mixer').secs }; }
   function mixerTap() {
     if (run.mix) { say('Mixing... watch the timer.'); render(); return; }
-    if (run.ready) { say('Drag the dough onto the pretzel or challah shelf.'); render(); return; }
+    if (run.ready) { say('Drag the dough onto the bagel or pretzel shelf.'); render(); return; }
     if (doughIds().every(id => run.stock[id] >= SHIFT_RULES.doughMax)) { nope('The shelf is full of dough.'); return; }
     startMix();
     api.buzz('tap');
@@ -558,7 +563,7 @@ export function createKitchen(api) {
     addEventListener('pointercancel', up);
   }
   function dropDough(id) {
-    if (!id) { say('Drag the dough right onto the pretzel or challah shelf.'); return; }
+    if (!id) { say('Drag the dough right onto the bagel or pretzel shelf.'); return; }
     const add = Math.min(run.ready, SHIFT_RULES.doughMax - run.stock[id]);
     if (add <= 0) { api.buzz('nope'); say('That shelf is full.'); return; }
     run.stock[id] += add;
@@ -566,7 +571,7 @@ export function createKitchen(api) {
     api.buzz('serve');
   }
   // The oven bread customers are waiting for that isn't baking, golden or on a plate yet (the one
-  // short the most), or null. A salted pretzel needs a pretzel.
+  // short the most), or null. A topped food needs its plain food (a cream cheese bagel needs a bagel).
   function mostNeeded() {
     let best = null, short = 0;
     for (const f of run.sh.menu.filter(x => FOODS[x].from === 'oven')) {
@@ -633,8 +638,10 @@ export function createKitchen(api) {
   function deliver(f, from) {
     const i = wanted(f);
     if (i < 0) {
-      const plain = f === 'pretzel' && run.cust.some(cu => cu && !cu.leaving && cu.wants.some(w => !w.got && w.f === 'saltPretzel'));
-      nope(plain ? 'That customer wants salt on it. Tap the salt first.' : `Nobody wants ${article(f)} ${FOODS[f].name.toLowerCase()} right now.`);
+      // A plain food when someone wants it topped: say which topping.
+      const top = Object.keys(FOODS).find(t => FOODS[t].on === f && wanted(t) >= 0);
+      const what = top && PANTRY.find(p => p.id === FOODS[top].topping).name.toLowerCase();
+      nope(top ? `That customer wants ${what} on it. Tap the ${what} first.` : `Nobody wants ${article(f)} ${FOODS[f].name.toLowerCase()} right now.`);
       return false;
     }
     const cu = run.cust[i];
@@ -743,8 +750,11 @@ export function createKitchen(api) {
       return { text: 'Tap the coffee machine to pour a cup.', target: 'coffee' };
     }
     if (plateWith(want) >= 0) return { text: `Tap the ${FOODS[want].name.toLowerCase()} to serve it.`, target: `plate:${plateWith(want)}` };
-    const base = want === 'saltPretzel' ? 'pretzel' : want;
-    if (want === 'saltPretzel' && plateWith('pretzel') >= 0) return { text: 'Tap the salt to sprinkle it on the pretzel.', target: 'pantry:salt' };
+    const base = FOODS[want].on || want;
+    if (FOODS[want].on && plateWith(base) >= 0) {
+      const tp = PANTRY.find(p => p.id === FOODS[want].topping);
+      return { text: `Tap the ${tp.name.toLowerCase()} to ${tp.verb} it on the ${FOODS[base].name.toLowerCase()}.`, target: `pantry:${tp.id}` };
+    }
     if (run.oven.some(x => x?.food === base && x.state === 'done')) return { text: `Golden! Tap the oven to put the ${FOODS[base].name.toLowerCase()} on a plate.`, target: 'oven' };
     if (run.oven.some(x => x?.food === base)) return { text: 'Baking... watch the timer.' };
     if (inStock(FOODS[base].dough) <= 0) {

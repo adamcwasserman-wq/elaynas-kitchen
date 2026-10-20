@@ -11,19 +11,22 @@
 //   dough   for oven foods: which dough in the pantry makes it
 //   bake    how long it takes in a level 1 oven
 //   on      for toppings: the food it goes on top of
+//   topping for toppings: the pantry thing that goes on it (its "verb" is how: spread, sprinkle)
 export const FOODS = {
-  pretzel: { name: 'Pretzel', price: 8, from: 'oven', dough: 'pretzelDough', bake: 6 },
+  bagel: { name: 'Bagel', price: 8, from: 'oven', dough: 'bagelDough', bake: 6 },
   coffee: { name: 'Coffee', price: 5, from: 'coffee' },
-  saltPretzel: { name: 'Salted pretzel', price: 12, from: 'topping', on: 'pretzel', topping: 'salt' },
-  challah: { name: 'Challah', price: 16, from: 'oven', dough: 'challahDough', bake: 9 },
+  creamBagel: { name: 'Cream cheese bagel', price: 12, from: 'topping', on: 'bagel', topping: 'creamCheese' },
+  pretzel: { name: 'Pretzel', price: 10, from: 'oven', dough: 'pretzelDough', bake: 8 },
+  saltPretzel: { name: 'Salted pretzel', price: 14, from: 'topping', on: 'pretzel', topping: 'salt' },
 };
 
 // Things in the pantry. "for" is the first food on the menu that needs it: it only shows up once
 // that food is on the menu.
 export const PANTRY = [
+  { id: 'bagelDough', name: 'Bagel dough', for: 'bagel' },
+  { id: 'creamCheese', name: 'Cream cheese', for: 'creamBagel', verb: 'spread' },
   { id: 'pretzelDough', name: 'Pretzel dough', for: 'pretzel' },
-  { id: 'salt', name: 'Pretzel salt', for: 'saltPretzel' },
-  { id: 'challahDough', name: 'Challah dough', for: 'challah' },
+  { id: 'salt', name: 'Salt', for: 'saltPretzel', verb: 'sprinkle' },
 ];
 
 // Shifts, in order, in five parts that get harder:
@@ -45,29 +48,31 @@ export const PANTRY = [
 //             from money earned. secs: how long. goals: dollars for 1, 2 and 3 stars at "Just
 //             right" (calmer moods get lower goals, busier ones higher).
 // After the last shift she can replay any shift she has opened.
-const ALL = ['pretzel', 'coffee', 'saltPretzel', 'challah'];
+const MOST = ['bagel', 'coffee', 'creamBagel', 'pretzel'];
+const ALL = [...MOST, 'saltPretzel'];
 export const SHIFTS = [
   // Part 1: just her.
-  { customers: 4, menu: ['pretzel'], wantsMax: 1, gap: 7, patience: 40,
-    intro: { id: 'pretzel', food: 'pretzel', title: 'Your first shift!', line: 'Tap the pretzel dough to put it in the oven. When it turns golden, tap the oven to put it on a plate, then tap the plate to serve it.' } },
-  { customers: 5, menu: ['pretzel', 'coffee'], wantsMax: 1, gap: 6.5, patience: 38,
+  { customers: 4, menu: ['bagel'], wantsMax: 1, gap: 7, patience: 40,
+    intro: { id: 'bagel', food: 'bagel', title: 'Your first shift!', line: 'Tap the bagel dough to put it in the oven. When it turns golden, tap the oven to put it on a plate, then tap the plate to serve it.' } },
+  { customers: 5, menu: ['bagel', 'coffee'], wantsMax: 1, gap: 6.5, patience: 38,
     intro: { id: 'coffee', food: 'coffee', title: 'New: coffee!', line: 'Tap the coffee machine to pour a cup. Tap the full cup to serve it.' } },
-  { customers: 6, menu: ['pretzel', 'coffee', 'saltPretzel'], wantsMax: 2, gap: 6.5, patience: 36,
-    intro: { id: 'salt', food: 'saltPretzel', title: 'New: salted pretzels!', line: 'Put a baked pretzel on a plate, then tap the salt to sprinkle it on.' } },
-  { customers: 7, menu: ALL, wantsMax: 2, gap: 6.5, patience: 38,
-    intro: { id: 'challah', food: 'challah', title: 'New: challah!', line: 'Tap the challah dough to bake it. It takes longer than pretzels, so start it early.' } },
+  { customers: 6, menu: ['bagel', 'coffee', 'creamBagel'], wantsMax: 2, gap: 6.5, patience: 36,
+    intro: { id: 'cream', food: 'creamBagel', title: 'New: cream cheese bagels!', line: 'Put a baked bagel on a plate, then tap the cream cheese to spread it on.' } },
+  { customers: 7, menu: MOST, wantsMax: 2, gap: 6.5, patience: 38,
+    intro: { id: 'pretzels', food: 'pretzel', title: 'New: pretzels!', line: 'Tap the pretzel dough to bake it. Pretzels take longer than bagels, so start them early.' } },
   // Part 2: more chores, and helpers to hire.
-  { customers: 7, menu: ALL, wantsMax: 2, gap: 6.5, patience: 36,
+  { customers: 7, menu: MOST, wantsMax: 2, gap: 6.5, patience: 36,
     intro: { id: 'cold', food: 'coffee', art: 'coffeeCold', title: 'New: coffee goes cold!', line: 'A full cup only stays hot for a little while. Pour it when someone wants one. A cold cup has to be tossed.' } },
-  { customers: 8, menu: ALL, wantsMax: 2, gap: 6.5, patience: 36 },
-  { customers: 8, menu: ALL, wantsMax: 2, gap: 6, patience: 34,
-    intro: { id: 'dishes', food: 'pretzel', art: 'dirty', title: 'New: dirty dishes!', line: 'Customers leave their dishes on the counter, and quick service gets a tip there too. Tap the dishes to clear them: nobody new can sit there until you do. They go in the dishwasher and come back clean.' } },
-  { customers: 0, menu: ALL, wantsMax: 2, gap: 6, patience: 34, rush: { secs: 90, goals: [120, 180, 240] },
-    intro: { id: 'rush', food: 'pretzel', art: 'clock', title: 'Rush hour!', line: 'Customers keep coming until the clock runs out. Earn the money goal for a star, and more for three stars.' } },
+  { customers: 8, menu: MOST, wantsMax: 2, gap: 6.5, patience: 36 },
+  { customers: 8, menu: MOST, wantsMax: 2, gap: 6, patience: 34,
+    intro: { id: 'dishes', food: 'bagel', art: 'dirty', title: 'New: dirty dishes!', line: 'Customers leave their dishes on the counter, and quick service gets a tip there too. Tap the dishes to clear them: nobody new can sit there until you do. They go in the dishwasher and come back clean.' } },
+  { customers: 0, menu: MOST, wantsMax: 2, gap: 6, patience: 34, rush: { secs: 90, goals: [120, 180, 240] },
+    intro: { id: 'rush', food: 'bagel', art: 'clock', title: 'Rush hour!', line: 'Customers keep coming until the clock runs out. Earn the money goal for a star, and more for three stars.' } },
   // Part 3: everyone's working, it's busy, and VIPs drop in.
-  { customers: 9, menu: ALL, wantsMax: 2, gap: 5.5, patience: 32, vip: .2,
-    intro: { id: 'vips', food: 'pretzel', art: 'vip', title: 'New: VIP customers!', line: 'Special guests drop in now and then. Zip is in a hurry, Pina orders for a party, Bubbie loves challah, Penny changes her mind, and the food critic reviews how fast you are. They pay extra!' } },
-  { customers: 10, menu: ALL, wantsMax: 2, gap: 5.5, patience: 32, vip: .2 },
+  { customers: 9, menu: MOST, wantsMax: 2, gap: 5.5, patience: 32, vip: .2,
+    intro: { id: 'vips', food: 'bagel', art: 'vip', title: 'New: VIP customers!', line: 'Special guests drop in now and then. Zip is in a hurry, Pina orders for a party, Bubbie loves cream cheese bagels, Penny changes her mind, and the food critic reviews how fast you are. They pay extra!' } },
+  { customers: 10, menu: ALL, wantsMax: 2, gap: 5.5, patience: 32, vip: .2,
+    intro: { id: 'salt', food: 'saltPretzel', title: 'New: salted pretzels!', line: 'Put a baked pretzel on a plate, then tap the salt to sprinkle it on.' } },
   { customers: 0, menu: ALL, wantsMax: 2, gap: 5, patience: 30, vip: .2, rush: { secs: 100, goals: [160, 240, 310] } },
   // Part 4: helpers start calling in sick.
   { away: 1, customers: 10, menu: ALL, wantsMax: 2, gap: 5.5, patience: 32, vip: .25 },
@@ -90,7 +95,7 @@ export const SHIFTS = [
 export const KITCHEN_VIPS = [
   { id: 'zip', name: 'Zip', art: 'zip', patience: .5, pay: 2, hearts: 2, hello: 'Zip is here and he is in a hurry! Serve him fast for double pay.' },
   { id: 'party', name: 'Pina', art: 'party', items: 3, pay: 2, hello: 'Pina is ordering for a party: three things, for double pay!' },
-  { id: 'bubbie', name: 'Bubbie', art: 'bubbie', wants: 'challah', patience: 2, tip: .5, hello: 'Bubbie came for challah. She is patient, and she tips well.' },
+  { id: 'bubbie', name: 'Bubbie', art: 'bubbie', wants: 'creamBagel', patience: 2, tip: .5, hello: 'Bubbie came for a cream cheese bagel. She is patient, and she tips well.' },
   { id: 'penny', name: 'Penny', art: 'penny', pay: 1.5, changes: true, hello: 'Penny is here. Watch out, she might change her mind!' },
   { id: 'critic', name: 'Monsieur Croissant', art: 'critic', review: 6, hello: 'The food critic! Serve him fast for a three spoon review.' },
 ];
@@ -115,7 +120,7 @@ export const SHIFT_RULES = {
 };
 
 // Shown the first time she plays a shift with the mixer (from SHIFT_RULES.doughFrom).
-export const DOUGH_INTRO = { id: 'dough', art: 'dough', title: 'New: the mixer!', line: 'Dough can run out now. Tap the mixer to make more. When it is ready, drag the dough onto the pretzel or challah shelf. It takes the right shape on the way!' };
+export const DOUGH_INTRO = { id: 'dough', art: 'dough', title: 'New: the mixer!', line: 'Dough can run out now. Tap the mixer to make more. When it is ready, drag the dough onto the bagel or pretzel shelf. It takes the right shape on the way!' };
 
 // Appliances: three levels each, bought with this restaurant's tips. The art grows with them.
 //   oven     slots: things baking at once. speed: bake time multiplier. noBurn: food never burns.
@@ -174,7 +179,7 @@ export const HELPERS = [
   { id: 'bean', name: 'Bean', station: 'coffee', cost: 120, opens: 5, x: 300,
     job: 'Pours coffee. Starts a cup whenever a customer is waiting for one.' },
   { id: 'avocado', name: 'Avocado', station: 'topping', cost: 180, opens: 9, x: 112,
-    job: 'Sprinkles salt on a plated pretzel when a customer wants one.' },
+    job: 'Spreads cream cheese on bagels and sprinkles salt on pretzels when customers want them.' },
   { id: 'mushroom', name: 'Mushroom', station: 'dishes', cost: 160, opens: 7, x: 151,
     job: 'Clears dishes off the counter into the dishwasher, and picks up the tips.' },
   { id: 'cinnamon', name: 'Cinnamon Roll', station: 'mixer', cost: 170, opens: 6, x: 76,

@@ -65,6 +65,9 @@ export const vip = (art, x, y, cls = '') => g(`translate(${x} ${y})`, `<g class=
   text(17, -14, '★', 14, GOLD, { stroke: '#d99a12', 'stroke-width': .6 }));
 
 // ---------- food, drawn around 0,0 at about 24 across ----------
+const RING = (r, h) => `M${-r},0 a${r},${r} 0 1,0 ${2 * r},0 a${r},${r} 0 1,0 ${-2 * r},0 Z M${-h},0 a${h},${h} 0 1,0 ${2 * h},0 a${h},${h} 0 1,0 ${-2 * h},0 Z`;
+const bagelArt = (dark, light, seeds) => g('scale(1 .8)', path(RING(12, 4), dark, { 'fill-rule': 'evenodd' }) + g('translate(-1 -1.5)', path(RING(11, 4.2), light, { 'fill-rule': 'evenodd' })) +
+  (seeds ? [[-6, -6], [3, -8], [7, -2], [-8, 2], [5, 5]].map(([x, y]) => ell(x, y, 1.4, .8, CREAM)).join('') : '') + shine(-6, -5, 3, 1.4));
 // A pretzel: two loops and crossed arms, drawn as a thick rope. Salt grains on top when salted.
 const KNOT = 'M0,-1 C-4,-9 -13,-9 -13,-1 C-13,7 -6,10 0,10 C6,10 13,7 13,-1 C13,-9 4,-9 0,-1 M-7,8 Q0,2 4,-6 M7,8 Q0,2 -4,-6';
 const pretzelArt = (dark, light, salt) => line(KNOT, dark, 6.4) + line(KNOT, light, 4) + shine(-9, -4, 2.2, 1.1) +
@@ -74,6 +77,10 @@ const cupArt = (full, cold) => line('M7,-1 Q13,-1 13,4 Q13,9 7,8', '#226a6e', 3)
   ell(-1, -5.5, 8, 2.4, cold ? '#a8876a' : full ? '#6b3a1e' : '#1d5558') + shine(-6, 1, 1.6, 4) +
   (cold ? line('M-13,-12 l3,3 M-13,-9 l3,-3 M10,-14 l3,3 M10,-11 l3,-3', '#7fb6e6', 1.6) : full ? line('M-4,-10 q-2,-3 0,-6', '#c9b8a8', 1.8, { class: 'steam' }) + line('M2,-10 q2,-3 0,-6', '#c9b8a8', 1.8, { class: 'steam b' }) : '');
 export const FOOD = {
+  bagel: () => bagelArt('#b8732f', '#e3a24f', true),
+  bagelDough: () => bagelArt('#d9bf94', '#f3e2c2', false),
+  bagelBurnt: () => bagelArt('#2e1d16', '#57382a', false),
+  creamBagel: () => FOOD.bagel() + path('M-9,-3 Q-7,-8 0,-8 Q8,-8 9,-3 Q4,1 0,-1 Q-5,2 -9,-3 Z', CREAM) + path('M-3,-2 Q0,-6 4,-4 Q1,-2 -3,-2 Z', '#e8dccb'),
   pretzel: () => pretzelArt('#8a4a1e', '#c47a3a', false),
   pretzelDough: () => pretzelArt('#d9bf94', '#f3e2c2', false),
   pretzelBurnt: () => pretzelArt('#2e1d16', '#57382a', false),
@@ -165,34 +172,36 @@ export function coffee(level) {
   return { art: s, W, H, cups, scale: cs, spoutY: -60 };
 }
 
-// The pantry. "items" are the pantry ids on today's menu; they sit in the front row, big enough to tap.
+// The pantry. "items" are the pantry ids on today's menu, big enough to tap: doughs on the top row,
+// toppings (cream cheese, salt) on the bottom row. Decorations make room for them.
 export function pantry(level, items) {
   const [W, H] = SIZE.pantry[level - 1];
   let s = '';
   const decor = [];
-  let rowY;
+  let rowY, row2Y;
   if (level === 1) {
     s += rect(0, -58, W, 8, 2, WOOD) + rect(0, -4, W, 8, 2, WOOD);
-    rowY = -74;
+    rowY = -74; row2Y = -22;
     decor.push(['flour', 26, -20], ['beans', 60, -20], ['dough', 96, -14]);
   } else if (level === 2) {
     s += rect(-4, -H, W + 8, H, 10, '#c98a5a') + rect(2, -H + 6, W - 4, H - 10, 6, '#f3dcb8');
     [-H + 48, -H + 92, -6].forEach(y => { s += rect(2, y, W - 4, 7, 2, WOOD); });
-    rowY = -H + 74;
+    rowY = -H + 74; row2Y = -26;
     decor.push(['flour', 24, -H + 30], ['flour', 50, -H + 30], ['beans', 80, -H + 30], ['beans', 102, -H + 30], ['dough', 30, -22], ['dough', 62, -22], ['creamCheese', 96, -20]);
   } else {
     s += rect(0, -H, W, H, 12, '#c9c2b8') + rect(0, -H, W - 5, H - 4, 12, '#f2eee8') + rect(0, -H, W - 5, 18, 12, '#5b2c6f') + rect(0, -H + 10, W - 5, 8, 0, '#5b2c6f');
     s += rect(8, -H + 26, W - 30, H - 40, 8, '#cfeeea') + rect(12, -H + 30, 6, H - 48, 3, '#fff', { opacity: .6 });
     [-H + 64, -H + 112].forEach(y => { s += rect(8, y, W - 30, 4, 2, '#9fc9c6'); });
     s += rect(W - 18, -H + 50, 6, 64, 3, GOLD);
-    rowY = -H + 92;
-    decor.push(['salt', 30, -H + 48], ['salt', 54, -H + 48], ['flour', 78, -H + 48], ['dough', 34, -30], ['beans', 66, -28]);
+    rowY = -H + 92; row2Y = -34;
+    decor.push(['salt', 30, -H + 48], ['creamCheese', 54, -H + 48], ['flour', 78, -H + 48], ['dough', 34, -30], ['beans', 66, -28]);
   }
-  s += decor.map(([k, x, y]) => food(k, x, y, .85)).join('');
-  // Tappable spots, spread across the front row.
+  // Tappable spots, spread across their row.
   const usable = level === 3 ? W - 30 : W;
   const x0 = level === 3 ? 8 : 0;
-  const spots = items.map((id, i) => ({ id, x: x0 + usable * (i + .5) / Math.max(3, items.length), y: rowY }));
+  const row = (ids, y) => ids.map((id, i) => ({ id, x: x0 + usable * (i + .5) / Math.max(2, ids.length), y }));
+  const spots = [...row(items.filter(id => id.endsWith('Dough')), rowY), ...row(items.filter(id => !id.endsWith('Dough')), row2Y)];
+  s += decor.filter(([, x, y]) => !spots.some(sp => Math.hypot(sp.x - x, sp.y - y) < 30)).map(([k, x, y]) => food(k, x, y, .85)).join('');
   return { art: s, W, H, spots };
 }
 
@@ -298,5 +307,5 @@ export function bin(on, level = 1) {
     line(`M-6,${-h + 8} L-6,-6 M0,${-h + 8} L0,-6 M6,${-h + 8} L6,-6`, '#2e7a2c', 2.2, { opacity: on ? 0 : 1 }) + (on ? line('M-7,-16 L-2,-10 L8,-22', '#fff', 3) : '');
 }
 
-// For the "New: cooking shifts!" card: Tomato in a chef's hat with a fresh pretzel.
-export const newsArt = () => `<svg viewBox="-60 -50 120 80" aria-hidden="true">${friend('tomato', -22, 0, 1.3, chefHat())}${plate(26, 4, 'pretzel', 1.4)}</svg>`;
+// For the "New: cooking shifts!" card: Tomato in a chef's hat with a fresh bagel.
+export const newsArt = () => `<svg viewBox="-60 -50 120 80" aria-hidden="true">${friend('tomato', -22, 0, 1.3, chefHat())}${plate(26, 4, 'bagel', 1.4)}</svg>`;
