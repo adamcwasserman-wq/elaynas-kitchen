@@ -109,6 +109,7 @@ export const SHIFT_RULES = {
   hot: 10,              // seconds a full cup stays hot before it goes cold (moods stretch it)
   coldFrom: 5,          // coffee goes cold from this shift on
   dirtyFrom: 7,         // from this shift on, customers leave dirty dishes (and quick-service tips) on the counter
+  sparePlates: 3,       // clean plates in the cupboard (on top of the board's) once there are dishes
   rushRefill: 1.5,      // rush hour: seconds before an empty spot at the counter fills again
   doughFrom: 6,         // from this shift on, dough runs out and is made at the mixer
   startDough: 2,        // doughs of each kind on the pantry shelf when a shift starts

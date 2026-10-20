@@ -99,7 +99,7 @@ export function createKitchen(api) {
       coming: sh.rush ? Infinity : sh.customers, first: true, sinceVip: 0, hadVip: false, spawnIn: .6, served: 0, lost: 0, earned: 0,
       hearts: Math.max(1, SHIFT_RULES.hearts + (m.hearts || 0)),
       toss: false, say: null, sayUntil: 0, over: false, trash: 0,
-      counter: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null), wash: { waiting: 0, load: 0, t: 0 },
+      counter: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null), wash: { waiting: 0, load: 0, t: 0 }, spare: SHIFT_RULES.sparePlates,
       stock: Object.fromEntries(PANTRY.filter(p => FOODS[p.for].from === 'oven').map(p => [p.id, SHIFT_RULES.startDough])),
       mix: null, ready: 0, drag: null,
       // Helpers only work from the shift where their job starts.
@@ -136,7 +136,14 @@ export function createKitchen(api) {
   // their dishes (and sometimes a tip) wait on the counter, and nobody new sits there until she taps
   // them. Tapped dishes go in the dishwasher and come back to the board clean.
   const dirtyOn = () => run.i + 1 >= SHIFT_RULES.dirtyFrom;
-  const used = () => (dirtyOn() ? 'away' : null); // what a plate slot holds after its food is served
+  // A plate leaves the board (served, or tossed). Once there are dishes, a clean one from the cupboard
+  // takes its spot if there's one left; otherwise the spot waits for the dishwasher. The spare plates
+  // cover customers still waiting on the rest of their order, so the board can't run dry while
+  // nothing is dirty yet.
+  function plateGone(i) {
+    if (dirtyOn() && run.spare > 0) { run.spare--; run.plates[i] = null; }
+    else run.plates[i] = dirtyOn() ? 'away' : null;
+  }
   const doughOn = () => run.i + 1 >= SHIFT_RULES.doughFrom;
   // Doughs on the shelf now (before the mixer shifts, there's always plenty).
   const inStock = id => (doughOn() ? run.stock[id] : Infinity);
@@ -219,7 +226,8 @@ export function createKitchen(api) {
     if (w.load) {
       w.t += dt;
       if (w.t >= spec('dishwasher').secs) {
-        for (let n = 0, j = 0; j < run.plates.length && n < w.load; j++) if (run.plates[j] === 'away') { run.plates[j] = null; n++; }
+        // Clean plates fill the empty spots on the board first, and the rest go back in the cupboard.
+        for (let n = 0; n < w.load; n++) { const j = run.plates.indexOf('away'); if (j >= 0) run.plates[j] = null; else run.spare++; }
         w.load = 0; changed = true; api.buzz('tap');
       }
     } else if (w.waiting) { w.load = w.waiting; w.waiting = 0; w.t = 0; changed = true; }
@@ -365,7 +373,8 @@ export function createKitchen(api) {
       if (i < 0) return null;
       const withDishes = run.counter[i].dishes > 0;
       return { pts: withDishes ? [home(h), atCounter(i), washerPt(), home(h)] : [home(h), atCounter(i), home(h)], acts: {
-        1: st => { const d = clearSpot(i, false); if (!d) return false; st.carry = d.dishes ? 'dirtyPlate' : null; st.dishes = d.dishes; return true; },
+        // If dishes turned up since this trip started (it was just for a tip), they still go in the dishwasher.
+        1: st => { const d = clearSpot(i, !withDishes); if (!d) return false; st.dishes = withDishes ? d.dishes : 0; st.carry = st.dishes ? 'dirtyPlate' : null; return true; },
         2: st => { run.wash.waiting += st.dishes || 0; st.dishes = 0; st.carry = null; return true; } } };
     },
   };
@@ -456,7 +465,7 @@ export function createKitchen(api) {
     if (run.toss) {
       run.toss = false;
       if (kind === 'plate' && run.plates[arg] && run.plates[arg] !== 'away' && run.plates[arg] !== 'held') {
-        run.plates[arg] = used();
+        plateGone(+arg);
         if (dirtyOn()) run.wash.waiting++;
         say('Tossed in the bin.');
         trash();
@@ -591,7 +600,13 @@ export function createKitchen(api) {
     run.oven.forEach((x, k) => { if (x?.state === 'done' && (j < 0 || x.t > run.oven[j].t)) j = k; });
     if (j < 0) { if (run.oven.some(Boolean)) say('Still baking. Wait for it to turn golden.'); else say('Tap some dough in the pantry to start baking.'); render(); return; }
     const p = run.plates.indexOf(null);
-    if (p < 0) { nope(run.plates.includes('away') ? 'No clean plate. Tap the dirty dishes on the counter so they get washed.' : 'No free plate. Serve one, or toss it in the green bin.'); return; }
+    if (p < 0) {
+      if (!run.plates.includes('away')) nope('No free plate. Serve one, or toss it in the green bin.');
+      else if (run.counter.some(d => d?.dishes)) nope('No clean plate. Tap the dirty dishes on the counter so they get washed.');
+      else if (run.wash.load || run.wash.waiting) nope('No clean plate yet. The dishwasher is almost done.');
+      else nope('No clean plate. The plates are out with customers still eating.');
+      return;
+    }
     run.plates[p] = run.oven[j].food;
     run.oven[j] = null;
     api.buzz('tap');
@@ -604,7 +619,7 @@ export function createKitchen(api) {
     if (f === 'away') { say('That plate is out with a customer. It comes back from the dishwasher.'); render(); return; }
     if (f === 'held') { say('A helper is bringing food for that plate.'); render(); return; }
     const cu = deliver(f, plateSpot(i));
-    if (cu) { run.plates[i] = used(); if (dirtyOn()) cu.dishes = (cu.dishes || 0) + 1; }
+    if (cu) { plateGone(i); if (dirtyOn()) cu.dishes = (cu.dishes || 0) + 1; }
     render();
   }
 
