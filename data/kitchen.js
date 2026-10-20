@@ -33,6 +33,7 @@ export const PANTRY = [
 //   patience  seconds a customer waits for a one-item order (each extra item adds itemPatience)
 //   intro     shown on a card the first time this shift starts (new foods and new rules).
 //             The first customer asks for intro.food. "art" picks a picture other than that food.
+//   away      how many hired helpers call in sick (picked at random when the shift starts)
 //   rush      a rush hour shift: customers keep coming until the clock runs out, and stars come
 //             from money earned. secs: how long. goals: dollars for 1, 2 and 3 stars at "Just
 //             right" (calmer moods get lower goals, busier ones higher).
@@ -46,15 +47,15 @@ export const SHIFTS = [
     intro: { food: 'coffee', art: 'coffeeCold', title: 'New: coffee goes cold!', line: 'A full cup only stays hot for a little while. Pour it when someone wants one. A cold cup has to be tossed.' } },
   { customers: 7, menu: ['bagel', 'coffee', 'creamBagel'], wantsMax: 2, gap: 6.5, patience: 34,
     intro: { food: 'creamBagel', title: 'New: cream cheese bagels!', line: 'Put a baked bagel on a plate, then tap the cream cheese to spread it on.' } },
-  { customers: 8, menu: ['bagel', 'coffee', 'creamBagel'], wantsMax: 2, gap: 6, patience: 32,
+  { away: 1, customers: 8, menu: ['bagel', 'coffee', 'creamBagel'], wantsMax: 2, gap: 6, patience: 32,
     intro: { food: 'bagel', art: 'dirty', title: 'New: dirty dishes!', line: 'Customers leave their dishes on the counter, and quick service gets a tip there too. Tap the dishes to clear them: nobody new can sit there until you do. They go in the dishwasher and come back clean.' } },
-  { customers: 8, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 6.5, patience: 36,
+  { away: 1, customers: 8, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 6.5, patience: 36,
     intro: { food: 'challah', title: 'New: challah!', line: 'Tap the challah dough to bake it. It takes longer than bagels, so start it early.' } },
-  { customers: 0, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 6, patience: 34, rush: { secs: 90, goals: [140, 210, 280] },
+  { away: 1, customers: 0, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 6, patience: 34, rush: { secs: 90, goals: [140, 210, 280] },
     intro: { food: 'bagel', art: 'clock', title: 'Rush hour!', line: 'Customers keep coming until the clock runs out. Earn the money goal for a star, and more for three stars.' } },
-  { customers: 10, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 5.5, patience: 32 },
-  { customers: 11, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 5, patience: 30 },
-  { customers: 0, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 4.5, patience: 30, rush: { secs: 120, goals: [190, 285, 375] } },
+  { away: 1, customers: 10, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 5.5, patience: 32 },
+  { away: 2, customers: 11, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 5, patience: 30 },
+  { away: 2, customers: 0, menu: ['bagel', 'coffee', 'creamBagel', 'challah'], wantsMax: 2, gap: 4.5, patience: 30, rush: { secs: 120, goals: [190, 285, 375] } },
 ];
 
 export const SHIFT_RULES = {
@@ -70,7 +71,6 @@ export const SHIFT_RULES = {
   doughFrom: 3,         // from this shift on, dough runs out and is made at the mixer
   startDough: 2,        // doughs of each kind on the pantry shelf when a shift starts
   doughMax: 6,          // the most of each dough the shelf holds
-  binMax: 5,            // things she can throw out (burnt, cold, tossed) before the bin is full and the shift is over (moods add or take away)
   speedTip: 0.25,       // served while the bar is still more than half full: a tip this share of the price
   stars: [0.5, 0.8, 1], // share of customers served happily for 1, 2 and 3 stars (3 also means nobody left)
   openNext: 1,          // stars needed on a shift to open the next one
@@ -85,6 +85,8 @@ export const DOUGH_INTRO = { id: 'dough', art: 'dough', title: 'New: the mixer!'
 //   pantry   smart: a tap on a dough also starts the bread a customer is still waiting for.
 //            auto: dough for bread a customer is waiting for goes in the oven by itself.
 //   prep     plates: plates on the board.
+//   bin      holds: things she can throw out before it's full and the shift is over (moods add or take away).
+//            compost: seconds for the compost bin to free up one space.
 //   dishwasher  secs: how long a load of plates takes to wash.
 //   mixer    batch: doughs made at a time. secs: how long a batch takes. auto: starts a batch by itself when a dough runs low.
 //            The finished dough waits in the mixer until she drags it onto a shelf.
@@ -105,6 +107,10 @@ export const APPLIANCES = [
     { name: 'Mixing bowl', perk: 'Makes 2 doughs at a time.', batch: 2, secs: 5 },
     { name: 'Stand mixer', perk: 'Makes 3 doughs at a time, a bit faster.', cost: 220, batch: 3, secs: 4 },
     { name: 'Dough machine', perk: 'Makes 4 doughs quickly, and starts by itself when a dough runs low.', cost: 800, batch: 4, secs: 3, auto: true }] },
+  { id: 'bin', name: 'Garbage bin', levels: [
+    { name: 'Green bin', perk: 'Holds 5 things before it is full.', holds: 5 },
+    { name: 'Big bin', perk: 'Holds 7 things.', cost: 150, holds: 7 },
+    { name: 'Compost bin', perk: 'Holds 8, and turns waste into compost: one space frees up every 20 seconds.', cost: 500, holds: 8, compost: 20 }] },
   { id: 'dishwasher', name: 'Dishwasher', levels: [
     { name: 'Little dishwasher', perk: 'Washes a load in 4 seconds.', secs: 4 },
     { name: 'Big dishwasher', perk: 'Washes a load in 2.5 seconds.', cost: 200, secs: 2.5 },
@@ -132,6 +138,30 @@ export const HELPERS = [
     job: 'Spreads cream cheese on a plated bagel when a customer wants one.' },
   { id: 'mushroom', name: 'Mushroom', station: 'dishes', cost: 160, opens: 5, x: 151,
     job: 'Clears dishes off the counter into the dishwasher, and picks up the tips.' },
+  { id: 'croissant', name: 'Croissant', station: 'mixer', cost: 170, opens: 3, x: 76,
+    job: 'Runs the mixer. Starts dough when the shelf runs low, and rolls it onto the shelf that needs it.' },
+];
+
+// Why a helper isn't at work today (shifts with "away"). Just for fun.
+export const EXCUSES = [
+  'Going to a Backstreet Boys concert!',
+  'Has a fever. Too much Tamagotchi care last night.',
+  'Low energy. Stayed up all night waiting for the dial-up to connect.',
+  'Waiting in line for a Furby.',
+  'Taping songs off the radio for a mixtape.',
+  'Practicing the Macarena.',
+  'Returning tapes to Blockbuster before they are late.',
+  'Seeing Titanic at the movies. For the fifth time.',
+  'Watching the Spice Girls movie. Again.',
+  'Stuck playing Snake on a brick phone.',
+  'Learning every NSYNC dance move.',
+  'Their pager will not stop beeping.',
+  'Rollerblading to the arcade.',
+  'Making a homepage with sparkly GIFs.',
+  'Trading Pokemon cards at recess.',
+  'Feeding their Tamagotchi. It is a full time job.',
+  'Getting a new Lisa Frank folder at the mall.',
+  'Blowing into a Nintendo cartridge until it works.',
 ];
 
 // Helpers get better when she trains them with tips. Level 1 is where they start when hired.

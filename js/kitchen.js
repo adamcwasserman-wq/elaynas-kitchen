@@ -4,7 +4,7 @@
 // and taps a finished food to hand it to the first customer who wants it.
 // Tuning lives in data/kitchen.js; the drawings in js/kitchenArt.js.
 
-import { FOODS, PANTRY, SHIFTS, SHIFT_RULES, APPLIANCES, HELPERS, HELPER_LEVELS, OLD_HELPER_JOBS, DOUGH_INTRO, KITCHEN_CITIES } from '../data/kitchen.js';
+import { FOODS, PANTRY, SHIFTS, SHIFT_RULES, APPLIANCES, HELPERS, HELPER_LEVELS, OLD_HELPER_JOBS, DOUGH_INTRO, EXCUSES, KITCHEN_CITIES } from '../data/kitchen.js';
 import * as A from './kitchenArt.js';
 
 const $ = sel => document.querySelector(sel);
@@ -98,12 +98,20 @@ export function createKitchen(api) {
       counter: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null), wash: { waiting: 0, load: 0, t: 0 },
       stock: Object.fromEntries(PANTRY.filter(p => FOODS[p.for].from === 'oven').map(p => [p.id, SHIFT_RULES.startDough])),
       mix: null, ready: 0, drag: null,
-      team: team(), help: Object.fromEntries(team().map(h => [h.id, { wait: 1.5, trip: null, carry: null, oops: false }])),
+      team: team(), help: Object.fromEntries(team().map(h => [h.id, { wait: 1.5, trip: null, carry: null, oops: false }])), out: [],
     };
     // New things get a card the first time: the shift's own news, then the mixer.
     run.cards = [];
     if (sh.intro && !data().introSeen.includes(i)) run.cards.push([i, sh.intro]);
     if (i + 1 >= SHIFT_RULES.doughFrom && !data().introSeen.includes(DOUGH_INTRO.id)) run.cards.push([DOUGH_INTRO.id, DOUGH_INTRO]);
+    // Busier shifts: some helpers call in sick (with a silly excuse).
+    for (let n = Math.min(sh.away || 0, run.team.length); n > 0; n--) {
+      const h = pick(run.team), why = pick(EXCUSES.filter(e => !run.out.some(o => o.why === e)));
+      run.team = run.team.filter(x => x !== h);
+      run.out.push({ h, why });
+    }
+    if (run.out.length) run.cards.push([null, { art: 'out', out: run.out[0].h.id, title: `${run.out.map(o => o.h.name).join(' and ')} can't make it today!`,
+      line: run.out.map(o => `<b>${o.h.name}:</b> "${o.why}"`).join('<br>') + '<br>You will have to cover for them.' }]);
     if (run.cards.length) { showIntro(run.cards[0][1]); return; }
     card = null;
     hideCard();
@@ -124,7 +132,7 @@ export function createKitchen(api) {
   // Doughs on the shelf now (before the mixer shifts, there's always plenty).
   const inStock = id => (doughOn() ? run.stock[id] : Infinity);
   // The green bin holds this much waste; when it's full the shift is over. Calm moods get more room.
-  const binMax = () => (run.m.complaints === false ? Infinity : Math.max(3, Math.min(7, SHIFT_RULES.binMax + (run.m.hearts || 0))));
+  const binMax = () => (run.m.complaints === false ? Infinity : Math.max(3, spec('bin').holds + (run.m.hearts || 0)));
   function trash() {
     run.trash++;
     if (run.trash >= binMax()) { run.binFull = true; api.buzz('nope'); endShift(); }
@@ -195,6 +203,9 @@ export function createKitchen(api) {
         w.load = 0; changed = true; api.buzz('tap');
       }
     } else if (w.waiting) { w.load = w.waiting; w.waiting = 0; w.t = 0; changed = true; }
+    // The compost bin slowly frees up space.
+    const cb = spec('bin').compost;
+    if (cb && run.trash > 0) { run.compost = (run.compost || 0) + dt; if (run.compost >= cb) { run.trash--; run.compost = 0; changed = true; } }
     if (helpers(dt)) changed = true;
     if (run.over) return;
     run.cust.forEach((cu, i) => {
@@ -297,6 +308,30 @@ export function createKitchen(api) {
           st.carry = null;
           return true;
         } } };
+    },
+    mixer(h) {
+      if (!doughOn()) return null;
+      const mixAt = [MIXER_X, PREP_Y + 14];
+      if (run.ready && !run.drag) {
+        // Roll the waiting dough onto the shelf that needs it most (or has the least).
+        const need = mostNeeded(), ids = doughIds().filter(d => run.stock[d] < SHIFT_RULES.doughMax);
+        const id = need && ids.includes(FOODS[need].dough) ? FOODS[need].dough : ids.sort((a, b) => run.stock[a] - run.stock[b])[0];
+        const sp = id && doughSpots().find(q => q.id === id);
+        if (!sp) return null;
+        return { pts: [home(h), mixAt, [sp.x, sp.y + 24], home(h)], acts: {
+          1: st => { if (!run.ready || run.drag) return false; st.n = run.ready; run.ready = 0; st.carry = id; return true; },
+          2: st => {
+            const add = Math.min(st.n, SHIFT_RULES.doughMax - run.stock[id]);
+            run.stock[id] += add;
+            run.ready += st.n - add; // anything that didn't fit goes back in the bowl
+            st.n = 0; st.carry = null;
+            return true;
+          } } };
+      }
+      // Start a batch when a dough is getting low.
+      if (run.mix || run.ready || !doughIds().some(d => run.stock[d] <= 2)) return null;
+      return { carry: 'flour', pts: [home(h), mixAt, home(h)], acts: {
+        1: st => { if (run.mix || run.ready) return false; startMix(); st.carry = null; return true; } } };
     },
     dishes(h) {
       const i = run.counter.findIndex(Boolean);
@@ -799,7 +834,7 @@ export function createKitchen(api) {
     }
     // The green bin, with dots for how full it is.
     const bm = run ? binMax() : Infinity;
-    s += A.g(`translate(${BIN[0]} ${BIN[1]})`, A.bin(run?.toss) + (bm < Infinity ? A.binMeter(run.trash, bm) : '') + tapZone(-20, -38, 40, 42, 'bin'));
+    s += A.g(`translate(${BIN[0]} ${BIN[1]})`, A.bin(run?.toss, level('bin')) + (bm < Infinity ? A.binMeter(run.trash, bm) : '') + tapZone(-20, -38, 40, 42, 'bin'));
     // Glow on the station Tomato is pointing at.
     if (gd.target) {
       const [kind, arg] = gd.target.split(':');
@@ -925,7 +960,7 @@ export function createKitchen(api) {
     showCard(`<h2>Cooking shifts</h2>
       <p class="muted small">Pick a shift. Serve every customer for three stars. Tips go in this restaurant's tip jar ($${s.dollars.toLocaleString()} now).</p>
       <div class="k-shifts">${shifts}</div>
-      <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.rush ? `Rush hour! ${sh.rush.secs} seconds. Earn $${goals(sh, api.mood()).join(', $')} for 1, 2, 3 stars.` : `${sh.customers} customers.`} Menu: ${menu}.${team().length ? ` Helpers: ${team().map(h => h.name).join(', ')}.` : ''}</p>
+      <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.rush ? `Rush hour! ${sh.rush.secs} seconds. Earn $${goals(sh, api.mood()).join(', $')} for 1, 2, 3 stars.` : `${sh.customers} customers.`} Menu: ${menu}.${team().length ? ` Helpers: ${team().map(h => h.name).join(', ')}.` : ''}${sh.away && team().length ? ` Watch out: ${sh.away === 1 ? 'a helper' : 'up to two helpers'} may call in sick.` : ''}</p>
       <button class="btn primary k-start" data-start="${chosen}">Start shift ${chosen + 1}</button>
       <h3>Kitchen helpers</h3>
       <p class="muted small">Every helper you hire works every shift. Train them with tips to make them quicker and steadier.</p>
@@ -937,7 +972,7 @@ export function createKitchen(api) {
   function showIntro(intro) {
     card = 'intro';
     render();
-    const art = intro.art === 'dirty' ? A.plate(0, 0, 'dirty', 1.3) : intro.art === 'dough' ? A.g('translate(-17 12) scale(.5)', A.mixer(2).art) : intro.art ? A.food(intro.art, 0, 0, 1.4) : A.plate(0, 0, intro.food, 1.3);
+    const art = intro.art === 'out' ? A.friend(intro.out, 0, 2, 1, A.g('translate(0 -1) scale(.62)', A.chefHat()), '', true) : intro.art === 'dirty' ? A.plate(0, 0, 'dirty', 1.3) : intro.art === 'dough' ? A.g('translate(-17 12) scale(.5)', A.mixer(2).art) : intro.art ? A.food(intro.art, 0, 0, 1.4) : A.plate(0, 0, intro.food, 1.3);
     showCard(`<div class="k-intro"><svg viewBox="-24 -24 48 48" aria-hidden="true">${art}</svg>
       <h2>${intro.title}</h2><p>${intro.line}</p>
       <button class="btn primary" data-go>Let's cook!</button></div>`);
@@ -969,7 +1004,8 @@ export function createKitchen(api) {
     if (b.dataset.start !== undefined) { start(+b.dataset.start); return; }
     if (b.dataset.home !== undefined) { showHome(); return; }
     if (b.dataset.go !== undefined) {
-      data().introSeen.push(run.cards.shift()[0]);
+      const [key] = run.cards.shift();
+      if (key !== null) data().introSeen.push(key);
       api.save();
       if (run.cards.length) { showIntro(run.cards[0][1]); return; }
       card = null; hideCard(); render();

@@ -44,6 +44,8 @@ const FRIEND = {
   mushroom: s => path('M-20,-2 Q-20,-22 0,-22 Q20,-22 20,-2 Z', '#b8321f') + path('M-18,-3 Q-18,-20 0,-20 Q17,-20 17,-3 Z', '#e2412f') +
     circ(-9, -12, 3.2, CREAM) + circ(4, -15, 2.6, CREAM) + circ(11, -7, 2.4, CREAM) + circ(-2, -7, 1.8, CREAM) +
     rect(-12, -3, 24, 23, 9, '#e8dccb') + rect(-12, -3, 22, 21, 9, CREAM) + face(-1, 5, .85, s),
+  croissant: s => ell(-17, 6, 6, 8, '#c47a2a', { transform: 'rotate(-35 -17 6)' }) + ell(17, 6, 6, 8, '#c47a2a', { transform: 'rotate(35 17 6)' }) +
+    ell(0, 1, 18, 15, '#c47a2a') + ell(-1, -.5, 16.5, 13.5, '#e9a443') + line('M-9,-12 Q-6,0 -10,12 M9,-12 Q6,0 10,12', '#c47a2a', 1.8, { opacity: .7 }) + shine(-8, -7, 3.5, 2) + face(0, 0, .9, s),
   peach: s => circ(0, 0, 17, '#e0704a') + circ(-2, -2, 15.5, '#f5a06a') + line('M0,-15 Q-4,-2 0,10', '#e0704a', 1.6, { opacity: .6 }) + path('M1,-17 Q8,-24 14,-20 Q8,-15 1,-17 Z', '#3f9b3c') + shine(-8, -6, 3.5, 2.2) + face(0, 2, 1, s),
 };
 export const CUSTOMER_KINDS = ['eggplant', 'lemon', 'blueberry', 'pear', 'peach'];
@@ -248,8 +250,8 @@ export function dishwasher(level, cx, top, n, share) {
 // How full the bin is: a row of dots under it, red when nearly full.
 export function binMeter(used, max) {
   let s = '';
-  const gap = 9, x0 = -(max - 1) * gap / 2, warn = max - used <= 1;
-  for (let i = 0; i < max; i++) s += circ(x0 + i * gap, 10, 3.6, i < used ? (warn ? '#e2412f' : '#3a2a2a') : CREAM, { stroke: warn ? '#e2412f' : '#b5774a', 'stroke-width': 1 });
+  const gap = Math.min(9, 52 / Math.max(1, max - 1)), x0 = -(max - 1) * gap / 2, warn = max - used <= 1;
+  for (let i = 0; i < max; i++) s += circ(x0 + i * gap, 10, Math.min(3.6, gap / 2.4), i < used ? (warn ? '#e2412f' : '#3a2a2a') : CREAM, { stroke: warn ? '#e2412f' : '#b5774a', 'stroke-width': 1 });
   return s;
 }
 // A stock count on a pantry dough.
@@ -279,8 +281,14 @@ export function roomFront() {
     rect(0, 550, 344, 122, 0, '#e7c49a') + line('M0,550 L344,550', '#c98a5a', 3);
 }
 // The green bin on the counter, for tossing food nobody wants. "on" when she has picked it up.
-export const bin = on => rect(-15, -30, 30, 30, 6, on ? '#2e7a2c' : '#3f9b3c') + rect(-17, -34, 34, 7, 3, on ? '#3f9b3c' : '#5cb85a') +
-  line('M-6,-22 L-6,-6 M0,-22 L0,-6 M6,-22 L6,-6', '#2e7a2c', 2.2, { opacity: on ? 0 : 1 }) + (on ? line('M-7,-16 L-2,-10 L8,-22', '#fff', 3) : '');
+// The bin at level 1 to 3: green, a bigger green one, then a wooden compost bin with a leaf.
+export function bin(on, level = 1) {
+  if (level === 3) return rect(-17, -32, 34, 32, 5, on ? '#6b3a1e' : '#8a5a2e') + rect(-19, -36, 38, 7, 3, on ? '#8a5a2e' : '#a8673a') +
+    line('M-17,-22 L17,-22 M-17,-12 L17,-12', '#6b3a1e', 2) + path('M-4,-26 Q4,-34 10,-28 Q4,-22 -4,-26 Z', '#3f9b3c') + (on ? line('M-7,-16 L-2,-10 L8,-22', '#fff', 3) : '');
+  const w = level === 2 ? 18 : 15, h = level === 2 ? 34 : 30;
+  return rect(-w, -h, 2 * w, h, 6, on ? '#2e7a2c' : '#3f9b3c') + rect(-w - 2, -h - 4, 2 * w + 4, 7, 3, on ? '#3f9b3c' : '#5cb85a') +
+    line(`M-6,${-h + 8} L-6,-6 M0,${-h + 8} L0,-6 M6,${-h + 8} L6,-6`, '#2e7a2c', 2.2, { opacity: on ? 0 : 1 }) + (on ? line('M-7,-16 L-2,-10 L8,-22', '#fff', 3) : '');
+}
 
 // For the "New: cooking shifts!" card: Tomato in a chef's hat with a fresh bagel.
 export const newsArt = () => `<svg viewBox="-60 -50 120 80" aria-hidden="true">${friend('tomato', -22, 0, 1.3, chefHat())}${plate(26, 4, 'bagel', 1.4)}</svg>`;
