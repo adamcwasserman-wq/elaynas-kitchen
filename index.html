@@ -137,6 +137,18 @@
   <div class="game-stage" id="game-stage"></div>
 </div>
 
+<div class="kitchen" id="kitchen" hidden>
+  <div class="game-top">
+    <button class="btn ghost" id="k-leave">Leave</button>
+    <b id="k-title"></b>
+    <span id="k-stat"></span>
+  </div>
+  <div class="k-stage" id="k-stage">
+    <div class="k-scene"></div>
+    <div class="k-card" id="k-card" hidden></div>
+  </div>
+</div>
+
 <div class="sheet" id="hood" hidden>
   <div class="sheet-card island-card" role="dialog" aria-label="Your island">
     <div class="isl-top">
@@ -167,6 +179,7 @@
       <div class="rest-art" id="rest-art"></div>
       <p class="muted small" id="rest-caption"></p>
     </div>
+    <div id="rest-kitchen"></div>
     <div class="rounds" id="rest-rounds"></div>
     <p class="muted small" id="rest-count"></p>
     <ul class="list" id="rest-list"></ul>

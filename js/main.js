@@ -25,6 +25,9 @@ import { HOOD, BIA, IMPROVEMENTS, AMENITIES, EVENTS, HOOD_CHOICES, RESTAURANT_BU
 import { MISSIONS } from '../data/missions.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
 import { createArcade } from './arcade.js';
+import { createKitchen } from './kitchen.js';
+import { KITCHEN_CITIES, SHIFTS } from '../data/kitchen.js';
+import { newsArt as kitchenNewsArt } from './kitchenArt.js';
 import { GEMS, TICKETS_PER_GEM, SHOP } from '../data/arcade.js';
 
 const COLS = CONFIG.board.cols;
@@ -2218,6 +2221,7 @@ function renderRestaurant() {
   const levels = Object.values(S.upLv).reduce((t, n) => t + n, 0);
   $('#rest-count').textContent = `${levels} of ${UPGRADES.length * 3} upgrade levels`;
   renderRounds();
+  renderKitchenButton();
   $('#rest-list').innerHTML = UPGRADES.map(u => {
     const n = upLevel(u.id), st = nextLevel(u), top = !st, open = !top && levelOpen(u);
     const can = open && S.dollars >= upgradeCost(st);
@@ -2256,6 +2260,19 @@ $('#rest-rounds').addEventListener('click', e => {
   renderAll();
   save();
   toast(`${roundShort()}: earn ${roundGoal()} stars. Good luck!`, { ms: 3000 });
+});
+// Cooking shifts (js/kitchen.js): a big button at the top of the restaurant page.
+function renderKitchenButton() {
+  const el = $('#rest-kitchen');
+  if (!KITCHEN_CITIES.includes(S.city)) { el.innerHTML = '<p class="muted small k-soon">This kitchen opens for cooking shifts in a later update.</p>'; return; }
+  const k = S.kitchen?.[S.city], done = (k?.best || []).filter(b => b > 0).length;
+  el.innerHTML = `<button class="k-open" id="k-open"><span class="k-open-art">${ICONS.cloche}</span><span><b>Cook a shift</b>` +
+    `<small>${done ? `${done} of ${SHIFTS.length} shifts done` : 'Bake bagels, pour coffee, serve customers'}</small></span></button>`;
+}
+$('#rest-kitchen').addEventListener('click', e => {
+  if (!e.target.closest('#k-open')) return;
+  closeSheets();
+  kitchen.open();
 });
 function openRestaurant() {
   restFocus = null;
@@ -2507,6 +2524,7 @@ function artPool() {
   return ids;
 }
 let arcade = null;
+let kitchen = null;
 
 // ---------- start up ----------
 function boot() {
@@ -2521,6 +2539,12 @@ function boot() {
     placeFoods, placeWild, freeCells, artPool, checkBadges, renderMissions,
     startBoost, boostOf, boostLine, placeKit, restaurantPhoto, shopFoodArt,
     shopStyle: () => theme().style, restaurantName: () => city().name,
+  });
+  kitchen = createKitchen({
+    getS: () => S, save, buzz, mood, renderAll,
+    earn: n => { S.dollars += n; S.stats.earned += n; visitorsSpend(n); },
+    gems: n => { S.gems += n; },
+    cityId: () => S.city, cityName: () => city().name,
   });
   $('#brand-pin').innerHTML = ICONS.pin;
   $('#charges .icon').innerHTML = ICONS.bolt;
@@ -2542,12 +2566,20 @@ function boot() {
   checkBadges();
   renderAll();
   if (!S.profile?.name) openWelcome();
+  // Cooking shifts arrived in ek-0.16.0: tell her once where to find them.
+  else if (!S.kitchenNews) {
+    S.kitchenNews = true;
+    const bakery = cityOf(KITCHEN_CITIES[0]).name;
+    celebrate({ art: kitchenNewsArt(), title: 'New: cooking shifts!', name: 'Bake, pour and serve',
+      line: S.city === KITCHEN_CITIES[0] ? 'Tap Restaurant, then Cook a shift.' : `Go back to ${bakery}, tap Restaurant, then Cook a shift.` });
+    save();
+  }
   // The splash (the icon and the name) stays up a moment, then fades away.
   setTimeout(() => { $('#splash').classList.add('gone'); setTimeout(() => $('#splash').remove(), 600); }, Math.max(0, 900 - performance.now()));
 
   setInterval(() => {
     accrueBia();
-    const paused = !$('#game').hidden || !$('#celebrate').hidden || document.querySelectorAll('.sheet:not([hidden])').length > 0;
+    const paused = !$('#game').hidden || !$('#kitchen').hidden || !$('#celebrate').hidden || document.querySelectorAll('.sheet:not([hidden])').length > 0;
     if (document.visibilityState === 'visible' && !paused) {
       // Customers wait: the bar drops and the amount they'll pay counts down toward the normal price.
       // When a bar runs out, that customer complains and leaves.
@@ -2582,7 +2614,7 @@ function boot() {
     if (tickCharges()) { renderAll(); save(); } else renderHeader();
     if (!$('#refill').hidden) renderRefill();
     const idle = Date.now() - lastAction > CONFIG.hintIdleSeconds * 1000;
-    const busy = drag || !$('#celebrate').hidden || !$('#game').hidden || document.querySelectorAll('.sheet:not([hidden])').length > 0;
+    const busy = drag || !$('#celebrate').hidden || !$('#game').hidden || !$('#kitchen').hidden || document.querySelectorAll('.sheet:not([hidden])').length > 0;
     if (idle && S.settings.nudge && S.tutorial >= TUTORIAL.length - 1 && !busy) {
       lastAction = Date.now() + 8000;
       hint(false);
