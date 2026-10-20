@@ -1027,7 +1027,7 @@ function vipLine(o) {
   if (v.kind === 'rush') return `Hurry! ${mmss(rushLeft(o))}`;
   if (v.kind === 'puzzle') return 'Mix 2 she likes';
   if (v.kind === 'critic') { const n = reviewSpoons(o); return `${n} spoon review`; }
-  return orderName(o);
+  return cardName(o);
 }
 
 // Zip ran out of time: he leaves, taking a few of this round's stars with him (never a star the restaurant has won).
@@ -1062,6 +1062,9 @@ function nextCustomer(oi) {
 }
 const wantName = w => w.dish ? recipeOf(w.dish).name : nameOf(w);
 const orderName = o => o.likes ? `Likes ${o.likes.map(nameOf).join(', ')}` : o.wants.map(wantName).join(' + ');
+// The shorter line on the order card itself, which has room for two lines of text.
+const shortName = it => (it.dish ? recipeOf(it.dish) : !it.producer && !it.wild ? tierInfo(it) : {}).short || nameOf(it);
+const cardName = o => o.likes ? `Likes ${o.likes.map(shortName).join(', ')}` : o.wants.map(shortName).join(' + ');
 // How much of an order's price is dishes (dishes pay more with the window display upgrade).
 const dishShare = o => {
   if (o.likes) return 1;
@@ -1834,6 +1837,9 @@ function renderHeader() {
   $('#gems .dot').hidden = !missionReady();
 }
 
+// Two things in one order ("Bagel + Milk") get slightly smaller type so both names fit.
+const nameLine = t => `<div class="cust-name${t.includes(' + ') ? ' two' : ''}">${t}</div>`;
+
 function renderOrders() {
   const counts = boardCounts();
   $('#orders').style.gridTemplateColumns = `repeat(${S.orders.length}, minmax(0, 1fr))`;
@@ -1853,7 +1859,7 @@ function renderOrders() {
       ${cust}
       <div class="reward"><span class="pay">${ICONS.coin}<b class="pay-n">${payFor(o) + tipFor(o)}</b></span><span class="stars">★<b class="stars-n">${starsFor(o)}</b></span></div>
       <div class="need${slots.length > 2 ? ' many' : ''}">${need}</div>
-      ${ready ? `<button class="serve" data-serve="${oi}">Serve</button>` : `<div class="cust-name">${v ? vipLine(o) : orderName(o)}</div>`}
+      ${ready ? `<button class="serve" data-serve="${oi}">Serve</button>` : nameLine(v ? vipLine(o) : cardName(o))}
       <div class="tipbar ${barClass(o)}" title="${o.limit ? 'Time left before Zip leaves' : 'Pay drops as the customer waits'}"><i style="width:${Math.round(barShare(o) * 100)}%"></i></div>
     </div>`;
   }).join('');

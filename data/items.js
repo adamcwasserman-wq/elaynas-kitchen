@@ -82,7 +82,7 @@ export const CHAINS = {
       { id: 'matcha', name: 'Matcha' },
       { id: 'mochi', name: 'Mochi' },
       { id: 'matchaparfait', name: 'Matcha parfait' },
-      { id: 'teaset', name: 'Tea ceremony set' },
+      { id: 'teaset', name: 'Tea ceremony set', short: 'Tea set' },
     ],
   },
   // Sunny Side
@@ -118,7 +118,7 @@ export const CHAINS = {
       { id: 'chocbar', name: 'Chocolate bar' },
       { id: 'truffles', name: 'Truffles' },
       { id: 'choccake', name: 'Chocolate cake' },
-      { id: 'chocfountain', name: 'Chocolate fountain' },
+      { id: 'chocfountain', name: 'Chocolate fountain', short: 'Choco fountain' },
     ],
   },
   // Sugar Tulip
