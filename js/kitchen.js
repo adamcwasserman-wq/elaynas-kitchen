@@ -4,7 +4,7 @@
 // and taps a finished food to hand it to the first customer who wants it.
 // Tuning lives in data/kitchen.js; the drawings in js/kitchenArt.js.
 
-import { FOODS, PANTRY, SHIFTS, SHIFT_RULES, APPLIANCES, HELPERS, HELPER_LEVELS, DOUGH_INTRO, KITCHEN_CITIES } from '../data/kitchen.js';
+import { FOODS, PANTRY, SHIFTS, SHIFT_RULES, APPLIANCES, HELPERS, HELPER_LEVELS, OLD_HELPER_JOBS, DOUGH_INTRO, KITCHEN_CITIES } from '../data/kitchen.js';
 import * as A from './kitchenArt.js';
 
 const $ = sel => document.querySelector(sel);
@@ -34,10 +34,12 @@ export function createKitchen(api) {
     const k = (s.kitchen[api.cityId()] ??= { best: [], appl: {}, introSeen: [] });
     k.introSeen ??= [];
     k.helpers ??= [];
-    k.helperJobs ??= {};
-    // Who comes on a shift. Older saves kept one helper in "bring".
-    if (!Array.isArray(k.team)) { k.team = k.bring === undefined ? [...k.helpers] : k.bring ? [k.bring] : []; delete k.bring; }
-    k.team = k.team.filter(id => k.helpers.includes(id));
+    // Helper levels, bought with tips. Older saves earned levels by doing jobs, and keep them.
+    if (!k.helperLv) {
+      k.helperLv = {};
+      for (const [id, n] of Object.entries(k.helperJobs || {})) k.helperLv[id] = OLD_HELPER_JOBS.filter(j => n >= j).length;
+      delete k.helperJobs; delete k.team; delete k.bring;
+    }
     for (const a of APPLIANCES) k.appl[a.id] ??= 1;
     return k;
   }
@@ -47,9 +49,9 @@ export function createKitchen(api) {
   const firstUnbeaten = () => { let i = 0; while (i < SHIFTS.length - 1 && shiftOpen(i + 1) && (data().best[i] || 0) > 0) i++; return i; };
   const hasKitchen = () => KITCHEN_CITIES.includes(api.cityId());
   const hired = id => data().helpers.includes(id);
-  const helperLevel = id => { const n = data().helperJobs[id] || 0; let lv = 1; while (lv < HELPER_LEVELS.length && n >= HELPER_LEVELS[lv].jobs) lv++; return lv; };
-  // The helpers coming on the next shift.
-  const team = () => HELPERS.filter(h => data().team.includes(h.id));
+  const helperLevel = id => data().helperLv[id] || 1;
+  // Every hired helper works every shift.
+  const team = () => HELPERS.filter(h => hired(h.id));
   // Avocado has nothing to do once the glass fridge spreads cream cheese by itself.
 
   // ---------- opening and closing ----------
@@ -89,7 +91,8 @@ export function createKitchen(api) {
       coming: sh.rush ? Infinity : sh.customers, first: true, spawnIn: .6, served: 0, lost: 0, earned: 0,
       hearts: Math.max(1, SHIFT_RULES.hearts + (m.hearts || 0)),
       toss: false, say: null, sayUntil: 0, over: false, trash: 0,
-      stock: Object.fromEntries(PANTRY.filter(p => FOODS[p.for].from === 'oven').map(p => [p.id, SHIFT_RULES.startDough])), mix: null,
+      stock: Object.fromEntries(PANTRY.filter(p => FOODS[p.for].from === 'oven').map(p => [p.id, SHIFT_RULES.startDough])),
+      mix: null, ready: 0, drag: null,
       team: team(), help: Object.fromEntries(team().map(h => [h.id, { wait: 2, busy: 0, icon: null, oops: false }])),
     };
     // New things get a card the first time: the shift's own news, then the mixer.
@@ -165,16 +168,14 @@ export function createKitchen(api) {
       const f = mostNeeded();
       if (f && inStock(FOODS[f].dough) > 0) { bake(f); changed = true; }
     }
-    // The mixer: a batch of dough goes on the shelf when it's done. The dough machine starts by itself.
+    // The mixer: a finished batch waits in the bowl until she drags it to a shelf. The dough machine
+    // starts a batch by itself when a dough is down to its last one.
     if (doughOn()) {
       const mx = spec('mixer');
       if (run.mix) {
         run.mix.t += dt;
-        if (run.mix.t >= run.mix.need) { run.stock[run.mix.id] = Math.min(SHIFT_RULES.doughMax, run.stock[run.mix.id] + mx.batch); run.mix = null; changed = true; api.buzz('tap'); }
-      } else if (mx.auto) {
-        const id = doughToMake(true);
-        if (id) { startMix(id); changed = true; }
-      }
+        if (run.mix.t >= run.mix.need) { run.ready = mx.batch; run.mix = null; changed = true; api.buzz('tap'); say('The dough is ready! Drag it onto the bagel or challah shelf.', 3.5); }
+      } else if (mx.auto && !run.ready && doughIds().some(id => run.stock[id] <= 1)) { startMix(); changed = true; }
     }
     if (helpers(dt)) changed = true;
     if (run.over) return;
@@ -201,8 +202,8 @@ export function createKitchen(api) {
   }
 
   // ---------- helpers ----------
-  // She picks which hired helpers come on a shift. Each does one job at a time, then rests. Low level
-  // helpers rest longer and sometimes fumble ("oops"); every job done counts toward the next level.
+  // Every hired helper works the shift. Each does one job at a time, then rests. Low level helpers
+  // rest longer and sometimes fumble ("oops"); she trains them up with tips on the kitchen card.
   const stillWanted = f => run.cust.reduce((t, cu) => t + (cu && !cu.leaving ? cu.wants.filter(w => !w.got && w.f === f).length : 0), 0);
   // Each job returns what the helper handled (for the bubble over their head), or null if there is
   // nothing to do. With "look" set it only checks, and changes nothing.
@@ -246,9 +247,6 @@ export function createKitchen(api) {
       st.wait = how.every; st.busy = .9; changed = true;
       if (Math.random() > how.hit) { st.icon = 'oops'; st.oops = true; continue; }
       st.icon = JOBS[h.station]();
-      const k = data();
-      k.helperJobs[h.id] = (k.helperJobs[h.id] || 0) + 1;
-      if (helperLevel(h.id) > lv) { api.buzz('serve'); say(`${h.name} is getting good! Now level ${lv + 1}.`, 3); api.save(); }
     }
     return changed;
   }
@@ -258,6 +256,7 @@ export function createKitchen(api) {
     const t = e.target.closest('[data-tap]');
     if (!t || !run || run.over || card) return;
     e.preventDefault();
+    if (t.dataset.tap === 'mixer' && run.ready && !run.toss) { startDrag(e); return; }
     tap(t.dataset.tap);
   });
 
@@ -296,7 +295,7 @@ export function createKitchen(api) {
       return;
     }
     const f = Object.keys(FOODS).find(k => FOODS[k].dough === id);
-    if (inStock(id) <= 0) { nope(`Out of ${FOODS[f].name.toLowerCase()} dough! Tap the mixer to make more.`); return; }
+    if (inStock(id) <= 0) { nope(`Out of ${FOODS[f].name.toLowerCase()} dough! ${run.ready ? 'Drag the dough from the mixer onto this shelf.' : 'Tap the mixer to make more.'}`); return; }
     if (!bake(f)) { nope('The oven is full. Take something out first.'); return; }
     // Full shelves and up: the same tap also starts the bread a customer is still waiting for.
     if (spec('pantry').smart) { const more = mostNeeded(); if (more && inStock(FOODS[more].dough) > 0) bake(more); }
@@ -311,23 +310,70 @@ export function createKitchen(api) {
     if (doughOn()) run.stock[FOODS[f].dough]--;
     return true;
   }
-  // Which dough the mixer should make: the one customers are short of, else the lowest on the shelf.
-  // "low" (for the dough machine) only answers when a dough is down to its last one or a customer needs it.
-  function doughToMake(low = false) {
-    const ids = PANTRY.filter(p => run.sh.menu.includes(p.for) && FOODS[p.for].from === 'oven').map(p => p.id);
-    const need = mostNeeded();
-    if (need && run.stock[FOODS[need].dough] <= 0) return FOODS[need].dough;
-    const id = ids.filter(d => run.stock[d] < SHIFT_RULES.doughMax).sort((a, b) => run.stock[a] - run.stock[b])[0];
-    return !id || (low && run.stock[id] > 1) ? null : id;
-  }
-  function startMix(id) { run.mix = { id, t: 0, need: spec('mixer').secs }; }
+  // The doughs on today's menu.
+  const doughIds = () => PANTRY.filter(p => run.sh.menu.includes(p.for) && FOODS[p.for].from === 'oven').map(p => p.id);
+  function startMix() { run.mix = { t: 0, need: spec('mixer').secs }; }
   function mixerTap() {
     if (run.mix) { say('Mixing... watch the timer.'); render(); return; }
-    const id = doughToMake();
-    if (!id) { nope('The shelf is full of dough.'); return; }
-    startMix(id);
+    if (run.ready) { say('Drag the dough onto the bagel or challah shelf.'); render(); return; }
+    if (doughIds().every(id => run.stock[id] >= SHIFT_RULES.doughMax)) { nope('The shelf is full of dough.'); return; }
+    startMix();
     api.buzz('tap');
     render();
+  }
+
+  // ---------- dragging dough from the mixer to a shelf ----------
+  // The dough is a plain lump in the mixer. As she drags it toward a shelf it takes that shelf's shape.
+  function doughSpots() {
+    const pa = A.pantry(level('pantry'), pantryItems()), px = CENTRE.pantry - pa.W / 2;
+    return pa.spots.filter(sp => sp.id in run.stock).map(sp => ({ id: sp.id, x: px + sp.x, y: BOTTOM + sp.y }));
+  }
+  function nearest(p) {
+    let best = null, d = Infinity;
+    for (const sp of doughSpots()) { const e = Math.hypot(sp.x - p.x, sp.y - p.y); if (e < d) { d = e; best = sp; } }
+    return { sp: best, d };
+  }
+  function dragArt() {
+    const { sp, d } = nearest(run.drag), k = sp ? Math.max(0, Math.min(1, (150 - d) / 110)) : 0;
+    return `<g opacity="${(1 - k).toFixed(2)}">${A.food('dough', 0, 0, 1.4)}</g>` + (sp ? `<g opacity="${k.toFixed(2)}">${A.food(sp.id, 0, 0, 1.4)}</g>` : '') +
+      (run.ready > 1 ? A.badge(18, -16, run.ready) : '');
+  }
+  function toScene(e) {
+    const svg = $('#k-stage .k-svg'), p = new DOMPoint(e.clientX, e.clientY).matrixTransform(svg.getScreenCTM().inverse());
+    return { x: p.x, y: p.y - 14 }; // a little above the finger, so she can see it
+  }
+  function drawDrag() {
+    const el = document.getElementById('k-drag');
+    if (!el) { render(); return; }
+    el.setAttribute('transform', `translate(${run.drag.x.toFixed(1)} ${run.drag.y.toFixed(1)})`);
+    el.innerHTML = dragArt();
+  }
+  function startDrag(e) {
+    run.drag = toScene(e);
+    api.buzz('tap');
+    render();
+    const move = ev => { if (!run?.drag) return; run.drag = toScene(ev); drawDrag(); };
+    const up = ev => {
+      removeEventListener('pointermove', move);
+      removeEventListener('pointerup', up);
+      removeEventListener('pointercancel', up);
+      if (!run?.drag) return;
+      const { sp, d } = nearest(toScene(ev));
+      run.drag = null;
+      if (ev.type === 'pointerup') dropDough(sp && d < 46 ? sp.id : null);
+      render();
+    };
+    addEventListener('pointermove', move);
+    addEventListener('pointerup', up);
+    addEventListener('pointercancel', up);
+  }
+  function dropDough(id) {
+    if (!id) { say('Drag the dough right onto the bagel or challah shelf.'); return; }
+    const add = Math.min(run.ready, SHIFT_RULES.doughMax - run.stock[id]);
+    if (add <= 0) { api.buzz('nope'); say('That shelf is full.'); return; }
+    run.stock[id] += add;
+    run.ready -= add;
+    api.buzz('serve');
   }
   // The oven bread customers are waiting for that isn't baking, golden or on a plate yet (the one
   // short the most), or null. A cream cheese bagel needs a bagel.
@@ -480,7 +526,10 @@ export function createKitchen(api) {
     if (want === 'creamBagel' && plateWith('bagel') >= 0) return { text: 'Tap the cream cheese to spread it on the bagel.', target: 'pantry:creamCheese' };
     if (run.oven.some(x => x?.food === base && x.state === 'done')) return { text: `Golden! Tap the oven to put the ${FOODS[base].name.toLowerCase()} on a plate.`, target: 'oven' };
     if (run.oven.some(x => x?.food === base)) return { text: 'Baking... watch the timer.' };
-    if (inStock(FOODS[base].dough) <= 0) return run.mix ? { text: 'Mixing more dough...' } : { text: `Out of ${FOODS[base].name.toLowerCase()} dough! Tap the mixer to make more.`, target: 'mixer' };
+    if (inStock(FOODS[base].dough) <= 0) {
+      if (run.ready) return { text: `Drag the dough from the mixer onto the ${FOODS[base].name.toLowerCase()} shelf.`, target: 'mixer' };
+      return run.mix ? { text: 'Mixing more dough...' } : { text: `Out of ${FOODS[base].name.toLowerCase()} dough! Tap the mixer to make more.`, target: 'mixer' };
+    }
     return { text: `Tap the ${FOODS[base].name.toLowerCase()} dough to bake it.`, target: `pantry:${FOODS[base].dough}` };
   }
 
@@ -578,7 +627,8 @@ export function createKitchen(api) {
     const mx = A.mixer(level('mixer'));
     if (mixerOn) {
       let m = mx.art;
-      if (run?.mix) m += A.food(run.mix.id, mx.slot[0], mx.slot[1], .9) + A.ring(mx.ring[0], mx.ring[1], run.mix.t / run.mix.need, A.GOLD, 'krm', 8);
+      if (run?.mix) m += A.food('dough', mx.slot[0], mx.slot[1], .9) + A.ring(mx.ring[0], mx.ring[1], run.mix.t / run.mix.need, A.GOLD, 'krm', 8);
+      else if (run?.ready && !run.drag) m += `<g class="bob">${A.food('dough', mx.slot[0], mx.slot[1] - 4, 1.2)}</g>` + (run.ready > 1 ? A.badge(mx.slot[0] + 16, mx.slot[1] - 18, run.ready) : '');
       m += tapZone(-4, -mx.H - 4, mx.W + 8, mx.H + 10, 'mixer');
       s += A.g(`translate(${MIXER_X - mx.W / 2} ${PREP_Y})`, m);
     }
@@ -604,6 +654,8 @@ export function createKitchen(api) {
     if (run) {
       s += A.text(172, 664, `${'♥'.repeat(Math.max(0, run.hearts))}`, 16, '#e2412f', { 'text-anchor': 'middle', 'font-family': 'Righteous', id: 'k-hearts' });
     }
+    // The dough she is dragging, on top of everything.
+    if (run?.drag) s += `<g id="k-drag" transform="translate(${run.drag.x.toFixed(1)} ${run.drag.y.toFixed(1)})" pointer-events="none">${dragArt()}</g>`;
     return `<svg class="k-svg" viewBox="0 0 344 672" preserveAspectRatio="xMidYMid meet" role="img" aria-label="Kitchen">${s}</svg>`;
   }
 
@@ -689,13 +741,13 @@ export function createKitchen(api) {
       const art = `<svg class="k-helper" viewBox="-22 -32 44 56" aria-hidden="true">${A.helper(h.id, 0, 0)}</svg>`;
       let right, title = `<b>${h.name}</b>`, note = h.job;
       if (hired(h.id)) {
-        const lv = helperLevel(h.id), next = HELPER_LEVELS[lv], done = k.helperJobs[h.id] || 0;
+        const lv = helperLevel(h.id), next = HELPER_LEVELS[lv];
         title = `<b>${h.name} ${pips(lv, HELPER_LEVELS.length)}</b>`;
-        note = `${h.job} ${next ? `<b>${next.jobs - done} more job${next.jobs - done === 1 ? '' : 's'} to level ${lv + 1}.</b>` : '<b>Top level!</b>'}`;
-        right = k.team.includes(h.id) ? `<button class="btn primary k-buy" data-bring="${h.id}">Coming<br>along</button>` : `<button class="btn k-buy k-bring" data-bring="${h.id}">Bring</button>`;
+        if (!next) note = `${h.job} <b>Top level!</b>`;
+        right = next ? `<button class="btn primary k-buy" data-train="${h.id}"${s.dollars >= next.cost ? '' : ' disabled'}>Train<br>$${next.cost.toLocaleString()}</button>` : `<span class="k-done">All done!</span>`;
       } else if (!shiftOpen(h.opens - 1)) right = `<span class="k-done k-later">Opens at<br>shift ${h.opens}</span>`;
       else right = `<button class="btn primary k-buy" data-hire="${h.id}"${s.dollars >= h.cost ? '' : ' disabled'}>Hire<br>$${h.cost.toLocaleString()}</button>`;
-      return `<li class="k-appl${k.team.includes(h.id) ? ' on' : ''}">${art}<div>${title}<span>${note}</span></div>${right}</li>`;
+      return `<li class="k-appl">${art}<div>${title}<span>${note}</span></div>${right}</li>`;
     }).join('');
     const sh = SHIFTS[chosen];
     const menu = sh.menu.map(f => FOODS[f].name).join(', ');
@@ -705,7 +757,7 @@ export function createKitchen(api) {
       <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.rush ? `Rush hour! ${sh.rush.secs} seconds. Earn $${goals(sh, api.mood()).join(', $')} for 1, 2, 3 stars.` : `${sh.customers} customers.`} Menu: ${menu}.${team().length ? ` Helpers: ${team().map(h => h.name).join(', ')}.` : ''}</p>
       <button class="btn primary k-start" data-start="${chosen}">Start shift ${chosen + 1}</button>
       <h3>Kitchen helpers</h3>
-      <p class="muted small">Tap Bring for each helper you want on a shift. Leave some home for more of a challenge. The more jobs a helper does, the quicker and steadier they get.</p>
+      <p class="muted small">Every helper you hire works every shift. Train them with tips to make them quicker and steadier.</p>
       <ul class="list k-appls">${helpers}</ul>
       <h3>Kitchen upgrades</h3>
       <ul class="list k-appls">${appliances}</ul>`);
@@ -757,15 +809,17 @@ export function createKitchen(api) {
       if (!h || k.helpers.includes(h.id) || S().dollars < h.cost) return;
       S().dollars -= h.cost;
       k.helpers.push(h.id);
-      k.team.push(h.id);
       api.buzz('serve');
       api.save();
       showHome();
       return;
     }
-    if (b.dataset.bring) {
-      const k = data(), id = b.dataset.bring;
-      k.team = k.team.includes(id) ? k.team.filter(x => x !== id) : [...k.team, id];
+    if (b.dataset.train) {
+      const k = data(), id = b.dataset.train, next = HELPER_LEVELS[helperLevel(id)];
+      if (!next || S().dollars < next.cost) return;
+      S().dollars -= next.cost;
+      k.helperLv[id] = helperLevel(id) + 1;
+      api.buzz('serve');
       api.save();
       showHome();
       return;

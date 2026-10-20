@@ -812,6 +812,5 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .k-appl > div > b { display: block; font-family: var(--display); font-weight: 400; font-size: 1rem; }
 .k-appl .k-helper { flex: none; width: 40px; height: 50px; }
 .k-done.k-later { color: var(--muted); text-align: center; }
-.k-appl.on { box-shadow: inset 0 0 0 2px var(--leaf); }
-.k-buy.k-bring { background: #fff; box-shadow: inset 0 0 0 2px var(--leaf); color: var(--leaf); }
 .k-shift.rush { box-shadow: inset 0 0 0 2px var(--tomato); }
+.k-scene { touch-action: none; }

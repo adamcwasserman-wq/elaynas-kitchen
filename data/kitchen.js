@@ -77,7 +77,7 @@ export const SHIFT_RULES = {
 };
 
 // Shown the first time she plays a shift with the mixer (from SHIFT_RULES.doughFrom).
-export const DOUGH_INTRO = { id: 'dough', art: 'dough', title: 'New: the mixer!', line: 'Dough can run out now. Tap the mixer to make more. It makes the dough your customers need, and puts it on the pantry shelf.' };
+export const DOUGH_INTRO = { id: 'dough', art: 'dough', title: 'New: the mixer!', line: 'Dough can run out now. Tap the mixer to make more. When it is ready, drag the dough onto the bagel or challah shelf. It takes the right shape on the way!' };
 
 // Appliances: three levels each, bought with this restaurant's tips. The art grows with them.
 //   oven     slots: things baking at once. speed: bake time multiplier. noBurn: food never burns.
@@ -86,6 +86,7 @@ export const DOUGH_INTRO = { id: 'dough', art: 'dough', title: 'New: the mixer!'
 //            auto: dough for bread a customer is waiting for goes in the oven by itself.
 //   prep     plates: plates on the board.
 //   mixer    batch: doughs made at a time. secs: how long a batch takes. auto: starts a batch by itself when a dough runs low.
+//            The finished dough waits in the mixer until she drags it onto a shelf.
 export const APPLIANCES = [
   { id: 'oven', name: 'Oven', levels: [
     { name: 'Little oven', perk: 'Bakes 2 at a time.', slots: 2, speed: 1 },
@@ -112,8 +113,8 @@ export const APPLIANCES = [
 // Which restaurants have a kitchen. More arrive one at a time.
 export const KITCHEN_CITIES = ['toronto'];
 
-// Helpers: food friends hired once with this restaurant's tips. She brings ONE helper on each
-// shift. The helper minds one station and stands on the kitchen floor under it.
+// Helpers: food friends hired once with this restaurant's tips. Every hired helper works every
+// shift, minding one station and standing on the kitchen floor under it.
 //   station  which station they mind: 'oven', 'coffee' or 'topping'
 //   opens    the shift number (1 to 10) that has to be open before she can hire them
 //   x        where they stand on the kitchen floor
@@ -126,14 +127,16 @@ export const HELPERS = [
     job: 'Spreads cream cheese on a plated bagel when a customer wants one.' },
 ];
 
-// Helpers get better the more jobs they do.
-//   jobs   jobs done in total to reach this level
+// Helpers get better when she trains them with tips. Level 1 is where they start when hired.
+//   cost   tips to train a helper up to this level
 //   every  seconds a helper rests between jobs
 //   hit    chance a job goes right (a miss is an "oops" and a rest)
 export const HELPER_LEVELS = [
-  { jobs: 0, every: 3.2, hit: .65 },
-  { jobs: 12, every: 2.6, hit: .75 },
-  { jobs: 35, every: 2, hit: .85 },
-  { jobs: 80, every: 1.5, hit: .93 },
-  { jobs: 150, every: 1, hit: 1 },
+  { every: 3.2, hit: .65 },
+  { cost: 120, every: 2.6, hit: .75 },
+  { cost: 250, every: 2, hit: .85 },
+  { cost: 450, every: 1.5, hit: .93 },
+  { cost: 700, every: 1, hit: 1 },
 ];
+// Before training cost tips, helpers levelled up by doing jobs. Older saves keep the level they earned.
+export const OLD_HELPER_JOBS = [0, 12, 35, 80, 150];
