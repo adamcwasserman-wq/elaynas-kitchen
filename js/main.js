@@ -1593,7 +1593,23 @@ function missionStat(stat) {
     case 'events': return Object.keys(S.hood.hosted).length;
     case 'restaurants': return S.openCities.length;
     case 'buzzLevel': return S.hood.level;
-    default: return S.stats[stat] || 0;
+    default: return kitchenStat(stat) ?? (S.stats[stat] || 0);
+  }
+}
+// Kitchen numbers for missions and badges, read from the cooking shift saves (every restaurant's
+// kitchen added up). Anything else returns null. Customers served there are counted as she plays
+// (S.stats.kitchenServed).
+function kitchenStat(stat) {
+  const ks = Object.values(S.kitchen || {});
+  const sum = f => ks.reduce((t, k) => t + f(k), 0);
+  switch (stat) {
+    case 'kitchenShifts': return sum(k => (k.best || []).filter(b => b > 0).length);
+    case 'perfectShifts': return sum(k => (k.best || []).filter(b => b >= 3).length);
+    case 'rushWins': return sum(k => SHIFTS.filter((sh, i) => sh.rush && (k.best?.[i] || 0) > 0).length);
+    case 'helpersHired': return sum(k => (k.helpers || []).length);
+    case 'helperTraining': return sum(k => Object.values(k.helperLv || {}).reduce((t, n) => t + n - 1, 0));
+    case 'kitchenUpgrades': return sum(k => Object.values(k.appl || {}).reduce((t, n) => t + n - 1, 0));
+    default: return null;
   }
 }
 const missionDone = m => missionStat(m.stat) >= m.n;
@@ -1627,6 +1643,8 @@ $('#mission-list').addEventListener('click', e => {
 // ---------- badges ----------
 function statFor(b) {
   if (b.stat === 'cities') return S.openCities.length;
+  const k = kitchenStat(b.stat);
+  if (k !== null) return k;
   return b.stat === 'recipes' ? Object.keys(S.recipes).length : (S.stats[b.stat] || 0);
 }
 function checkBadges() {
@@ -2545,6 +2563,8 @@ function boot() {
     earn: n => { S.dollars += n; S.stats.earned += n; visitorsSpend(n); },
     gems: n => { S.gems += n; },
     cityId: () => S.city, cityName: () => city().name,
+    stat: (name, n = 1) => { S.stats[name] = (S.stats[name] || 0) + n; },
+    badges: () => { checkBadges(); renderHeader(); },
   });
   $('#brand-pin').innerHTML = ICONS.pin;
   $('#charges .icon').innerHTML = ICONS.bolt;

@@ -1,4 +1,4 @@
-// Badges. Eight food friends, each served under a silver lid and rated one, two or three golden spoons.
+// Badges. Eleven food friends, each served under a silver lid and rated one, two or three golden spoons.
 // "id" is what the save file remembers, so it stays the same even if the name changes.
 // "unit" and "one" are the words used for many and for exactly one.
 // "tiers" are the counts needed for one, two and three spoons. Early ones come quickly on purpose.
@@ -13,6 +13,10 @@ export const BADGES = [
   { id: 'arcade', name: 'Fun Fair', unit: 'mini game wins', one: 'mini game win', stat: 'arcadeWins', tiers: [1, 10, 40] },
   { id: 'scholar', name: 'Smart Cookie', unit: 'trivia answers right', one: 'trivia answer right', stat: 'triviaRight', tiers: [1, 7, 30] },
   { id: 'vip', name: 'VIP Host', unit: 'VIPs served', one: 'VIP served', stat: 'vips', tiers: [1, 10, 40] },
+  // From the cooking shifts (the kitchen). VIPs served in the kitchen count for VIP Host too.
+  { id: 'linecook', name: 'Line Cook', unit: 'kitchen customers served', one: 'kitchen customer served', stat: 'kitchenServed', tiers: [10, 100, 500] },
+  { id: 'perfect', name: 'Perfect Shift', unit: 'three star shifts', one: 'three star shift', stat: 'perfectShifts', tiers: [1, 5, 15] },
+  { id: 'coach', name: 'Team Coach', unit: 'helper levels trained', one: 'helper level trained', stat: 'helperTraining', tiers: [1, 5, 20] },
 ];
 
 export const BADGE_TIER_NAMES = ['One spoon', 'Two spoons', 'Three spoons'];
