@@ -1081,6 +1081,27 @@ const BADGE_FRIENDS = {
     for (const x of [-7, 7]) s += E('circle', { cx: x, cy: -2, r: 5.6, fill: '#fff', 'fill-opacity': .35, stroke: K.ink, 'stroke-width': 1.6 });
     return s + line('M-1.4,-2 Q0,-3.4 1.4,-2', K.ink, 1.6) + tinyFace(-7, 7, -2, 2);
   },
+  linecook() { // Line Cook: a pretzel in a little chef's hat
+    const knot = 'M0,-2 C-7,-16 -22,-16 -22,-2 C-22,12 -10,17 0,17 C10,17 22,12 22,-2 C22,-16 7,-16 0,-2 M-12,14 Q0,4 7,-10 M12,14 Q0,4 -7,-10';
+    let s = line(knot, '#8a4a1e', 10) + line(knot, '#c47a3a', 6.5);
+    for (const [x, y] of [[-17, -8], [16, -9], [-20, 3], [19, 2], [-8, -12], [9, -12]]) s += fill(R(x - 1.2, y - 1.2, 2.6, 2.6, .7), '#fff');
+    s += fill(R(-8, -27, 16, 6, 2), '#fff') + fill(C(-5, -29, 4.5), '#fff') + fill(C(0, -31, 5), '#fff') + fill(C(5, -29, 4.5), '#fff');
+    return s + tinyFace(-5, 5, 13, 1.7, K.ink);
+  },
+  perfect() { // Perfect Shift: a bagel holding up a gold star
+    const ring = 'M-20,4 a20,17 0 1,0 40,0 a20,17 0 1,0 -40,0 Z M-6,2 a6,4.5 0 1,0 12,0 a6,4.5 0 1,0 -12,0 Z';
+    let s = E('path', { d: ring, fill: '#b8732f', 'fill-rule': 'evenodd' }) + E('path', { d: ring, fill: '#e3a24f', 'fill-rule': 'evenodd', transform: 'translate(-1 -1.5) scale(.95)' });
+    for (const [x, y] of [[-13, -5], [10, -6], [15, 6], [-15, 9], [4, 14]]) s += fill(EL(x, y, 1.6, .9), K.cream);
+    s += fill(P('M0,-31 L3,-24 L11,-24 L5,-19 L7,-11 L0,-15 L-7,-11 L-5,-19 L-11,-24 L-3,-24 Z'), K.gold) + shine(C(-1, -23, 1.4), .7);
+    return s + shine(EL(-11, -3, 4, 2, -20), .5) + tinyFace(-6, 6, 11, 1.8);
+  },
+  coach() { // Team Coach: a cinnamon roll with a whistle, cheering on the helpers
+    let s = body(C(0, 2, 20), '#d99a5c', -6, -6, .2);
+    s += line('M0,2 m-4,0 a4,4 0 1,1 8,0 a8,8 0 1,1 -16,0 a12,12 0 1,1 24,0 a15,15 0 0,1 -10,14', '#a8611e', 2, { opacity: .55 });
+    s += line('M-14,-10 Q-5,-16 4,-11 Q11,-7 15,-11', K.cream, 3.2);
+    s += line('M-9,12 Q0,22 9,12', K.tulip, 1.6) + fill(R(5, 15, 10, 6, 3), '#b9c2cc') + fill(C(8, 18, 1.4), '#7c8590');
+    return s + shine(EL(-10, -5, 4, 2.2, -30), .5) + tinyFace(-6, 6, 0, 2);
+  },
   vip() { // VIP Host: a cookie wearing a crown and a red bow tie, ready to greet guests
     let s = body(C(0, 4, 18), '#e2b26a', -6, -6, .2);
     for (const [x, y] of [[-11, 4], [11, 8], [-6, 14], [8, -4]]) s += fill(C(x, y, 1.6), '#b97a32');

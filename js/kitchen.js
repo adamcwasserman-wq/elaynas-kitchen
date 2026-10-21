@@ -667,6 +667,8 @@ export function createKitchen(api) {
     if (dirtyOn()) cu.tipLeft = tip; else total += tip;
     run.earned += total;
     run.served++;
+    api.stat('kitchenServed');
+    if (v) api.stat('vips'); // kitchen VIPs count for the VIP Host badge and mission too
     cu.leaving = .8;
     api.earn(total);
     api.buzz('serve');
@@ -708,6 +710,7 @@ export function createKitchen(api) {
     if (got >= 3 && before < 3) gems += 2;
     k.best[run.i] = Math.max(before, got);
     if (gems) api.gems(gems);
+    api.badges(); // kitchen badges and missions (shown over the result card)
     api.save();
     showResult(got, gems);
   }
@@ -1065,6 +1068,7 @@ export function createKitchen(api) {
         run.team.push(h);
         run.help[id] = { wait: 1.5, trip: null, carry: null, oops: false };
         api.buzz('serve');
+        api.badges();
       }
       const [key] = run.cards.shift();
       if (key !== null) data().introSeen.push(key);
@@ -1079,6 +1083,7 @@ export function createKitchen(api) {
       S().dollars -= h.cost;
       k.helpers.push(h.id);
       api.buzz('serve');
+      api.badges();
       api.save();
       showHome();
       return;
@@ -1089,6 +1094,7 @@ export function createKitchen(api) {
       S().dollars -= next.cost;
       k.helperLv[id] = helperLevel(id) + 1;
       api.buzz('serve');
+      api.badges();
       api.save();
       showHome();
       return;
@@ -1099,6 +1105,7 @@ export function createKitchen(api) {
       S().dollars -= next.cost;
       data().appl[a.id]++;
       api.buzz('serve');
+      api.badges();
       api.save();
       showHome();
     }
