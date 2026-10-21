@@ -648,7 +648,7 @@ function setName(name) {
 // The first time the game opens (or after starting over), it asks the player's name.
 function openWelcome() {
   $('#welcome-name').value = S.profile?.name || '';
-  if (track.enabled()) $('#welcome-privacy').textContent = 'Your game saves on this phone. Next, you can choose to share your scores on a leaderboard.';
+  if (track.enabled()) $('#welcome-privacy').textContent = 'Your game saves on this phone. Your name and scores also go on a leaderboard with other players. You can turn that off in Settings.';
   welcomePreview();
   openSheet('#welcome');
 }
@@ -2627,7 +2627,7 @@ function boot() {
   $('#gems .icon').innerHTML = ICONS.gem;
   $('#nav-today .nav-icon').innerHTML = ICONS.sun;
   track = createTrack({
-    name: () => chefName(), version: () => gameVersion, scores: boardScores, mood: () => mood().id,
+    ready: () => !!S.profile?.name, name: () => chefName(), version: () => gameVersion, scores: boardScores, mood: () => mood().id,
     area: () => !$('#kitchen').hidden ? 'kitchen' : !$('#game').hidden ? ($('#game').dataset.area || 'game') : 'merge',
     playing: () => $('#game').hidden && $('#kitchen').hidden && $('#celebrate').hidden && !document.querySelector('.sheet:not([hidden])'),
     roundKey,

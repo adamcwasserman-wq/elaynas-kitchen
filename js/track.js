@@ -1,5 +1,5 @@
 // Play statistics and the leaderboard connection.
-// Only runs when data/config.js has a cloud address AND the player has said yes ("Join the leaderboard").
+// Only runs when data/config.js has a cloud address, once the player has a name, and unless they switched it off in Settings.
 // What is sent: her name, her best scores, how long each play session lasted (and in which game),
 // and one small note each time a round, shift or mini game ends (how long it took, and how it went).
 // A failed send is never a problem: notes wait on the phone and go with the next one.
@@ -24,7 +24,7 @@ function load() {
 }
 
 export function createTrack(api) {
-  // api: name(), version(), scores(), area(), playing(), roundKey()
+  // api: ready(), name(), version(), scores(), area(), playing(), roundKey()
   const T = load();
   const url = CONFIG.cloud?.url || '';
   let sess = null;           // this play session: { sid, start, active, areas }
@@ -39,7 +39,7 @@ export function createTrack(api) {
 
   const save = () => { try { localStorage.setItem(KEY, JSON.stringify(T)); } catch { /* fine */ } };
   const enabled = () => !!url;
-  const joined = () => enabled() && T.consent === true;
+  const joined = () => enabled() && T.consent !== false && api.ready(); // on by default; only a clear "no" turns it off
 
   function newSession() {
     sess = { sid: uid(), start: Date.now(), active: 0, areas: {} };
@@ -162,8 +162,8 @@ export function createTrack(api) {
 
   return {
     enabled, joined, setConsent, event, takeSecs, peekSecs, boards, flush,
-    asked: () => T.consent !== null,
-    consent: () => T.consent,
+    noticed: () => !!T.noticed,
+    setNoticed: () => { T.noticed = true; save(); },
     pid: () => T.pid,
   };
 }

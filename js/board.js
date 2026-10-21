@@ -1,5 +1,5 @@
-// The leaderboard: the join question, the board itself, and the podium achievements.
-// Needs the cloud address in data/config.js and a yes from the player (see js/track.js).
+// The leaderboard: a one-time notice, the board itself, and the podium achievements.
+// Needs the cloud address in data/config.js. It is on for everyone and can be switched off in Settings (see js/track.js).
 
 import { CONFIG } from '../data/config.js';
 import { BOARDS, BOARD_MODES, boardKey, ALL_BOARD_KEYS } from '../data/leaderboard.js';
@@ -9,7 +9,7 @@ const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;',
 const MEDALS = ['🥇', '🥈', '🥉'];
 
 export function createBoard(api) {
-  // api: getS, track, openSheet, closeSheets, checkBadges, save, renderAll, buzz
+  // api: getS, track, openSheet, closeSheets, checkBadges, save, renderAll, buzz, toast
   const S = () => api.getS();
   const T = api.track;
   let tab = 'restaurant', mode = 'relaxed';
@@ -17,17 +17,19 @@ export function createBoard(api) {
 
   const available = () => T.enabled();
 
-  // ---------- joining ----------
+  // ---------- the notice ----------
+  // Everyone is on the leaderboard from the start. Each player is told once, and can switch it off right there.
   function askJoin() {
-    if (!available() || T.asked() || !S().profile?.name) return false;
+    if (!available() || T.noticed() || !S().profile?.name) return false;
     api.openSheet('#board-join');
     return true;
   }
-  function answer(yes) {
-    T.setConsent(yes);
+  function answer(keep) {
+    T.setNoticed();
+    if (!keep) T.setConsent(false);
     api.closeSheets();
-    api.buzz(yes ? 'serve' : 'tap');
-    if (yes) { api.toast('You are on the leaderboard!'); changed(); }
+    api.buzz(keep ? 'serve' : 'tap');
+    if (keep) changed(); else api.toast('Your scores are no longer shared.');
     api.renderAll();
   }
   $('#join-yes').addEventListener('click', () => answer(true));
