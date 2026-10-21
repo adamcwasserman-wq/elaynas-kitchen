@@ -41,4 +41,12 @@ export const CONFIG = {
 
   // Sharing with friends: where "Send feedback" (Settings) writes to.
   feedbackEmail: 'adamcwasserman@gmail.com',
+
+  // The leaderboard and play statistics. "url" is the address of the Google Sheet script that collects them
+  // (see backend/SETUP.md). Leave it empty and none of it shows up: nothing is ever sent anywhere.
+  cloud: {
+    url: 'https://script.google.com/macros/s/AKfycbxC67wfd4HfqetiaEH6LBe25KlTs-Lr-tVOgZP3ZEI-0B8AAgudMj9eAblb2vBo30rd8A/exec',
+    boardEveryMinutes: 3, // how often the leaderboard is allowed to refresh while she plays
+    minPlayers: 3,        // a board needs this many players before a podium spot counts for badges
+  },
 };

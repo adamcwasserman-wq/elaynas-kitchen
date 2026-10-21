@@ -1,0 +1,186 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<title>Tulip Kitchen: how it's being played</title>
+<style>
+  :root { --ink: #3b2a22; --muted: #7a5f52; --bg: #fbf3e6; --card: #fff; --edge: #eadbc4; --eggplant: #5b2c6f; --good: #2f8a3a; --hard: #d7372a; --easy: #d98a00; --thin: #8a8a8a; }
+  * { box-sizing: border-box; }
+  body { margin: 0; background: var(--bg); color: var(--ink); font: 16px/1.45 system-ui, -apple-system, 'Segoe UI', sans-serif; }
+  main { max-width: 980px; margin: 0 auto; padding: 20px 16px 60px; }
+  h1 { margin: 0 0 4px; font-size: 1.6rem; color: var(--eggplant); }
+  h2 { margin: 28px 0 8px; font-size: 1.25rem; }
+  p.muted, .muted { color: var(--muted); }
+  .card { background: var(--card); border: 1px solid var(--edge); border-radius: 14px; padding: 14px 16px; margin: 10px 0; overflow-x: auto; }
+  .big { display: flex; gap: 12px; flex-wrap: wrap; }
+  .big > div { flex: 1 1 140px; background: var(--card); border: 1px solid var(--edge); border-radius: 14px; padding: 12px 14px; }
+  .big b { display: block; font-size: 1.7rem; color: var(--eggplant); }
+  table { border-collapse: collapse; width: 100%; font-size: .93rem; }
+  th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--edge); white-space: nowrap; }
+  th { font-size: .78rem; text-transform: uppercase; letter-spacing: .04em; color: var(--muted); }
+  td.num, th.num { text-align: right; }
+  .tabs { display: flex; gap: 6px; flex-wrap: wrap; margin: 8px 0; }
+  .tabs button, select { border: 0; border-radius: 999px; padding: 7px 14px; font: inherit; font-weight: 600; background: #fff; color: var(--muted); border: 1px solid var(--edge); cursor: pointer; }
+  .tabs button.on { background: var(--eggplant); color: #fff; border-color: var(--eggplant); }
+  .chip { display: inline-block; padding: 2px 10px; border-radius: 999px; font-weight: 700; font-size: .82rem; color: #fff; }
+  .chip.good { background: var(--good); } .chip.hard { background: var(--hard); } .chip.easy { background: var(--easy); } .chip.thin { background: var(--thin); }
+  .rate { position: relative; width: 150px; height: 14px; background: #f1e6d3; border-radius: 7px; display: inline-block; vertical-align: middle; }
+  .rate i { position: absolute; top: 0; bottom: 0; left: 0; border-radius: 7px; background: var(--eggplant); }
+  .rate u { position: absolute; top: -3px; bottom: -3px; background: #2f8a3a33; border: 1px solid #2f8a3a; border-radius: 4px; }
+  .hint { color: var(--muted); font-size: .85rem; white-space: normal; }
+  .row { display: flex; gap: 10px; align-items: center; flex-wrap: wrap; }
+  .gate { max-width: 460px; margin: 60px auto; }
+  input { font: inherit; padding: 8px 10px; border: 1px solid var(--edge); border-radius: 10px; width: 100%; margin: 8px 0; }
+  .btn { background: var(--eggplant); color: #fff; border: 0; border-radius: 12px; padding: 10px 18px; font: inherit; font-weight: 700; cursor: pointer; }
+  details summary { cursor: pointer; color: var(--eggplant); font-weight: 600; }
+</style>
+</head>
+<body>
+<main id="app"><p class="muted">Loading...</p></main>
+<script type="module">
+import { CONFIG } from './data/config.js';
+import { CITIES } from './data/cities.js';
+import { HOLES } from './data/minigolf.js';
+import { TRIVIA } from './data/trivia.js';
+import { MOODS } from './data/moods.js';
+
+const app = document.getElementById('app');
+const esc = s => String(s).replace(/[&<>"]/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;' }[c]));
+const KEY_STORE = 'tulip-kitchen-admin-key';
+
+// The key comes in the link (after the #) the first time, then stays on this computer.
+let key = '';
+try {
+  const m = location.hash.match(/key=([^&]+)/);
+  if (m) { localStorage.setItem(KEY_STORE, decodeURIComponent(m[1])); history.replaceState(null, '', location.pathname); }
+  key = localStorage.getItem(KEY_STORE) || '';
+} catch { /* storage blocked */ }
+
+const GAMES = [
+  ['merge', 'Restaurant rounds'], ['kitchen', 'Cooking shifts'], ['skee', 'Skee ball'], ['match', 'Food match'], ['golf', 'Mini golf'], ['trivia', 'Trivia'],
+];
+const AREA_NAMES = { merge: 'Restaurant and island', kitchen: 'Cooking shifts', skee: 'Skee ball', match: 'Food match', golf: 'Mini golf', game: 'Mini games' };
+const MODE_NAMES = { relaxed: 'Relaxed', challenge: 'Challenge' };
+
+let data = null, game = 'merge', mood = '', days = 0;
+
+const mins = s => (s >= 3600 ? `${(s / 3600).toFixed(1)} hr` : s >= 60 ? `${Math.round(s / 60)} min` : `${s} sec`);
+const ago = t => { if (!t) return ''; const d = Math.floor((Date.now() - t) / 86400000); return d <= 0 ? 'today' : d === 1 ? 'yesterday' : `${d} days ago`; };
+
+function levelLabel(g, l) {
+  if (g === 'merge') { const [c, n] = l.split(':'); const city = CITIES.find(x => x.id === c); return `${city ? city.cuisine : c} · ${n === 'crazy' ? 'Crazy mode' : `Round ${n}`}`; }
+  if (g === 'kitchen') return `Shift ${l.slice(1)}`;
+  if (g === 'golf') { const h = HOLES.find(x => x.id === l); return h ? `Hole ${HOLES.indexOf(h) + 1}: ${h.name}` : l; }
+  if (g === 'trivia') { const q = TRIVIA[+l.slice(1)]; return q ? `Q${+l.slice(1) + 1}: ${q.q}` : l; }
+  return MODE_NAMES[l] || l;
+}
+function levelOrder(g, l) {
+  if (g === 'merge') { const [c, n] = l.split(':'); return CITIES.findIndex(x => x.id === c) * 100 + (n === 'crazy' ? 99 : +n); }
+  if (g === 'kitchen') return +l.slice(1);
+  if (g === 'golf') return HOLES.findIndex(x => x.id === l);
+  if (g === 'trivia') return +l.slice(1);
+  return l === 'relaxed' ? 0 : 1;
+}
+
+// What to tell Claude when a level is off. Plain language.
+const HINTS = {
+  merge: { hard: 'Ask Claude to lower the stars needed, or give customers more time, for this round.', easy: 'Ask Claude to raise the stars needed, or shorten the customers\' patience, for this round.' },
+  kitchen: { hard: 'Ask Claude to give customers more patience or fewer customers in this shift.', easy: 'Ask Claude to add more customers or less patience to this shift.' },
+  skee: { hard: 'Ask Claude to make the rings bigger or lower the winning score.', easy: 'Ask Claude to shrink the rings or raise the winning score.' },
+  match: { hard: 'Ask Claude to give more time or fewer pairs.', easy: 'Ask Claude to give less time or more pairs.' },
+  golf: { hard: 'Ask Claude to ease this hole (a wider cup, a gentler obstacle, or a higher par).', easy: 'Ask Claude to make this hole trickier or lower its par.' },
+  trivia: { hard: 'Ask Claude to make this question easier or its wrong answers less tricky.', easy: 'Ask Claude to make this question harder.' },
+};
+const VERDICT = { good: 'Just right', hard: 'Too hard', easy: 'Too easy', thin: 'Not enough plays yet' };
+
+async function load() {
+  const url = CONFIG.cloud?.url;
+  if (!url) { app.innerHTML = '<div class="card gate"><h1>Not switched on yet</h1><p>The game has no leaderboard address yet, so nothing is being collected.</p></div>'; return; }
+  if (!key) { gate(); return; }
+  app.innerHTML = '<p class="muted">Loading...</p>';
+  try {
+    const q = new URLSearchParams({ a: 'report', key, mood, days });
+    const r = await fetch(`${url}?${q}`);
+    data = await r.json();
+  } catch { data = null; }
+  if (!data || !data.ok) { gate(data ? 'That key was not accepted.' : 'Could not reach the sheet. Check your connection and try again.'); return; }
+  draw();
+}
+function gate(msg = '') {
+  app.innerHTML = `<div class="card gate"><h1>Tulip Kitchen report</h1><p class="muted">${esc(msg)}</p>
+    <p>Paste your report key:</p><input id="k" placeholder="Report key" autocomplete="off"><button class="btn" id="go">Open the report</button></div>`;
+  document.getElementById('go').onclick = () => { key = document.getElementById('k').value.trim(); try { localStorage.setItem(KEY_STORE, key); } catch { /* fine */ } load(); };
+}
+
+function usageHtml() {
+  const o = data.usage.overall, players = data.usage.players;
+  if (!o.sessions) return '<p class="muted">Nobody has played yet since players joined the leaderboard.</p>';
+  const areas = Object.entries(o.areas).sort((a, b) => b[1].secs - a[1].secs);
+  const areaCols = areas.map(([a]) => a);
+  return `
+  <div class="big">
+    <div><b>${o.players}</b>players</div>
+    <div><b>${o.sessions}</b>play sessions</div>
+    <div><b>${mins(o.avgSecs)}</b>average session</div>
+    <div><b>${mins(o.totalSecs)}</b>total time played</div>
+  </div>
+  <h3>By game</h3>
+  <div class="card"><table>
+    <tr><th>Game</th><th class="num">Players</th><th class="num">Sessions</th><th class="num">Average per session</th><th class="num">Total time</th></tr>
+    ${areas.map(([a, v]) => `<tr><td>${AREA_NAMES[a] || a}</td><td class="num">${v.players}</td><td class="num">${v.sessions}</td><td class="num">${mins(v.avgSecs)}</td><td class="num">${mins(v.secs)}</td></tr>`).join('')}
+  </table>
+  <p class="hint">A "session" is one sitting. Time only counts while someone is touching the screen. One session can include several games, so the game rows add up to the total.</p></div>
+  <h3>By person</h3>
+  <div class="card"><table>
+    <tr><th>Name</th><th class="num">Sessions</th><th class="num">Average session</th><th class="num">Total time</th><th class="num">Days played</th><th>Last played</th>${areaCols.map(a => `<th class="num">${AREA_NAMES[a] || a}</th>`).join('')}</tr>
+    ${players.map(p => `<tr><td><b>${esc(p.name)}</b></td><td class="num">${p.sessions}</td><td class="num">${mins(p.avgSecs)}</td><td class="num">${mins(p.totalSecs)}</td><td class="num">${p.days}</td><td>${ago(p.last)}</td>
+      ${areaCols.map(a => `<td class="num">${p.areas[a] ? `${mins(p.areas[a].secs)} <span class="muted">(${p.areas[a].sessions}×)</span>` : '<span class="muted">-</span>'}`).join('')}</tr>`).join('')}
+  </table></div>`;
+}
+
+function levelsHtml() {
+  const rows = data.levels.filter(l => l.game === game).sort((a, b) => levelOrder(game, a.level) - levelOrder(game, b.level));
+  if (!rows.length) return '<p class="muted">No plays yet for this one.</p>';
+  const bad = rows.filter(r => r.verdict === 'hard' || r.verdict === 'easy');
+  return `
+  ${bad.length ? `<div class="card"><b>Worth a look:</b> ${bad.map(r => `${esc(levelLabel(game, r.level))} (${VERDICT[r.verdict].toLowerCase()})`).join('; ')}</div>` : ''}
+  <div class="card"><table>
+    <tr><th>${game === 'merge' ? 'Round' : game === 'kitchen' ? 'Shift' : game === 'golf' ? 'Hole' : game === 'trivia' ? 'Question' : 'Mode'}</th><th>Verdict</th><th>Wins</th><th class="num">Tries</th><th class="num">Players</th><th class="num">Won first try</th><th class="num">Gave up</th><th class="num">Stuck</th><th class="num">Typical time (wins)</th></tr>
+    ${rows.map(r => `<tr><td style="white-space:normal;min-width:160px"><b>${esc(levelLabel(game, r.level))}</b>${r.verdict === 'hard' || r.verdict === 'easy' ? `<div class="hint">${HINTS[game][r.verdict]}</div>` : ''}</td>
+      <td><span class="chip ${r.verdict}">${VERDICT[r.verdict]}</span></td>
+      <td><span class="rate"><u style="left:${r.target[0]}%;width:${r.target[1] - r.target[0]}%"></u><i style="width:${r.passRate}%"></i></span> ${r.passRate}%</td>
+      <td class="num">${r.tries}</td><td class="num">${r.players}</td><td class="num">${r.firstTryRate}%</td><td class="num">${r.leave}</td><td class="num">${r.stuck}</td>
+      <td class="num">${game === 'trivia' || !r.medianSecs ? '-' : mins(r.medianSecs)}</td></tr>`).join('')}
+  </table>
+  <p class="hint">The green band on each bar is the share of wins we're aiming for at that point in the game (easier early on, harder later). "Gave up" means they left before finishing. "Stuck" means a player tried three or more times without winning. Rounds and shifts are judged separately for each mood, so pick a mood above if people use different ones.</p></div>`;
+}
+
+function draw() {
+  const moods = Object.entries(data.moods || {});
+  app.innerHTML = `
+  <h1>How Tulip Kitchen is being played</h1>
+  <p class="muted">Only people who joined the leaderboard are counted. Updated ${new Date(data.generated).toLocaleString()}.</p>
+  <div class="row"><label>Show: <select id="days"><option value="0">All time</option><option value="7">Last 7 days</option><option value="30">Last 30 days</option></select></label>
+  <button class="btn" id="refresh">Refresh</button></div>
+  <h2>Who is playing, and for how long</h2>
+  ${usageHtml()}
+  <h2>Is each game the right difficulty?</h2>
+  <div class="tabs" id="games">${GAMES.map(([g, n]) => `<button data-g="${g}" class="${g === game ? 'on' : ''}">${n}</button>`).join('')}</div>
+  ${(game === 'merge' || game === 'kitchen') && moods.length ? `<div class="row"><label>Mood: <select id="mood"><option value="">All moods</option>${moods.map(([m, n]) => `<option value="${m}"${m === mood ? ' selected' : ''}>${esc(MOODS.find(x => x.id === m)?.name || m)} (${n} plays)</option>`).join('')}</select></label></div>` : ''}
+  ${levelsHtml()}
+  <h2>Taking someone off the leaderboard</h2>
+  <p class="muted">Open the Google Sheet, go to the <b>Players</b> tab and tick the <b>hidden</b> column on their row (type TRUE). They disappear from every board straight away.</p>`;
+  document.getElementById('days').value = String(days);
+  document.getElementById('days').onchange = e => { days = +e.target.value; load(); };
+  document.getElementById('refresh').onclick = load;
+  document.getElementById('games').onclick = e => { const b = e.target.closest('[data-g]'); if (b) { game = b.dataset.g; draw(); } };
+  const ms = document.getElementById('mood');
+  if (ms) ms.onchange = e => { mood = e.target.value; load(); };
+}
+
+load();
+</script>
+</body>
+</html>

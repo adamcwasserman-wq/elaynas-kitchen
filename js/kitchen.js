@@ -83,7 +83,7 @@ export function createKitchen(api) {
     api.renderAll();
   }
   $('#k-leave').addEventListener('click', () => {
-    if (run && !run.over) { run = null; showHome(); } else close();
+    if (run && !run.over) { api.track('kitchen', `S${run.i + 1}`, 'leave', run.t, 0, { served: run.served, of: run.sh.rush ? 0 : run.sh.customers, lost: run.lost }); run = null; showHome(); } else close();
   });
 
   // ---------- a shift ----------
@@ -718,6 +718,8 @@ export function createKitchen(api) {
     if (got >= 1 && before < 1) gems += 1;
     if (got >= 3 && before < 3) gems += 2;
     k.best[run.i] = Math.max(before, got);
+    api.track('kitchen', `S${run.i + 1}`, got >= 1 ? 'pass' : 'fail', run.t, got,
+      { served: run.served, of: run.sh.rush ? 0 : run.sh.customers, lost: run.lost, earned: run.earned, bin: run.binFull ? 1 : 0, rush: run.sh.rush ? 1 : 0 });
     if (gems) api.gems(gems);
     if (got >= 1 && before < 1) api.firstStar(run.i + 1); // may open a waterfront piece on the island
     api.badges(); // kitchen badges and missions (shown over the result card)

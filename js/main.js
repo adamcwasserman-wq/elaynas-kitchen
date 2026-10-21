@@ -26,6 +26,8 @@ import { MISSIONS } from '../data/missions.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
 import { createArcade } from './arcade.js';
 import { createKitchen } from './kitchen.js';
+import { createTrack } from './track.js';
+import { createBoard } from './board.js';
 import { KITCHEN_CITIES, SHIFTS } from '../data/kitchen.js';
 import { newsArt as kitchenNewsArt } from './kitchenArt.js';
 import { GEMS, TICKETS_PER_GEM, SHOP } from '../data/arcade.js';
@@ -646,6 +648,7 @@ function setName(name) {
 // The first time the game opens (or after starting over), it asks the player's name.
 function openWelcome() {
   $('#welcome-name').value = S.profile?.name || '';
+  if (track.enabled()) $('#welcome-privacy').textContent = 'Your game saves on this phone. Next, you can choose to share your scores on a leaderboard.';
   welcomePreview();
   openSheet('#welcome');
 }
@@ -660,6 +663,7 @@ $('#welcome-form').addEventListener('submit', e => {
   closeSheets();
   buzz('serve');
   toast(`Welcome to ${city().name}!`);
+  setTimeout(() => lboard.askJoin(), 1800);
 });
 
 // A new restaurant opens on her street.
@@ -881,6 +885,7 @@ const maxed = () => S.starLevel >= ROUND_RULES.stars;
 const roundNo = () => (S.playLevel === 'crazy' ? 'crazy' : S.playLevel || Math.min(S.starLevel + 1, ROUND_RULES.stars));
 const roundSpec = () => (roundNo() === 'crazy' ? CRAZY : ROUNDS[roundNo() - 1]);
 const roundGoal = () => Math.round(roundSpec().goal * (city().goalScale || 1));
+const roundKey = () => `${S.city}:${roundNo()}`;
 const roundShort = () => (roundNo() === 'crazy' ? 'Crazy mode' : `Round ${roundNo()}`);
 // The stage, adjusted for today's mood (fewer customers, smaller foods, more or fewer things per order).
 function currentStage() {
@@ -1130,6 +1135,7 @@ function complain(oi) {
 
 // Too many complaints: this round starts over. Stars the restaurant has won stay, and so does the food on the board.
 function failRound(cust) {
+  track.event('merge', roundKey(), 'fail', track.takeSecs(roundKey()), S.cityStars, { goal: roundGoal(), hearts: 0 });
   S.cityStars = 0;
   S.complaints = 0;
   orderPick = null;
@@ -1439,6 +1445,7 @@ function addStars(n, speedy, lucky = 0) {
 // mode pay again. Every new round starts fresh: new customers, full hearts.
 function passRound() {
   const CITY = city(), no = roundNo(), spec = roundSpec(), first = no !== 'crazy' && !maxed() && no === S.starLevel + 1;
+  track.event('merge', roundKey(), 'pass', track.takeSecs(roundKey()), S.cityStars, { goal: roundGoal(), hearts: maxHearts() - (S.complaints || 0), first: first ? 1 : 0 });
   const tips = share => Math.round(spec.reward.dollars * (CITY.upgradeCost || 1) * share / 5) * 5;
   const gems = first || no === 'crazy' ? spec.reward.gems : ROUND_RULES.replay.gems;
   const dollars = tips(first || no === 'crazy' ? 1 : ROUND_RULES.replay.dollars);
@@ -1669,12 +1676,15 @@ $('#mission-list').addEventListener('click', e => {
 // ---------- badges ----------
 function statFor(b) {
   if (b.stat === 'cities') return S.openCities.length;
+  if (b.stat === 'podium3') return S.podium?.top3 || 0;
+  if (b.stat === 'podium1') return S.podium?.wins || 0;
   const k = kitchenStat(b.stat);
   if (k !== null) return k;
   return b.stat === 'recipes' ? Object.keys(S.recipes).length : (S.stats[b.stat] || 0);
 }
+const shownBadges = () => BADGES.filter(b => !b.board || lboard?.available());
 function checkBadges() {
-  for (const b of BADGES) {
+  for (const b of shownBadges()) {
     if (!b.tiers) continue;
     const had = S.badges[b.id] || 0;
     const now = b.tiers.filter(t => statFor(b) >= t).length;
@@ -2296,6 +2306,7 @@ function renderRounds() {
 $('#rest-rounds').addEventListener('click', e => {
   const b = e.target.closest('[data-round]');
   if (!b || !maxed()) return;
+  if (S.cityStars > 0) track.event('merge', roundKey(), 'leave', track.takeSecs(roundKey()), S.cityStars, { goal: roundGoal() });
   S.playLevel = b.dataset.round === 'crazy' ? 'crazy' : +b.dataset.round;
   S.cityStars = 0; S.complaints = 0; orderPick = null; S.orders = [];
   fillOrders();
@@ -2363,9 +2374,9 @@ function openRecipes() {
 
 // The badge shelf
 function openBadges() {
-  const earned = BADGES.reduce((t, b) => t + (S.badges[b.id] || 0), 0);
-  $('#badge-count').textContent = `${earned} of ${BADGES.length * 3} golden spoons earned`;
-  $('#badge-list').innerHTML = BADGES.map(b => {
+  const shown = shownBadges(), earned = shown.reduce((t, b) => t + (S.badges[b.id] || 0), 0);
+  $('#badge-count').textContent = `${earned} of ${shown.length * 3} golden spoons earned`;
+  $('#badge-list').innerHTML = shown.map(b => {
     const lv = S.badges[b.id] || 0;
     let progress;
     if (b.soon) progress = `<span class="soon">Coming in a later update</span>`;
@@ -2442,7 +2453,7 @@ $('#rf-free').addEventListener('click', () => {
 // The version line at the bottom of Settings (also used in feedback emails). It comes from VERSION
 // in sw.js, so it can't drift: ask the service worker that's running the game, or, with none yet
 // (a first visit), read sw.js itself.
-const showVersion = v => { $('.version').textContent = `Tulip Kitchen · version ${v}`; };
+const showVersion = v => { gameVersion = v; $('.version').textContent = `Tulip Kitchen · version ${v}`; };
 navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.version) showVersion(e.data.version); });
 async function loadVersion() {
   if (navigator.serviceWorker?.controller) { navigator.serviceWorker.controller.postMessage('version'); return; }
@@ -2459,10 +2470,17 @@ function openSettings() {
   $('#set-vibrate').checked = S.settings.vibrate;
   $('#set-nudge').checked = !!S.settings.nudge;
   $('#set-name').value = S.profile?.name || '';
+  $('#set-board').hidden = !track.enabled();
+  $('#set-share').checked = track.joined();
   renderMoods();
   $('#bk-text').value = '';
   openSheet('#settings');
 }
+$('#set-share').addEventListener('change', e => {
+  track.setConsent(e.target.checked);
+  if (e.target.checked) lboard.changed();
+  toast(e.target.checked ? 'You are on the leaderboard.' : 'Your scores are no longer shared.');
+});
 $('#set-vibrate').addEventListener('change', e => {
   S.settings.vibrate = e.target.checked;
   if (S.settings.vibrate) buzz('merge');
@@ -2584,6 +2602,21 @@ function artPool() {
 }
 let arcade = null;
 let kitchen = null;
+let track = null;
+let lboard = null;
+let gameVersion = '';
+
+// What the leaderboard gets from her save: [score, tie-break] per board (more in js/arcade.js).
+function boardScores() {
+  const ks = Object.values(S.kitchen || {});
+  const out = arcade ? arcade.scores() : {};
+  const rest = missionStat('stars');
+  if (rest) out.restaurant = [rest, S.stats.earned || 0];
+  const kStars = ks.reduce((t, k) => t + (k.best || []).reduce((a, b) => a + b, 0), 0);
+  if (kStars) out.kitchen = [kStars, S.stats.kitchenServed || 0];
+  if (S.stats.triviaRight) out.trivia = [S.stats.triviaRight, S.triviaStreak || 0];
+  return out;
+}
 
 // ---------- start up ----------
 function boot() {
@@ -2593,7 +2626,15 @@ function boot() {
   $('#money .icon').innerHTML = ICONS.coin;
   $('#gems .icon').innerHTML = ICONS.gem;
   $('#nav-today .nav-icon').innerHTML = ICONS.sun;
+  track = createTrack({
+    name: () => chefName(), version: () => gameVersion, scores: boardScores, mood: () => mood().id,
+    area: () => !$('#kitchen').hidden ? 'kitchen' : !$('#game').hidden ? ($('#game').dataset.area || 'game') : 'merge',
+    playing: () => $('#game').hidden && $('#kitchen').hidden && $('#celebrate').hidden && !document.querySelector('.sheet:not([hidden])'),
+    roundKey,
+  });
+  lboard = createBoard({ getS: () => S, track, openSheet, closeSheets, checkBadges, save, renderAll, buzz, toast });
   arcade = createArcade({
+    track: (...a) => track.event(...a), boardChanged: () => lboard.changed(), openBoard: () => lboard.open(), boardAvailable: () => lboard.available(),
     getS: () => S, save, renderAll, celebrate, toast, buzz, openSheet, closeSheets,
     placeFoods, placeWild, freeCells, artPool, checkBadges, renderMissions,
     startBoost, boostOf, boostLine, placeKit, restaurantPhoto, shopFoodArt,
@@ -2601,6 +2642,7 @@ function boot() {
   });
   kitchen = createKitchen({
     getS: () => S, save, buzz, mood, renderAll,
+    track: (...a) => track.event(...a), boardChanged: () => lboard.changed(),
     earn: n => { S.dollars += n; S.stats.earned += n; visitorsSpend(n); },
     gems: n => { S.gems += n; },
     cityId: () => S.city, cityName: () => city().name,
@@ -2635,6 +2677,10 @@ function boot() {
     celebrate({ art: kitchenNewsArt(), title: 'New: cooking shifts!', name: 'Bake, pour and serve',
       line: S.city === KITCHEN_CITIES[0] ? 'Tap Restaurant, then Cook a shift.' : `Go back to ${bakery}, tap Restaurant, then Cook a shift.` });
     save();
+  } else {
+    // The leaderboard question comes once, a moment after the game opens (and never on top of a celebration).
+    setTimeout(() => { if ($('#celebrate').hidden && !document.querySelector('.sheet:not([hidden])')) lboard.askJoin(); }, 3000);
+    lboard.startUp();
   }
   // The splash (the icon and the name) stays up a moment, then fades away.
   setTimeout(() => { $('#splash').classList.add('gone'); setTimeout(() => $('#splash').remove(), 600); }, Math.max(0, 900 - performance.now()));

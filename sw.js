@@ -1,7 +1,7 @@
 // Keeps a copy of the game on the phone so it works with no connection.
 // When you change any game file, bump VERSION so phones pick up the new copy.
 
-const VERSION = 'ek-0.34.0';
+const VERSION = 'ek-0.35.0';
 const FILES = [
   './',
   'index.html',
@@ -34,6 +34,9 @@ const FILES = [
   'data/kitchen.js',
   'js/kitchen.js',
   'js/kitchenArt.js',
+  'js/track.js',
+  'js/board.js',
+  'data/leaderboard.js',
   'icons/icon-192.png',
   'icons/icon-512.png',
   'icons/icon-maskable-512.png',

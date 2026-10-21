@@ -86,6 +86,28 @@
   </div>
 </div>
 
+<div class="sheet" id="leaders" hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="board-title">
+    <h2 id="board-title">Leaderboard</h2>
+    <div class="modes board-tabs" id="board-tabs"></div>
+    <div class="modes" id="board-modes"></div>
+    <p class="muted small" id="board-about"></p>
+    <ol class="board-list" id="board-list"></ol>
+    <p class="board-me" id="board-me"></p>
+    <button class="btn ghost" data-close>Close</button>
+  </div>
+</div>
+
+<div class="sheet" id="board-join" hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="join-title">
+    <h2 id="join-title">Join the leaderboard?</h2>
+    <p>See who is cooking the best in every game, and earn new badges for finishing on top.</p>
+    <p class="muted small">If you join, your name, your best scores and how long you play are shared with the other players. Nothing else is. You can change your mind any time in Settings.</p>
+    <button class="btn primary" id="join-yes">Join</button>
+    <button class="btn ghost" id="join-no">No thanks</button>
+  </div>
+</div>
+
 <div class="sheet" id="trivia" hidden>
   <div class="sheet-card" role="dialog" aria-labelledby="trivia-title">
     <h2 id="trivia-title">Daily food trivia</h2>
@@ -227,7 +249,7 @@
       <p class="muted small" id="welcome-preview"></p>
       <button class="btn primary" type="submit">Let's cook!</button>
     </form>
-    <p class="muted small">Your game saves on this phone only. Nothing is sent anywhere.</p>
+    <p class="muted small" id="welcome-privacy">Your game saves on this phone only. Nothing is sent anywhere.</p>
     <p class="install-row"><button class="btn" type="button" data-install hidden>Add to home screen</button><a class="install-link" href="install.html" data-install-guide>How to put it on your home screen</a></p>
   </div>
 </div>
@@ -242,6 +264,12 @@
     <h3>Today's mood</h3>
     <p class="muted small">How busy should your restaurants feel? Change it any time.</p>
     <div class="moods" id="set-mood" role="radiogroup" aria-label="Today's mood"></div>
+
+    <div id="set-board" hidden>
+      <h3>Leaderboard</h3>
+      <label class="toggle"><span>Share my scores and play time</span><input type="checkbox" id="set-share"></label>
+      <p class="muted small">Shares your name, your best scores and how long you play. Nothing else.</p>
+    </div>
 
     <h3>On your phone</h3>
     <p class="install-row"><button class="btn" type="button" data-install hidden>Add to home screen</button><a class="install-link" href="install.html" data-install-guide>How to put it on your home screen</a></p>

@@ -17,6 +17,10 @@ export const BADGES = [
   { id: 'linecook', name: 'Line Cook', unit: 'kitchen customers served', one: 'kitchen customer served', stat: 'kitchenServed', tiers: [10, 100, 500] },
   { id: 'perfect', name: 'Perfect Shift', unit: 'three star shifts', one: 'three star shift', stat: 'perfectShifts', tiers: [1, 5, 15] },
   { id: 'coach', name: 'Team Coach', unit: 'helper levels trained', one: 'helper level trained', stat: 'helperTraining', tiers: [1, 5, 20] },
+  // From the leaderboard (only shown when the leaderboard is switched on). A "podium" is a board where she has
+  // a top 3 spot (or first place), with enough players for it to count (see CONFIG.cloud.minPlayers).
+  { id: 'topchef', name: 'Top Chef', unit: 'leaderboards on the podium', one: 'leaderboard on the podium', stat: 'podium3', tiers: [1, 3, 6], board: true },
+  { id: 'champion', name: 'Champion', unit: 'leaderboards at number one', one: 'leaderboard at number one', stat: 'podium1', tiers: [1, 2, 4], board: true },
 ];
 
 export const BADGE_TIER_NAMES = ['One spoon', 'Two spoons', 'Three spoons'];

@@ -45,6 +45,18 @@ export function createArcade(api) {
     return strokes === 1 || diff < 0 ? 3 : diff === 0 ? 2 : diff <= 2 ? 1 : 0;
   }
   const holeOpen = i => i === 0 || starsFor(HOLES[i - 1], golf().best[HOLES[i - 1].id]) >= MINIGOLF.unlockStars;
+  // Her best results, kept for the leaderboard: skee ball scores and food match finds, per mode.
+  const records = () => { const s = S(); s.records ??= { skee: {}, match: {} }; s.records.skee ??= {}; s.records.match ??= {}; return s.records; };
+  // What goes on the leaderboard: [score, tie-break] for each board (higher is better).
+  function scores() {
+    const r = records(), g = golf().best, out = {};
+    for (const m of Object.keys(SKEEBALL.modes)) if (r.skee[m]) out[`skee_${m}`] = [r.skee[m], 0];
+    for (const m of Object.keys(MATCHING.modes)) if (r.match[m]) out[`match_${m}`] = [r.match[m].found, -r.match[m].secs];
+    const played = HOLES.filter(h => g[h.id] != null);
+    if (played.length) out.golf = [played.reduce((t, h) => t + starsFor(h, g[h.id]), 0), played.reduce((t, h) => t + (h.par - g[h.id]), 0)];
+    return out;
+  }
+  const secsSince = t => Math.round((Date.now() - (t || Date.now())) / 1000);
   const starText = n => '\u2605'.repeat(n) + '\u2606'.repeat(3 - n);
 
   function give(g) {
@@ -88,6 +100,8 @@ export function createArcade(api) {
       <li class="today-card${d.trivia ? ' done' : ' glow'}"><div class="today-text"><b>Daily food trivia</b>
         <span>${d.trivia ? `Answered${s.triviaStreak > 1 ? `. ${s.triviaStreak} days in a row!` : '.'} A new question tomorrow.` : 'One question a day. Win gems.'}</span></div>
         ${d.trivia ? `<span class="upg-done">${ICONS.check}</span>` : '<button class="btn primary" data-today="trivia">Play</button>'}</li>
+      ${api.boardAvailable() ? `<li class="today-card"><div class="today-text"><b>Leaderboard</b><span>See who is cooking the best in every game, and win Top Chef and Champion badges.</span></div>
+        <button class="btn" data-today="board">See it</button></li>` : ''}
       ${gameCard('skee', 'Skee ball', 'Grab a ball, flick it up the hill and into the rings. Win gems.', SKEEBALL)}
       ${gameCard('match', 'Food match', 'Flip cards to find the pairs. Win gems.', MATCHING)}
       ${golfCard()}
@@ -112,6 +126,7 @@ export function createArcade(api) {
     else if (b.dataset.today === 'gift') openGift();
     else if (b.dataset.today === 'trivia') openTrivia();
     else if (b.dataset.today === 'prizes') openPrizes();
+    else if (b.dataset.today === 'board') api.openBoard();
     else if (b.dataset.today === 'wild') {
       if (s.wildcards > 0 && api.placeWild()) { s.wildcards--; api.closeSheets(); api.toast('Wild card on the board. Drop it on any food!'); api.renderAll(); api.save(); }
       else api.toast('No room on the board. Make some space first.');
@@ -144,7 +159,7 @@ export function createArcade(api) {
     const s = S(), d = daily();
     if (!b || d.trivia) return;
     const right = b.dataset.right === 'true';
-    const q = TRIVIA[s.triviaIndex % TRIVIA.length];
+    const idx = s.triviaIndex % TRIVIA.length, q = TRIVIA[idx];
     document.querySelectorAll('.trivia-opt').forEach(o => {
       o.disabled = true;
       if (o.dataset.right === 'true') o.classList.add('right');
@@ -163,6 +178,7 @@ export function createArcade(api) {
     }
     give(reward);
     d.trivia = right ? 'right' : 'wrong';
+    api.track('trivia', `q${idx}`, right ? 'pass' : 'fail', 0, right ? 1 : 0);
     s.triviaIndex++;
     api.buzz(right ? 'serve' : 'tap');
     const streak = right && s.triviaStreak > 1 ? ` ${s.triviaStreak} days in a row!` : '';
@@ -170,6 +186,7 @@ export function createArcade(api) {
       <span class="trivia-win">+${reward.gems} gem${reward.gems > 1 ? 's' : ''}</span>`;
     $('#trivia-result').hidden = false;
     api.checkBadges();
+    api.boardChanged();
     api.renderAll();
     api.save();
   });
@@ -292,11 +309,12 @@ export function createArcade(api) {
     else return;
     const cfg = kind === 'skee' ? SKEEBALL : MATCHING;
     const modeKey = s.settings[`${kind}Mode`] || 'relaxed';
-    current = { kind, modeKey, paid, finished: false };
+    current = { kind, modeKey, paid, finished: false, t0: Date.now() };
     api.closeSheets();
     api.save();
     const overlay = $('#game');
     overlay.hidden = false;
+    overlay.dataset.area = kind;
     $('#game-title').textContent = kind === 'skee' ? 'Skee ball' : 'Food match';
     const stage = $('#game-stage');
     const hooks = {
@@ -336,8 +354,18 @@ export function createArcade(api) {
       line = r.all ? line2 : 'You keep everything you found.';
     }
     if (win) s.stats.arcadeWins++;
+    const secs = secsSince(current.t0), rec = records();
+    if (kind === 'skee') {
+      rec.skee[modeKey] = Math.max(rec.skee[modeKey] || 0, r.score);
+      api.track('skee', modeKey, win ? 'pass' : 'fail', secs, r.score, { win: SKEEBALL.modes[modeKey].winScore });
+    } else {
+      const old = rec.match[modeKey];
+      if (!old || r.found > old.found || (r.found === old.found && secs < old.secs)) rec.match[modeKey] = { found: r.found, secs };
+      api.track('match', modeKey, win ? 'pass' : 'fail', secs, r.found, { pairs: MATCHING.pairs, limit: MATCHING.modes[modeKey].seconds });
+    }
     give(reward);
     api.checkBadges();
+    api.boardChanged();
     $('#game-stage').innerHTML = `<div class="game-result">
       <p class="cele-title">${title}</p><p class="cele-line">${line}</p>
       <p class="cele-reward">${reward.dollars ? `${ICONS.coin}<span>+${reward.dollars}</span>` : ''}
@@ -355,6 +383,8 @@ export function createArcade(api) {
     stopGame = null;
     if (current && !current.finished) {
       const s = S();
+      if (current.kind === 'golf') api.track('golf', HOLES[current.hole].id, 'leave', secsSince(current.t0), 0, { m: current.modeKey });
+      else api.track(current.kind, current.modeKey, 'leave', secsSince(current.t0), 0);
       if (current.paid === 'free') daily().plays[current.kind] = Math.max(0, daily().plays[current.kind] - 1);
       else if (current.paid === 'gem') s.gems += DAILY.extraPlayGems;
       current.finished = true;
@@ -384,6 +414,7 @@ export function createArcade(api) {
     const modeKey = s.settings.golfMode || 'relaxed';
     const total = HOLES.reduce((t, h) => t + starsFor(h, g.best[h.id]), 0);
     $('#game').hidden = false;
+    $('#game').dataset.area = 'golf';
     $('#game-title').textContent = 'Mini golf';
     $('#game-status').textContent = `\u2605 ${total} of ${HOLES.length * 3}`;
     const stage = $('#game-stage');
@@ -411,7 +442,7 @@ export function createArcade(api) {
     else if (s.gems >= DAILY.extraPlayGems) { s.gems -= DAILY.extraPlayGems; paid = 'gem'; }
     else { api.buzz('nope'); showMsg('No free holes left today, and no gems. Come back tomorrow for more!'); return; }
     const modeKey = s.settings.golfMode || 'relaxed';
-    current = { kind: 'golf', screen: 'hole', hole: i, modeKey, paid, finished: false };
+    current = { kind: 'golf', screen: 'hole', hole: i, modeKey, paid, finished: false, t0: Date.now() };
     api.save();
     $('#game-title').textContent = `Hole ${i + 1}`;
     stopGame = playGolfHole($('#game-stage'), HOLES[i], MINIGOLF.modes[modeKey], golfHooks);
@@ -429,8 +460,10 @@ export function createArcade(api) {
     const opened = !wasOpen && holeOpen(i + 1);
     const reward = { gems: MINIGOLF.gems[stars] * m.gemsTimes + (r.holeInOne ? MINIGOLF.holeInOneGems : 0) };
     if (stars >= MINIGOLF.unlockStars) s.stats.arcadeWins++;
+    api.track('golf', hole.id, stars >= MINIGOLF.unlockStars ? 'pass' : 'fail', secsSince(current.t0), stars, { st: r.strokes, par: hole.par, m: current.modeKey });
     give(reward);
     api.checkBadges();
+    api.boardChanged();
     const title = r.strokes == null ? 'Out of shots' : r.holeInOne ? 'Hole in one!' : `${r.strokes} shots`;
     let line;
     if (opened) line = `New hole open: ${HOLES[i + 1].name}!`;
@@ -458,5 +491,5 @@ export function createArcade(api) {
     else if (e.target.closest('#game-again')) { const k = current.kind; leaveGame(); startGame(k); }
   });
 
-  return { open, openPrizes, renderShop, somethingNew, dayKey };
+  return { open, openPrizes, renderShop, somethingNew, dayKey, scores };
 }

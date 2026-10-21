@@ -1102,6 +1102,20 @@ const BADGE_FRIENDS = {
     s += line('M-9,12 Q0,22 9,12', K.tulip, 1.6) + fill(R(5, 15, 10, 6, 3), '#b9c2cc') + fill(C(8, 18, 1.4), '#7c8590');
     return s + shine(EL(-10, -5, 4, 2.2, -30), .5) + tinyFace(-6, 6, 0, 2);
   },
+  topchef() { // Top Chef: a cupcake with a gold rosette
+    let s = body(P('M-16,-1 L16,-1 L12,21 L-12,21 Z'), '#e8b56b', -5, -5, .15) + line('M-8,1 L-6,19 M0,1 L0,19 M8,1 L6,19', '#c48a3a', 1.2);
+    s += body(P('M-19,-1 Q-22,-19 -6,-21 Q0,-29 8,-21 Q22,-19 19,-1 Z'), '#f7a8c4', -6, -5, .18);
+    s += fill(C(1, -26, 4), '#d7263d') + shine(C(0, -27.5, 1.2), .7);
+    s += fill(P('M10,13 L6,25 L10,22 L14,25 L14,13 Z'), K.tulip) + fill(C(11, 11, 6.5), K.goldDark) + fill(C(11, 10.4, 5.4), K.gold) + shine(C(9, 8.6, 1.4), .7);
+    return s + shine(EL(-10, -12, 2, 3.5, -20), .5) + tinyFace(-8, 2, -8, 1.8);
+  },
+  champion() { // Champion: a golden trophy with a face
+    let s = line('M-14,-14 Q-26,-12 -21,-1 Q-18,4 -11,4 M14,-14 Q26,-12 21,-1 Q18,4 11,4', K.goldDark, 3);
+    s += body(P('M-15,-20 L15,-20 Q15,5 0,9 Q-15,5 -15,-20 Z'), K.gold, -6, -5, .2);
+    s += fill(R(-3, 8, 6, 10, 2), K.goldDark) + body(R(-12, 17, 24, 7, 3), K.goldDark, -4, -4, .2);
+    s += fill(P('M0,-31 L2,-26 L8,-26 L3.5,-22.5 L5,-17 L0,-20 L-5,-17 L-3.5,-22.5 L-8,-26 L-2,-26 Z'), '#fff3c4') ;
+    return s + shine(R(-11, -17, 3, 15, 1.5), .55) + tinyFace(-6, 6, -9, 2);
+  },
   vip() { // VIP Host: a cookie wearing a crown and a red bow tie, ready to greet guests
     let s = body(C(0, 4, 18), '#e2b26a', -6, -6, .2);
     for (const [x, y] of [[-11, 4], [11, 8], [-6, 14], [8, -4]]) s += fill(C(x, y, 1.6), '#b97a32');
