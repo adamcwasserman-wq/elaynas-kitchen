@@ -94,12 +94,12 @@ export function createKitchen(api) {
       i, sh, m, t: 0,
       oven: Array(spec('oven').slots).fill(null),
       cups: Array(spec('coffee').cups).fill(null),
-      plates: Array(spec('prep').plates).fill(null),
+      plates: Array(spec('prep').plates + (i + 1 >= SHIFT_RULES.dirtyFrom ? SHIFT_RULES.dirtyPlates : 0)).fill(null),
       cust: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null),
       coming: sh.rush ? Infinity : sh.customers, first: true, sinceVip: 0, hadVip: false, spawnIn: .6, served: 0, lost: 0, earned: 0,
       hearts: Math.max(1, SHIFT_RULES.hearts + (m.hearts || 0)),
       toss: false, say: null, sayUntil: 0, over: false, trash: 0,
-      counter: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null), wash: { waiting: 0, load: 0, t: 0 },
+      counter: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null), wash: [], // seconds left for each plate in the dishwasher
       stock: Object.fromEntries(PANTRY.filter(p => FOODS[p.for].from === 'oven').map(p => [p.id, SHIFT_RULES.startDough])),
       mix: null, ready: 0, drag: null,
       // Helpers only work from the shift where their job starts.
@@ -214,15 +214,16 @@ export function createKitchen(api) {
         if (run.mix.t >= run.mix.need) { run.ready = mx.batch; run.mix = null; changed = true; api.buzz('tap'); say('The dough is ready! Drag it onto the bagel or pretzel shelf.', 3.5); }
       } else if (mx.auto && !run.ready && doughIds().some(id => run.stock[id] <= 1)) { startMix(); changed = true; }
     }
-    // The dishwasher washes what's waiting in one load, then the plates go back on the board.
-    const w = run.wash;
-    if (w.load) {
-      w.t += dt;
-      if (w.t >= spec('dishwasher').secs) {
-        for (let n = 0, j = 0; j < run.plates.length && n < w.load; j++) if (run.plates[j] === 'away') { run.plates[j] = null; n++; }
-        w.load = 0; changed = true; api.buzz('tap');
+    // The dishwasher: each plate washes on its own from the moment it goes in (no waiting for the one before it).
+    if (run.wash.length) {
+      run.wash = run.wash.map(t => t - dt);
+      const clean = run.wash.filter(t => t <= 0).length;
+      if (clean) {
+        run.wash = run.wash.filter(t => t > 0);
+        for (let n = 0, j = 0; j < run.plates.length && n < clean; j++) if (run.plates[j] === 'away') { run.plates[j] = null; n++; }
+        changed = true; api.buzz('tap');
       }
-    } else if (w.waiting) { w.load = w.waiting; w.waiting = 0; w.t = 0; changed = true; }
+    }
     // The compost bin slowly frees up space.
     const cb = spec('bin').compost;
     if (cb && run.trash > 0) { run.compost = (run.compost || 0) + dt; if (run.compost >= cb) { run.trash--; run.compost = 0; changed = true; } }
@@ -367,7 +368,7 @@ export function createKitchen(api) {
       const withDishes = run.counter[i].dishes > 0;
       return { pts: withDishes ? [home(h), atCounter(i), washerPt(), home(h)] : [home(h), atCounter(i), home(h)], acts: {
         1: st => { const d = clearSpot(i, false); if (!d) return false; st.carry = d.dishes ? 'dirtyPlate' : null; st.dishes = d.dishes; return true; },
-        2: st => { run.wash.waiting += st.dishes || 0; st.dishes = 0; st.carry = null; return true; } } };
+        2: st => { toWasher(st.dishes || 0); st.dishes = 0; st.carry = null; return true; } } };
     },
   };
   // A topped food a customer is waiting for, with its plain food already on a plate, or null.
@@ -458,7 +459,7 @@ export function createKitchen(api) {
       run.toss = false;
       if (kind === 'plate' && run.plates[arg] && run.plates[arg] !== 'away' && run.plates[arg] !== 'held') {
         run.plates[arg] = used();
-        if (dirtyOn()) run.wash.waiting++;
+        if (dirtyOn()) toWasher(1);
         say('Tossed in the bin.');
         trash();
       }
@@ -681,6 +682,7 @@ export function createKitchen(api) {
     api.buzz('serve');
     floatText(`+$${total}${tip && !dirtyOn() ? ' tip!' : ''}`, custX(i), 60);
   }
+  const toWasher = n => { for (let k = 0; k < n; k++) run.wash.push(spec('dishwasher').secs); };
   // Tapping dishes on the counter: the tip goes in the jar, the dishes go in the dishwasher.
   function collect(i) {
     if (!clearSpot(i)) return;
@@ -688,11 +690,11 @@ export function createKitchen(api) {
     render();
   }
   // Clears one counter spot (by her tap or Mushroom). Returns what was there, or null.
-  function clearSpot(i, toWasher = true) {
+  function clearSpot(i, wash = true) {
     const d = run.counter[i];
     if (!d) return null;
     run.counter[i] = null;
-    if (toWasher) run.wash.waiting += d.dishes;
+    if (wash) toWasher(d.dishes);
     if (d.tip) { run.earned += d.tip; api.earn(d.tip); api.buzz('serve'); floatText(`+$${d.tip} tip!`, custX(i), 120); }
     return d;
   }
@@ -725,7 +727,9 @@ export function createKitchen(api) {
 
   // ---------- where things are on screen ----------
   const custX = i => (run.cust.length === 2 ? [100, 244] : [62, 172, 282])[i];
-  const plateSpot = i => { const p = A.prep(level('prep')).plates[i]; return [PREP_X + p[0], PREP_Y + p[1]]; };
+  // Once customers take plates away (dirty dishes), the board gets extra plates.
+  const extraPlates = () => ((run ? run.i : chosen) + 1 >= SHIFT_RULES.dirtyFrom ? SHIFT_RULES.dirtyPlates : 0);
+  const plateSpot = i => { const p = A.prep(level('prep'), extraPlates()).plates[i]; return [PREP_X + p[0], PREP_Y + p[1]]; };
   const cupSpot = i => { const c = A.coffee(level('coffee')); return [CENTRE.coffee - c.W / 2 + c.cups[i][0], BOTTOM + c.cups[i][1]]; };
   const pantryItems = () => PANTRY.filter(p => (run?.sh || SHIFTS[chosen]).menu.includes(p.for)).map(p => p.id);
 
@@ -806,7 +810,7 @@ export function createKitchen(api) {
 
   function scene() {
     const items = pantryItems();
-    const o = A.oven(level('oven')), cf = A.coffee(level('coffee')), pa = A.pantry(level('pantry'), items), pr = A.prep(level('prep'));
+    const o = A.oven(level('oven')), cf = A.coffee(level('coffee')), pa = A.pantry(level('pantry'), items), pr = A.prep(level('prep'), extraPlates());
     const ox = CENTRE.oven - o.W / 2, cx = CENTRE.coffee - cf.W / 2, px = CENTRE.pantry - pa.W / 2;
     const gd = guide();
     let s = A.roomBack();
@@ -831,8 +835,8 @@ export function createKitchen(api) {
     });
     // The dishwasher, built into the cupboard, once there are dishes.
     if (run ? dirtyOn() : chosen + 1 >= SHIFT_RULES.dirtyFrom) {
-      const w = run?.wash || { load: 0, waiting: 0, t: 0 };
-      s += A.dishwasher(level('dishwasher'), DISHWASHER[0], DISHWASHER[1], w.load + w.waiting, w.load ? w.t / spec('dishwasher').secs : null);
+      const w = run?.wash || [], soonest = w.length ? Math.min(...w) : 0;
+      s += A.dishwasher(level('dishwasher'), DISHWASHER[0], DISHWASHER[1], w.length, w.length ? 1 - soonest / spec('dishwasher').secs : null);
     }
     // The pantry.
     let p = pa.art;
@@ -939,7 +943,7 @@ export function createKitchen(api) {
       el.setAttribute('stroke', col);
     });
     const wr = document.getElementById('krw');
-    if (wr && run.wash.load) wr.setAttribute('stroke-dashoffset', (+wr.getAttribute('stroke-dasharray') * (1 - run.wash.t / spec('dishwasher').secs)).toFixed(1));
+    if (wr && run.wash.length) wr.setAttribute('stroke-dashoffset', (+wr.getAttribute('stroke-dasharray') * (Math.min(...run.wash) / spec('dishwasher').secs)).toFixed(1));
     const mr = document.getElementById('krm');
     if (mr && run.mix) mr.setAttribute('stroke-dashoffset', (+mr.getAttribute('stroke-dasharray') * (1 - run.mix.t / run.mix.need)).toFixed(1));
     run.cust.forEach((cu, i) => {
@@ -1119,5 +1123,7 @@ export function createKitchen(api) {
     }
   });
 
+  // For testing on a local preview only: lets a test script look at the shift and play it.
+  if (location.hostname === 'localhost') window.__kitchen = { run: () => run, tap: w => { tap(w); }, drop: id => { dropDough(id); render(); } };
   return { open, close, hasKitchen, isOpen: () => !$('#kitchen').hidden };
 }

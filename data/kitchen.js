@@ -65,7 +65,7 @@ export const SHIFTS = [
     intro: { id: 'cold', food: 'coffee', art: 'coffeeCold', title: 'New: coffee goes cold!', line: 'A full cup only stays hot for a little while. Pour it when someone wants one. A cold cup has to be tossed.' } },
   { customers: 8, menu: MOST, wantsMax: 2, gap: 6.5, patience: 36 },
   { customers: 8, menu: MOST, wantsMax: 2, gap: 6, patience: 34,
-    intro: { id: 'dishes', food: 'bagel', art: 'dirty', title: 'New: dirty dishes!', line: 'Customers leave their dishes on the counter, and quick service gets a tip there too. Tap the dishes to clear them: nobody new can sit there until you do. They go in the dishwasher and come back clean.' } },
+    intro: { id: 'dishes', food: 'bagel', art: 'dirty', title: 'New: dirty dishes!', line: 'Customers leave their dishes on the counter, and quick service gets a tip there too. Tap the dishes to clear them: nobody new can sit there until you do. They go in the dishwasher and come back clean. You get an extra plate to help.' } },
   { customers: 0, menu: MOST, wantsMax: 2, gap: 6, patience: 34, rush: { secs: 90, goals: [120, 180, 240] },
     intro: { id: 'rush', food: 'bagel', art: 'clock', title: 'Rush hour!', line: 'Customers keep coming until the clock runs out. Earn the money goal for a star, and more for three stars.' } },
   // Part 3: everyone's working, it's busy, and VIPs drop in.
@@ -108,6 +108,7 @@ export const SHIFT_RULES = {
   pour: 4,              // seconds to pour a coffee at level 1
   hot: 10,              // seconds a full cup stays hot before it goes cold (moods stretch it)
   coldFrom: 5,          // coffee goes cold from this shift on
+  dirtyPlates: 1,       // extra plates on the board from dirtyFrom on, since customers take plates away
   dirtyFrom: 7,         // from this shift on, customers leave dirty dishes (and quick-service tips) on the counter
   rushRefill: 1.5,      // rush hour: seconds before an empty spot at the counter fills again
   doughFrom: 6,         // from this shift on, dough runs out and is made at the mixer
@@ -130,7 +131,7 @@ export const DOUGH_INTRO = { id: 'dough', art: 'dough', title: 'New: the mixer!'
 //   prep     plates: plates on the board.
 //   bin      holds: things she can throw out before it's full and the shift is over (moods add or take away).
 //            compost: seconds for the compost bin to free up one space.
-//   dishwasher  secs: how long a load of plates takes to wash.
+//   dishwasher  secs: how long each plate takes to wash (plates wash side by side, each from when it goes in).
 //   mixer    batch: doughs made at a time. secs: how long a batch takes. auto: starts a batch by itself when a dough runs low.
 //            The finished dough waits in the mixer until she drags it onto a shelf.
 export const APPLIANCES = [
@@ -155,9 +156,9 @@ export const APPLIANCES = [
     { name: 'Big bin', perk: 'Holds 7 things.', cost: 150, holds: 7 },
     { name: 'Compost bin', perk: 'Holds 8, and turns waste into compost: one space frees up every 20 seconds.', cost: 500, holds: 8, compost: 20 }] },
   { id: 'dishwasher', name: 'Dishwasher', levels: [
-    { name: 'Little dishwasher', perk: 'Washes a load in 4 seconds.', secs: 4 },
-    { name: 'Big dishwasher', perk: 'Washes a load in 2.5 seconds.', cost: 200, secs: 2.5 },
-    { name: 'Steam washer', perk: 'Washes a load in just 1 second.', cost: 650, secs: 1 }] },
+    { name: 'Little dishwasher', perk: 'Washes a plate in 3 seconds.', secs: 3 },
+    { name: 'Big dishwasher', perk: 'Washes a plate in 2 seconds.', cost: 200, secs: 2 },
+    { name: 'Steam washer', perk: 'Washes a plate in just 1 second.', cost: 650, secs: 1 }] },
   { id: 'prep', name: 'Prep counter', levels: [
     { name: 'Small board', perk: 'Room for 2 plates.', plates: 2 },
     { name: 'Long board', perk: 'Room for 3 plates.', cost: 200, plates: 3 },

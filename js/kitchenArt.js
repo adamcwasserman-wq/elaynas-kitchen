@@ -205,13 +205,13 @@ export function pantry(level, items) {
   return { art: s, W, H, spots };
 }
 
-// The prep counter: the board and where each plate goes.
-export function prep(level) {
+// The prep counter: the board and where each plate goes ("extra" plates on top of the level's own).
+export function prep(level, extra = 0) {
   const [W] = SIZE.prep[level - 1];
   const s = level === 3
     ? rect(0, -26, W, 26, 8, '#ddd6cc') + rect(0, -26, W - 3, 23, 8, '#f4f0ea') + line('M14,-18 Q40,-10 60,-20 M90,-8 Q120,-20 150,-12', '#d6cfc6', 1.6) + rect(0, -4, W, 4, 2, GOLD)
     : rect(0, -24, W, 24, 8, '#c4824a') + rect(0, -24, W - 3, 21, 8, '#d99a5c');
-  const n = level + 1, plates = [];
+  const n = level + 1 + extra, plates = [];
   for (let i = 0; i < n; i++) plates.push([W * (i + .5) / n, -24]);
   return { art: s, W, plates, scale: level === 3 ? .85 : .9 };
 }
