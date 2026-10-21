@@ -234,7 +234,8 @@ export function createKitchen(api) {
         cu.leaving -= dt;
         if (cu.leaving <= 0) {
           run.cust[i] = null;
-          if (cu.dishes || cu.tipLeft) run.counter[i] = { dishes: cu.dishes || 0, tip: cu.tipLeft || 0 };
+          // A quick-service tip waits on the counter with any dishes still there.
+          if (cu.tipLeft) (run.counter[i] ??= { dishes: 0, tip: 0 }).tip += cu.tipLeft;
           changed = true;
         }
         return;
@@ -604,7 +605,13 @@ export function createKitchen(api) {
     if (f === 'away') { say('That plate is out with a customer. It comes back from the dishwasher.'); render(); return; }
     if (f === 'held') { say('A helper is bringing food for that plate.'); render(); return; }
     const cu = deliver(f, plateSpot(i));
-    if (cu) { run.plates[i] = used(); if (dirtyOn()) cu.dishes = (cu.dishes || 0) + 1; }
+    if (cu) {
+      run.plates[i] = used();
+      // The customer eats at the counter and leaves the plate there right away, so she can send it
+      // to the dishwasher even while they wait for the rest of their order. (Before, plates only
+      // came back once the customer left, and two half-served customers could hold every plate.)
+      if (dirtyOn()) (run.counter[run.cust.indexOf(cu)] ??= { dishes: 0, tip: 0 }).dishes++;
+    }
     render();
   }
 
@@ -740,7 +747,7 @@ export function createKitchen(api) {
     if (cold >= 0) return { text: 'That coffee went cold. Tap it to toss it.', target: `cup:${cold}` };
     const dish = run.counter.findIndex(Boolean);
     if (dish >= 0 && (!run.plates.includes(null) || run.coming > 0 && !run.cust.some((x, k) => !x && !run.counter[k])))
-      return { text: run.counter[dish].tip ? 'Tap the dishes on the counter to clear them, and grab the tip!' : 'Tap the dishes on the counter so a new customer can sit there.', target: `dish:${dish}` };
+      return { text: run.counter[dish].tip ? 'Tap the dishes on the counter to clear them, and grab the tip!' : !run.plates.includes(null) ? 'No clean plates! Tap the dirty dishes on the counter to wash them.' : 'Tap the dishes on the counter so a new customer can sit there.', target: `dish:${dish}` };
     const helping = run.i < 2 || run.sh.intro;
     const cu = run.cust.find(c => c && !c.leaving);
     if (!cu) return { text: run.coming ? 'Here comes a customer!' : 'Nice work!' };

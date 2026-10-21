@@ -1,7 +1,7 @@
 // Keeps a copy of the game on the phone so it works with no connection.
 // When you change any game file, bump VERSION so phones pick up the new copy.
 
-const VERSION = 'ek-0.32.0';
+const VERSION = 'ek-0.33.0';
 const FILES = [
   './',
   'index.html',
@@ -54,6 +54,11 @@ self.addEventListener('activate', event => {
       .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
+});
+
+// The game asks which version is running (shown at the bottom of Settings).
+self.addEventListener('message', event => {
+  if (event.data === 'version') event.source?.postMessage({ version: VERSION });
 });
 
 // Serve from the saved copy first, and refresh that copy in the background when online.

@@ -618,7 +618,7 @@ document.addEventListener('click', async e => {
 });
 renderInstall();
 const feedbackLink = () => {
-  const body = `\n\n\n(Tulip Kitchen version ${$('.version').textContent.replace(/.*version /, '')} on ${navigator.userAgent.match(/\(([^)]+)\)/)?.[1] || 'this device'})`;
+  const body = `\n\n\n(Tulip Kitchen version ${$('.version').textContent.replace(/.*version /, '') || 'unknown'} on ${navigator.userAgent.match(/\(([^)]+)\)/)?.[1] || 'this device'})`;
   return `mailto:${CONFIG.feedbackEmail}?subject=${encodeURIComponent('Tulip Kitchen feedback')}&body=${encodeURIComponent(body)}`;
 };
 $('#feedback').addEventListener('click', e => { e.currentTarget.href = feedbackLink(); });
@@ -2439,8 +2439,23 @@ $('#rf-free').addEventListener('click', () => {
   save();
 });
 
+// The version line at the bottom of Settings (also used in feedback emails). It comes from VERSION
+// in sw.js, so it can't drift: ask the service worker that's running the game, or, with none yet
+// (a first visit), read sw.js itself.
+const showVersion = v => { $('.version').textContent = `Tulip Kitchen · version ${v}`; };
+navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.version) showVersion(e.data.version); });
+async function loadVersion() {
+  if (navigator.serviceWorker?.controller) { navigator.serviceWorker.controller.postMessage('version'); return; }
+  try {
+    const m = (await (await fetch('sw.js', { cache: 'no-store' })).text()).match(/VERSION = '([^']+)'/);
+    if (m) showVersion(m[1]);
+  } catch { /* offline with no service worker: leave the line as it is */ }
+}
+loadVersion();
+
 // Settings and backups
 function openSettings() {
+  loadVersion();
   $('#set-vibrate').checked = S.settings.vibrate;
   $('#set-nudge').checked = !!S.settings.nudge;
   $('#set-name').value = S.profile?.name || '';
