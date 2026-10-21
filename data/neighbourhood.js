@@ -43,7 +43,7 @@ export const IMPROVEMENTS = [
     { name: 'Bike racks', cost: 800, buzz: 90, about: 'A place to park bikes.' },
     { name: 'Bike lane', cost: 2000, buzz: 72, about: 'Easy to get here on two wheels.' },
     { name: 'Bike lane and bike-share station', cost: 4000, buzz: 108, about: 'Bikes to borrow, right on the street.' }] },
-  { id: 'streetcar', name: 'Ferry dock', stages: [
+  { id: 'streetcar', name: 'Ferry dock', kitchen: 8, stages: [
     { name: 'A rowboat dock', cost: 1000, buzz: 110, about: 'Visitors can row over to the island.' },
     { name: 'Ferry dock', cost: 2500, buzz: 88, about: 'A ferry brings visitors across the water.' },
     { name: 'Ferry terminal', cost: 5000, buzz: 132, about: 'Two ferries and a terminal with a flag on top.' }] },
@@ -70,13 +70,17 @@ export const IMPROVEMENTS = [
 ];
 
 // Amenities open up as the neighbourhood grows. "needs" is the buzz level (see BUZZ_LEVELS, 1 = Friendly block).
+// "kitchen" (here and on landmarks): a waterfront piece that opens when she earns a star on that
+// cooking shift. The cooking shifts build the waterfront; the merge board builds the town.
 export const AMENITIES = [
   { id: 'washrooms', name: 'Public washrooms', cost: 400, buzz: 50, needs: 1, about: 'Families can stay all afternoon.' },
   { id: 'park', name: 'Neighbourhood park', cost: 900, buzz: 100, needs: 2, about: 'Grass, trees and picnic tables.' },
-  { id: 'lighthouse', name: 'Lighthouse', cost: 1800, buzz: 150, needs: 2, about: 'It lights the way for boats at night. Goes on the shore.' },
+  { id: 'cart', name: 'Pretzel cart', cost: 300, buzz: 60, kitchen: 4, about: 'Warm pretzels and bagels by the beach. Goes on the shore.' },
+  { id: 'lighthouse', name: 'Lighthouse', cost: 1800, buzz: 150, kitchen: 11, about: 'It lights the way for boats at night. Goes on the shore.' },
   { id: 'splash', name: 'Splash pad', cost: 1400, buzz: 130, needs: 3, about: 'Kids run through the fountains.' },
   { id: 'pool', name: 'Community pool', cost: 2200, buzz: 180, needs: 4, about: 'A summer favourite.' },
-  { id: 'marina', name: 'Marina', cost: 2800, buzz: 200, needs: 4, about: 'A harbour full of sailboats. Goes in the water.' },
+  { id: 'marina', name: 'Marina', cost: 2800, buzz: 200, kitchen: 13, about: 'A harbour full of sailboats. Goes in the water.' },
+  { id: 'cafeboat', name: 'Bagel boat café', cost: 3500, buzz: 260, kitchen: 15, about: 'A floating café that serves bagels and pretzels. Goes in the water.' },
   { id: 'zoo', name: 'Petting zoo', cost: 3500, buzz: 250, needs: 5, about: 'Goats, bunnies and a very friendly duck.' },
 ];
 
@@ -99,6 +103,8 @@ export const HOOD_CHOICES = {
 
 // Buzz from her restaurants, in every city.
 export const RESTAURANT_BUZZ = { perStar: 12, perUpgrade: 6 };
+// Buzz from the cooking shifts: each star on a shift (up to 3 per shift) and each kitchen upgrade level bought.
+export const KITCHEN_BUZZ = { perStar: 4, perUpgrade: 6 };
 
 // Neighbourhood levels. "bonus": customers in all restaurants pay this much more.
 // "gems" and "bia": the reward for reaching it (Island dollars go straight into the neighbourhood fund).

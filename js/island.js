@@ -47,6 +47,11 @@ const sailboat = (col = '#e8475f', flag = '') => `<path d="M-14,0 L14,0 L9,7 L-9
   (flag ? `<path d="M0,-27 L9,-30 L0,-33 Z" fill="${flag}"/>` : '');
 const rowboat = () => `<path d="M-12,0 Q0,7 12,0 L9,-3 L-9,-3 Z" fill="${WOOD}"/><path d="M-9,-3 L9,-3 L8,-1 L-8,-1 Z" fill="${WOOD_DARK}"/>` + seg(-14, 3, -4, -2, WOOD_DARK, 1.6) + seg(14, 3, 4, -2, WOOD_DARK, 1.6);
 const duck = () => ell(0, 0, 7, 4.5, '#ffd23f') + circ(5, -5, 3.6, '#ffd23f') + `<path d="M8,-5 L12,-4 L8,-3 Z" fill="#f08a24"/>` + circ(5.8, -6, .9, '#3a2a2a');
+// The Bagel boat café: a floating café with a striped awning and a bagel sign.
+const cafeBoat = () => `<path d="M-30,0 L30,0 L24,11 L-24,11 Z" fill="#fff"/>` + rect(-30, -2, 60, 4, '#5b2c6f') +
+  rect(-18, -20, 36, 18, '#fff3dc', 'rx="3"') + [0, 1, 2].map(i => rect(-14 + i * 10, -16, 7, 7, '#6cc6e0', 'rx="1.5"')).join('') +
+  [0, 1, 2, 3].map(i => rect(-20 + i * 10, -26, 10, 7, i % 2 ? '#fff' : '#e8475f')).join('') +
+  circ(0, -34, 7, '#b8732f') + circ(-.6, -34.6, 6, '#e3a24f') + circ(0, -34, 2.3, '#fff3dc');
 function ferry(big) {
   const w = big ? 30 : 24;
   return `<path d="M${-w},0 L${w},0 L${w - 6},10 L${-w + 6},10 Z" fill="#fff"/>` + rect(-w, -2, w * 2, 4, '#2f8a8f') +
@@ -179,6 +184,19 @@ export function islandSvg(o) {
     pool(p) { ground.push(poly(dia(p.x, p.y, 3, 2), '#f3ead8') + poly(dia(p.x + .3, p.y + .3, 2.4, 1.4), '#6cc6e0', 'stroke="#fff" stroke-width="3"') + [.8, 1.3].map(b => { const a1 = P(p.x + .35, p.y + b), a2 = P(p.x + 2.65, p.y + b); return seg(a1[0], a1[1], a2[0], a2[1], '#fff', 1, 'stroke-dasharray="4 4" opacity=".8"'); }).join('')); add(p.x + p.y + 1.6, umbrella(p.x + .2, p.y + 1.8, '#e8475f'), p.uid); add(p.x + p.y + 4.6, umbrella(p.x + 2.8, p.y + 1.8, '#f6b62e'), p.uid); const c = P(p.x + 1.4, p.y + 1); add(p.x + p.y + 2.4, friend(c[0], c[1], 6, '#5b2c6f'), p.uid); },
     zoo(p) { ground.push(poly(dia(p.x, p.y, 3, 3), '#c9e3a0')); const corners = [P(p.x, p.y), P(p.x + 3, p.y), P(p.x + 3, p.y + 3), P(p.x, p.y + 3)]; let fence = ''; for (let i = 0; i < 4; i++) { const a = corners[i], b = corners[(i + 1) % 4]; fence += seg(a[0], a[1] - 8, b[0], b[1] - 8, WOOD, 2) + seg(a[0], a[1] - 3, b[0], b[1] - 3, WOOD, 2); } add(p.x + p.y + 5, fence, p.uid); add(p.x + p.y + 1.6, box(p.x + .2, p.y + .2, 1, .9, 24, { wall: '#c0392b', roof: '#8e2b20', windows: [.4] }), p.uid); const goat = (a, b) => { const c = P(p.x + a, p.y + b); return ell(c[0], c[1] - 7, 9, 6, '#fff') + circ(c[0] + 8, c[1] - 12, 4.5, '#fff') + seg(c[0] - 5, c[1] - 2, c[0] - 5, c[1] + 3, '#7a5f52', 1.6) + seg(c[0] + 4, c[1] - 2, c[0] + 4, c[1] + 3, '#7a5f52', 1.6); }; add(p.x + p.y + 3.6, goat(1.9, 1.7), p.uid); add(p.x + p.y + 3.4, goat(1.2, 2.2), p.uid); const pond = P(p.x + 2.2, p.y + 2.4); ground.push(ell(pond[0], pond[1], 18, 8, '#7cc6e0')); add(p.x + p.y + 4.6, `<g transform="translate(${f(pond[0])} ${f(pond[1] - 2)})">${duck()}</g>`, p.uid); },
     lighthouse(p) { const c = P(p.x + .5, p.y + .5); let s = ell(c[0], c[1], 14, 7, '#000', 'opacity=".1"') + poly([[c[0] - 10, c[1]], [c[0] + 10, c[1]], [c[0] + 6, c[1] - 70], [c[0] - 6, c[1] - 70]], '#fff'); for (const t of [.2, .55]) s += poly([[c[0] - 10 + 4 * t, c[1] - 70 * t], [c[0] + 10 - 4 * t, c[1] - 70 * t], [c[0] + 10 - 4 * (t + .15), c[1] - 70 * (t + .15)], [c[0] - 10 + 4 * (t + .15), c[1] - 70 * (t + .15)]], '#e8475f'); s += rect(c[0] - 8, c[1] - 84, 16, 14, '#3a2a2a', 'rx="2"') + rect(c[0] - 5, c[1] - 82, 10, 10, '#ffd34d') + `<path d="M${f(c[0] - 10)},${f(c[1] - 84)} L${f(c[0])},${f(c[1] - 96)} L${f(c[0] + 10)},${f(c[1] - 84)} Z" fill="#e8475f"/>`; add(p.x + p.y + 1, s, p.uid); glow.push(`<g class="isl-beam" style="transform-origin:${f(c[0])}px ${f(c[1] - 77)}px"><path d="M${f(c[0])},${f(c[1] - 77)} L${f(c[0] + 170)},${f(c[1] - 110)} L${f(c[0] + 170)},${f(c[1] - 44)} Z" fill="#fff6c0" opacity=".28"/></g>` + circ(c[0], c[1] - 77, 12, '#ffd34d', 'opacity=".6"')); },
+    cart(p) { // the pretzel cart on the beach
+      const c = P(p.x + .5, p.y + .5);
+      add(p.x + p.y + 1, ell(c[0], c[1], 13, 6, '#000', 'opacity=".1"') + box(p.x + .22, p.y + .3, .56, .42, 13, { wall: '#fff3dc', roof: '#c98a4a' }) +
+        circ(c[0] - 8, c[1] + 1, 3, '#5a4636') + circ(c[0] + 8, c[1] + 1, 3, '#5a4636') + umbrella(p.x + .5, p.y + .5, '#e8475f'), p.uid);
+      labels.push(label(c[0], c[1] - 52, 'Pretzels', '#c96a3a', 9));
+    },
+    cafeboat(p) { // the Bagel boat café, tied up at a little pier
+      ground.push(poly(dia(p.x, p.y, 2, .45), WOOD, `stroke="${WOOD_DARK}" stroke-width=".8"`));
+      const c = P(p.x + 1, p.y + 1.25);
+      add(p.x + p.y + 2.3, `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob">${cafeBoat()}</g></g>`, p.uid);
+      glow.push(circ(c[0], c[1] - 14, 18, '#ffd77a', 'opacity=".3"'));
+      labels.push(label(c[0], c[1] - 50, 'Bagel boat', '#5b2c6f', 9));
+    },
     marina(p) { ground.push([0, 1, 2].map(i => poly(dia(p.x + i + .4, p.y, .2, 2), WOOD, `stroke="${WOOD_DARK}" stroke-width=".8"`)).join('') + poly(dia(p.x, p.y, 3, .25), WOOD, `stroke="${WOOD_DARK}" stroke-width=".8"`)); [[.95, 1.2, '#e8475f'], [1.95, 1.4, '#2f8a8f'], [2.75, 1, '#f6b62e']].forEach(([a, b, col], i) => { const c = P(p.x + a, p.y + b); add(p.x + a + p.y + b, `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob" style="animation-delay:-${i * .4}s">${sailboat(col)}</g></g>`, p.uid); glow.push(circ(c[0], c[1] - 27, 5, '#ffd34d', 'opacity=".7"')); }); },
     // decorations
     maple: p => add(p.x + p.y + 1, tree(p.x + .5, p.y + .5, '#e8742f'), p.uid),

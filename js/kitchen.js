@@ -710,6 +710,7 @@ export function createKitchen(api) {
     if (got >= 3 && before < 3) gems += 2;
     k.best[run.i] = Math.max(before, got);
     if (gems) api.gems(gems);
+    if (got >= 1 && before < 1) api.firstStar(run.i + 1); // may open a waterfront piece on the island
     api.badges(); // kitchen badges and missions (shown over the result card)
     api.save();
     showResult(got, gems);
