@@ -51,6 +51,8 @@ export const PIECES = {
   zoo: { size: [3, 3], on: 'land' },
   lighthouse: { size: [1, 1], on: 'shore' },
   marina: { size: [3, 2], on: 'water' },
+  cart: { size: [1, 1], on: 'shore' },
+  cafeboat: { size: [2, 2], on: 'water' },
 };
 
 // Decorations: little things she can place as many of as she likes, just for looks (no buzz).

@@ -21,7 +21,7 @@ import { MOODS, DEFAULT_MOOD } from '../data/moods.js';
 import { buildSprite, use, ICONS, badgeSvg, restaurantSvg } from './art.js';
 import { islandSvg, islandGeom, isoPoint, isoTile, isLand, fromCentre } from './island.js';
 import { ISLAND, PIECES, ISLAND_DECOR } from '../data/island.js';
-import { HOOD, BIA, IMPROVEMENTS, AMENITIES, EVENTS, HOOD_CHOICES, RESTAURANT_BUZZ, BUZZ_LEVELS, VISITORS_PER_BUZZ } from '../data/neighbourhood.js';
+import { HOOD, BIA, IMPROVEMENTS, AMENITIES, EVENTS, HOOD_CHOICES, RESTAURANT_BUZZ, KITCHEN_BUZZ, BUZZ_LEVELS, VISITORS_PER_BUZZ } from '../data/neighbourhood.js';
 import { MISSIONS } from '../data/missions.js';
 import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
 import { createArcade } from './arcade.js';
@@ -111,7 +111,24 @@ function restaurantBuzz() {
     const d = c.id === S.city ? S : S.cityData[c.id];
     if (d) b += (d.starLevel || 0) * RESTAURANT_BUZZ.perStar + Object.values(d.upLv || {}).reduce((t, n) => t + n, 0) * RESTAURANT_BUZZ.perUpgrade;
   }
+  // The cooking shifts add buzz too: shift stars and kitchen upgrades.
+  for (const k of Object.values(S.kitchen || {})) {
+    b += (k.best || []).reduce((t, n) => t + n, 0) * KITCHEN_BUZZ.perStar + Object.values(k.appl || {}).reduce((t, n) => t + n - 1, 0) * KITCHEN_BUZZ.perUpgrade;
+  }
   return b;
+}
+// The waterfront is built by the cooking shifts: a piece with "kitchen" opens once she earns a star
+// on that shift (in any restaurant's kitchen). Anything already built stays open.
+const kitchenReached = n => Object.values(S.kitchen || {}).some(k => (k.best?.[n - 1] || 0) >= 1);
+const waterOpen = x => !x.kitchen || kitchenReached(x.kitchen) || stageOf(x.id) > 0 || S.hood.built.includes(x.id);
+const WATERFRONT = [...IMPROVEMENTS, ...AMENITIES].filter(x => x.kitchen).sort((a, b) => a.kitchen - b.kitchen);
+// A card when a cooking shift opens a waterfront piece.
+function waterfrontNews(shift) {
+  for (const x of WATERFRONT.filter(w => w.kitchen === shift)) {
+    const kind = x.stages ? 'imp' : 'amen', about = x.stages ? x.stages[0].about : x.about;
+    celebrate({ art: piecePreview(kind, x.id), title: 'New on the waterfront!', name: x.name,
+      line: `${about} Your cooking shifts opened it. Build it on ${S.hood.name} with Island dollars.` });
+  }
 }
 // Improvements are built in stages (S.hood.stages); amenities are built once (S.hood.built).
 const stageOf = id => S.hood.stages[id] || 0;
@@ -146,7 +163,7 @@ function collectBia() {
   renderHood(); renderHeader(); save();
 }
 // Is there something new for her on the neighbourhood screen?
-const hoodNews = () => potReady() >= BIA.dotAt || IMPROVEMENTS.some(x => x.stages[stageOf(x.id)] && S.hood.bia >= x.stages[stageOf(x.id)].cost);
+const hoodNews = () => potReady() >= BIA.dotAt || IMPROVEMENTS.some(x => waterOpen(x) && x.stages[stageOf(x.id)] && S.hood.bia >= x.stages[stageOf(x.id)].cost);
 
 const hoodChoice = key => HOOD_CHOICES[key].find(c => c.colour === S.hood.choices[key]) || HOOD_CHOICES[key][0];
 
@@ -279,25 +296,25 @@ const costToPlace = (kind, type) => kind === 'decor' ? decorOf(type).cost : kind
 const pips = n => `<span class="pips">${[0, 1, 2].map(i => `<i class="${i < n ? 'on' : ''}"></i>`).join('')}</span>`;
 
 function improveRow(x) {
-  const n = stageOf(x.id), next = x.stages[n], top = !next;
-  const can = !top && S.hood.bia >= next.cost;
-  const right = top ? `<span class="upg-done">${ICONS.check}</span>`
+  const n = stageOf(x.id), next = x.stages[n], top = !next, locked = !waterOpen(x);
+  const can = !top && !locked && S.hood.bia >= next.cost;
+  const right = top ? `<span class="upg-done">${ICONS.check}</span>` : locked ? '<span class="upg-cost">Locked</span>'
     : n ? `<button class="btn primary upg-buy" data-isl-up="${x.id}"${can ? '' : ' disabled'}>Upgrade<br>$${next.cost.toLocaleString()}</button>`
     : `<button class="btn primary upg-buy" data-isl-place="imp:${x.id}"${can ? '' : ' disabled'}>Build<br>$${next.cost.toLocaleString()}</button>`;
-  const note = top ? `${x.stages[2].name}. ${x.stages[2].about}`
+  const note = top ? `${x.stages[2].name}. ${x.stages[2].about}` : locked ? `Opens when you earn a star on cooking shift ${x.kitchen}.`
     : `${n ? `Now: ${x.stages[n - 1].name}. Next: ` : ''}${next.name}. ${next.about} +${next.buzz} buzz.`;
   const swatches = n && x.choice ? `<div class="swatches">${HOOD_CHOICES[x.choice].map(c =>
     `<button class="swatch${hoodChoice(x.choice).colour === c.colour ? ' on' : ''}" data-hood-choice="${x.choice}" data-colour="${c.colour}" style="background:${c.colour}" aria-label="${c.name}"></button>`).join('')}</div>` : '';
   const p = pieceOf('imp', x.id);
-  return `<li class="upg${top ? ' done' : can ? ' next' : ''}${p && islSel === p.uid ? ' focused' : ''}"${p ? ` data-isl-find="${p.uid}"` : ''}>` +
+  return `<li class="upg${top ? ' done' : can ? ' next' : locked ? ' later' : ''}${p && islSel === p.uid ? ' focused' : ''}"${p ? ` data-isl-find="${p.uid}"` : ''}>` +
     `<div class="upg-text"><b>${x.name} ${pips(n)}</b><span>${note}</span>${swatches}</div>${right}</li>`;
 }
 function amenityRow(x) {
-  const built = S.hood.built.includes(x.id), locked = x.needs && S.hood.level < x.needs;
+  const built = S.hood.built.includes(x.id), locked = x.needs && S.hood.level < x.needs || !waterOpen(x);
   const can = !built && !locked && S.hood.bia >= x.cost;
   const right = built ? `<span class="upg-done">${ICONS.check}</span>` : locked ? '<span class="upg-cost">Locked</span>'
     : `<button class="btn primary upg-buy" data-isl-place="amen:${x.id}"${can ? '' : ' disabled'}>Build<br>$${x.cost.toLocaleString()}</button>`;
-  const note = locked ? `Opens when ${S.hood.name} is a ${BUZZ_LEVELS[x.needs].name}.` : `${x.about} +${x.buzz} buzz.`;
+  const note = !waterOpen(x) ? `Opens when you earn a star on cooking shift ${x.kitchen}.` : locked ? `Opens when ${S.hood.name} is a ${BUZZ_LEVELS[x.needs].name}.` : `${x.about} +${x.buzz} buzz.`;
   const p = pieceOf('amen', x.id);
   return `<li class="upg${built ? ' done' : can ? ' next' : locked ? ' later' : ''}${p && islSel === p.uid ? ' focused' : ''}"${p ? ` data-isl-find="${p.uid}"` : ''}>` +
     `<div class="upg-text"><b>${x.name}</b><span>${note}</span></div>${right}</li>`;
@@ -364,8 +381,10 @@ function renderIslandPanel() {
   document.querySelectorAll('[data-isl-tab]').forEach(b => b.classList.toggle('on', b.dataset.islTab === islTab));
   const panel = $('#isl-panel');
   if (islTab === 'build') {
-    panel.innerHTML = `<ul class="list">${growRow()}</ul><h3>Landmarks</h3><ul class="list">${IMPROVEMENTS.map(improveRow).join('')}</ul>` +
-      `<h3>Amenities</h3><ul class="list">${AMENITIES.map(amenityRow).join('')}</ul>`;
+    panel.innerHTML = `<ul class="list">${growRow()}</ul><h3>Landmarks</h3><ul class="list">${IMPROVEMENTS.filter(x => !x.kitchen).map(improveRow).join('')}</ul>` +
+      `<h3>Amenities</h3><ul class="list">${AMENITIES.filter(x => !x.kitchen).map(amenityRow).join('')}</ul>` +
+      `<h3>Waterfront</h3><p class="muted small">Your cooking shifts open these. Earn a star on a shift in the kitchen to unlock each one.</p>` +
+      `<ul class="list">${WATERFRONT.map(x => (x.stages ? improveRow(x) : amenityRow(x))).join('')}</ul>`;
   } else if (islTab === 'decor') {
     panel.innerHTML = `<p class="muted small">Just for fun: place as many as you like. Put one away to get your money back.</p><div class="isl-decor">` +
       ISLAND_DECOR.map(d => `<button class="isl-deco${islMode?.type === d.id ? ' on' : ''}" data-isl-place="decor:${d.id}"${S.hood.bia >= d.cost ? '' : ' disabled'}>` +
@@ -396,6 +415,13 @@ const decorPreview = id => {
   const svg = islandSvg({ radius: onLand ? .8 : 0, saleRadius: 0, water: new Set(), paths: new Set(id === 'path' ? ['10,10'] : []), shops: [], pieces: [{ uid: 1, kind: 'decor', type: id, x: 10, y: 10, w: 1, d: 1 }], choices: {}, people: 0, sailboats: 0, scale: 1 });
   const p = isoPoint(islandGeom(), 10.5, 10.5);
   return svg.replace(/width="[^"]*" height="[^"]*" viewBox="[^"]*"/, `viewBox="${p[0] - 34} ${p[1] - 52} 68 68"`);
+};
+// A picture of one landmark or amenity on its own (for the waterfront card).
+const piecePreview = (kind, type) => {
+  const [w, d] = sizeOf(kind, type), on = PIECES[type]?.on;
+  const svg = islandSvg({ radius: on === 'water' ? 0 : .8, saleRadius: 0, water: new Set(), paths: new Set(), shops: [], pieces: [{ uid: 1, kind, type, x: 10, y: 10, w, d, stage: 2 }], choices: {}, people: 0, sailboats: 0, scale: 1 });
+  const p = isoPoint(islandGeom(), 10 + w / 2, 10 + d / 2), k = 44 + 18 * Math.max(w, d);
+  return svg.replace(/width="[^"]*" height="[^"]*" viewBox="[^"]*"/, `viewBox="${p[0] - k} ${p[1] - k * 1.2} ${k * 2} ${k * 1.6}"`);
 };
 function renderHood() {
   accrueBia();
@@ -1593,7 +1619,23 @@ function missionStat(stat) {
     case 'events': return Object.keys(S.hood.hosted).length;
     case 'restaurants': return S.openCities.length;
     case 'buzzLevel': return S.hood.level;
-    default: return S.stats[stat] || 0;
+    default: return kitchenStat(stat) ?? (S.stats[stat] || 0);
+  }
+}
+// Kitchen numbers for missions and badges, read from the cooking shift saves (every restaurant's
+// kitchen added up). Anything else returns null. Customers served there are counted as she plays
+// (S.stats.kitchenServed).
+function kitchenStat(stat) {
+  const ks = Object.values(S.kitchen || {});
+  const sum = f => ks.reduce((t, k) => t + f(k), 0);
+  switch (stat) {
+    case 'kitchenShifts': return sum(k => (k.best || []).filter(b => b > 0).length);
+    case 'perfectShifts': return sum(k => (k.best || []).filter(b => b >= 3).length);
+    case 'rushWins': return sum(k => SHIFTS.filter((sh, i) => sh.rush && (k.best?.[i] || 0) > 0).length);
+    case 'helpersHired': return sum(k => (k.helpers || []).length);
+    case 'helperTraining': return sum(k => Object.values(k.helperLv || {}).reduce((t, n) => t + n - 1, 0));
+    case 'kitchenUpgrades': return sum(k => Object.values(k.appl || {}).reduce((t, n) => t + n - 1, 0));
+    default: return null;
   }
 }
 const missionDone = m => missionStat(m.stat) >= m.n;
@@ -1627,6 +1669,8 @@ $('#mission-list').addEventListener('click', e => {
 // ---------- badges ----------
 function statFor(b) {
   if (b.stat === 'cities') return S.openCities.length;
+  const k = kitchenStat(b.stat);
+  if (k !== null) return k;
   return b.stat === 'recipes' ? Object.keys(S.recipes).length : (S.stats[b.stat] || 0);
 }
 function checkBadges() {
@@ -2545,6 +2589,9 @@ function boot() {
     earn: n => { S.dollars += n; S.stats.earned += n; visitorsSpend(n); },
     gems: n => { S.gems += n; },
     cityId: () => S.city, cityName: () => city().name,
+    stat: (name, n = 1) => { S.stats[name] = (S.stats[name] || 0) + n; },
+    badges: () => { checkBadges(); checkHood(); renderHeader(); },
+    firstStar: shift => waterfrontNews(shift),
   });
   $('#brand-pin').innerHTML = ICONS.pin;
   $('#charges .icon').innerHTML = ICONS.bolt;
