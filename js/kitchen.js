@@ -119,7 +119,7 @@ export function createKitchen(api) {
       run.team = run.team.filter(x => x !== h);
       run.out.push({ h, why });
     }
-    if (run.out.length) run.cards.push([null, { art: 'out', out: run.out[0].h.id, title: `${run.out.map(o => o.h.name).join(' and ')} can't make it today!`,
+    if (run.out.length) run.cards.push([null, { art: 'out', out: run.out.map(o => o.h), title: `${run.out.map(o => o.h.name).join(' and ')} can't make it today!`,
       line: run.out.map(o => `<b>${o.h.name}:</b> "${o.why}"`).join('<br>') + '<br>You will have to cover for them.' }]);
     if (run.cards.length) { showIntro(run.cards[0][1]); return; }
     card = null;
@@ -1048,10 +1048,22 @@ export function createKitchen(api) {
   function showIntro(intro) {
     card = 'intro';
     render();
-    const art = intro.art === 'vip' ? '<use href="#cust-zip" x="-22" y="-22" width="44" height="44"/>' : intro.art === 'helper' ? A.helper(intro.helper, 0, 2) : intro.art === 'out' ? A.friend(intro.out, 0, 2, 1, A.g('translate(0 -1) scale(.62)', A.chefHat()), '', true) : intro.art === 'dirty' ? A.plate(0, 0, 'dirty', 1.3) : intro.art === 'dough' ? A.g('translate(-17 12) scale(.5)', A.mixer(2).art) : intro.art ? A.food(intro.art, 0, 0, 1.4) : A.plate(0, 0, intro.food, 1.3);
-    showCard(`<div class="k-intro"><svg viewBox="-24 -24 48 48" aria-hidden="true">${art}</svg>
+    const art = intro.art === 'out' ? '' : intro.art === 'vip' ? '<use href="#cust-zip" x="-22" y="-22" width="44" height="44"/>' : intro.art === 'helper' ? A.helper(intro.helper, 0, 2) :  intro.art === 'dirty' ? A.plate(0, 0, 'dirty', 1.3) : intro.art === 'dough' ? A.g('translate(-17 12) scale(.5)', A.mixer(2).art) : intro.art ? A.food(intro.art, 0, 0, 1.4) : A.plate(0, 0, intro.food, 1.3);
+    const pic = intro.art === 'out' ? outArt(intro.out) : `<svg viewBox="-24 -24 48 48" aria-hidden="true">${art}</svg>`;
+    showCard(`<div class="k-intro">${pic}
       <h2>${intro.title}</h2><p>${intro.line}</p>
       ${hireNow(intro)}<button class="btn${intro.helper && !hired(intro.helper) && canHire(intro.helper) ? ' ghost' : ' primary'}" data-go>Let's cook!</button></div>`);
+  }
+  // The sick day card: each helper who's out, frowning, with their name underneath (so Strawberry
+  // isn't mistaken for Tomato, the head chef, who never calls in sick).
+  function outArt(helpers) {
+    const n = helpers.length, gap = 62;
+    const friends = helpers.map((h, i) => {
+      const x = (i - (n - 1) / 2) * gap;
+      return A.friend(h.id, x, 0, 1, A.g('translate(0 -1) scale(.62)', A.chefHat()), '', true) +
+        A.text(x, 36, h.name, 9, A.INK, { 'text-anchor': 'middle', 'font-family': 'Righteous' });
+    }).join('');
+    return `<svg class="k-out" viewBox="${-gap * n / 2 - 14} -34 ${gap * n + 28} 76" aria-hidden="true">${friends}</svg>`;
   }
   // On a new helper's card: hire them right there and they join this shift.
   const canHire = id => S().dollars >= HELPERS.find(h => h.id === id).cost;

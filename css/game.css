@@ -825,3 +825,4 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .board-score { font-family: var(--display); color: var(--eggplant); white-space: nowrap; }
 .board-wait { text-align: center; color: var(--muted); padding: 18px 0; }
 .board-me { font-weight: 700; text-align: center; min-height: 1.4em; margin: 4px 0 8px; }
+.k-intro svg.k-out { width: auto; height: 96px; max-width: 100%; }
