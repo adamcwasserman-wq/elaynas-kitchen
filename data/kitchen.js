@@ -188,25 +188,34 @@ export const HELPERS = [
 ];
 
 // Why a helper isn't at work today (shifts with "away"). Just for fun.
+// Each one finishes the helper's sentence "Sorry, I'm ..." on the sick day card, so start it
+// lowercase and end it with a full stop.
 export const EXCUSES = [
-  'Going to a Backstreet Boys concert!',
-  'Has a fever. Too much Tamagotchi care last night.',
-  'Low energy. Stayed up all night waiting for the dial-up to connect.',
-  'Waiting in line for a Furby.',
-  'Taping songs off the radio for a mixtape.',
-  'Practicing the Macarena.',
-  'Returning tapes to Blockbuster before they are late.',
-  'Seeing Titanic at the movies. For the fifth time.',
-  'Watching the Spice Girls movie. Again.',
-  'Stuck playing Snake on a brick phone.',
-  'Learning every NSYNC dance move.',
-  'Their pager will not stop beeping.',
-  'Rollerblading to the arcade.',
-  'Making a homepage with sparkly GIFs.',
-  'Trading Pokemon cards at recess.',
-  'Feeding their Tamagotchi. It is a full time job.',
-  'Getting a new Lisa Frank folder at the mall.',
-  'Blowing into a Nintendo cartridge until it works.',
+  'waiting in line for a Furby.',
+  'taping songs off the radio for a mixtape.',
+  'returning tapes to Blockbuster before they are late.',
+  'seeing Titanic at the movies for the fifth time.',
+  'stuck playing Snake on a brick phone.',
+  'blowing into a Nintendo cartridge until it works.',
+  'trapped in an intense AOL Instant Messenger chat room.',
+  'searching the house for a lost Pog slammer.',
+  'recovering from virtual dysentery on the Oregon Trail.',
+  'waiting for disposable camera photos to develop at the pharmacy.',
+  'trying to keep a Discman from skipping while walking down the stairs.',
+  'trying to reconnect to the internet because my mom picked up the landline.',
+  'nursing an ankle shattered by a rogue Skip-It.',
+  'stuck on the escalator because my JNCO jeans got caught in the gears.',
+  'drafting a legal will to protect my Beanie Baby portfolio.',
+  'hopelessly lost because my MapQuest printout is missing page 3.',
+  'recovering from a massive Surge energy drink sugar crash.',
+  'at the salon getting aggressive frosted tips.',
+  'taking apart the computer mouse to scrape the gunk off the trackball.',
+  'applying a dangerously thick layer of roll-on body glitter.',
+  'waiting three days for a single song to download on Napster.',
+  'deciphering an upside-down pager code from my crush.',
+  'adjusting the VCR tracking so a taped episode of Seinfeld is actually watchable.',
+  'preparing the basement bunker for the impending Y2K collapse.',
+  'getting aggressively slimed on Double Dare and desperately needing a shower.'
 ];
 
 // Helpers get better when she trains them with tips. Level 1 is where they start when hired.

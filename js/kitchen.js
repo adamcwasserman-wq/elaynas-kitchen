@@ -120,7 +120,7 @@ export function createKitchen(api) {
       run.out.push({ h, why });
     }
     if (run.out.length) run.cards.push([null, { art: 'out', out: run.out.map(o => o.h), title: `${run.out.map(o => o.h.name).join(' and ')} can't make it today!`,
-      line: run.out.map(o => `<b>${o.h.name}:</b> "${o.why}"`).join('<br>') + '<br>You will have to cover for them.' }]);
+      line: run.out.map(o => `<b>${o.h.name}:</b> "Sorry, I'm ${o.why}"`).join('<br>') + '<br>You will have to cover for them.' }]);
     if (run.cards.length) { showIntro(run.cards[0][1]); return; }
     card = null;
     hideCard();
