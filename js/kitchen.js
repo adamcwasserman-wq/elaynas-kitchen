@@ -464,7 +464,10 @@ export function createKitchen(api) {
         trash();
       }
       else if (kind === 'cup' && run.cups[arg]) { run.cups[arg] = null; say('Tossed in the bin.'); trash(); }
-      else if (kind === 'oven') { const j = run.oven.findIndex(x => x && x.state !== 'bake'); if (j >= 0) { run.oven[j] = null; say('Tossed in the bin.'); trash(); } }
+      else if (kind === 'oven') {
+        const j = arg !== undefined && run.oven[arg] && run.oven[arg].state !== 'bake' ? +arg : run.oven.findIndex(x => x && x.state !== 'bake');
+        if (j >= 0) { run.oven[j] = null; say('Tossed in the bin.'); trash(); }
+      }
       else say(null, 0);
       api.buzz('tap');
       render();
@@ -473,7 +476,7 @@ export function createKitchen(api) {
     if (kind === 'bin') { run.toss = true; api.buzz('tap'); say('Now tap a plate, a cup or the oven to toss it.', 5); render(); return; }
     if (kind === 'dish') collect(+arg);
     else if (kind === 'pantry') grab(arg);
-    else if (kind === 'oven') fromOven();
+    else if (kind === 'oven') fromOven(arg === undefined ? -1 : +arg);
     else if (kind === 'plate') servePlate(+arg);
     else if (kind === 'coffee') coffeeTap();
     else if (kind === 'cup') serveCup(+arg);
@@ -585,12 +588,15 @@ export function createKitchen(api) {
     return best;
   }
 
-  function fromOven() {
-    const burnt = run.oven.findIndex(x => x?.state === 'burnt');
+  // "slot" is the food she tapped in the oven; tapping the oven itself picks for her.
+  function fromOven(slot) {
+    const picked = slot >= 0 ? run.oven[slot] : null;
+    if (picked?.state === 'bake') { say('Still baking. Wait for it to turn golden.'); render(); return; }
+    const burnt = picked ? (picked.state === 'burnt' ? slot : -1) : run.oven.findIndex(x => x?.state === 'burnt');
     if (burnt >= 0) { run.oven[burnt] = null; api.buzz('tap'); say('Into the bin with that one.'); trash(); render(); return; }
-    // The food that has been waiting longest comes out first.
-    let j = -1;
-    run.oven.forEach((x, k) => { if (x?.state === 'done' && (j < 0 || x.t > run.oven[j].t)) j = k; });
+    // The one she tapped, or else the food that has been waiting longest.
+    let j = picked ? slot : -1;
+    if (!picked) run.oven.forEach((x, k) => { if (x?.state === 'done' && (j < 0 || x.t > run.oven[j].t)) j = k; });
     if (j < 0) { if (run.oven.some(Boolean)) say('Still baking. Wait for it to turn golden.'); else say('Tap some dough in the pantry to start baking.'); render(); return; }
     const p = run.plates.indexOf(null);
     if (p < 0) { nope(run.plates.includes('away') ? 'No clean plate. Tap the dirty dishes on the counter so they get washed.' : 'No free plate. Serve one, or toss it in the green bin.'); return; }
@@ -859,6 +865,12 @@ export function createKitchen(api) {
       ov += A.ring(rx, ry, share, col, `kro-${i}`);
     });
     ov += tapZone(-4, -o.H - 26, o.W + 8, o.H + 26, 'oven');
+    // Each food (and its timer) can be tapped on its own, so she picks which one comes out.
+    if (run) run.oven.forEach((x, i) => {
+      if (!x) return;
+      const [sx, sy] = o.slots[i], [rx, ry] = o.rings[i];
+      ov += tapZone(sx - 16, sy - 16, 32, 32, `oven:${i}`) + tapZone(rx - 11, ry - 11, 22, 22, `oven:${i}`);
+    });
     s += A.g(`translate(${ox} ${BOTTOM})`, ov);
     // The coffee machine and its cups.
     let co = cf.art;
