@@ -22,6 +22,7 @@
 <div class="splash" id="splash" aria-hidden="true"><img src="icons/icon-512.png" alt=""><b>Tulip Kitchen</b><span>Cozy cooking on your own island</span></div>
 <div id="app">
   <header class="top">
+    <div class="brand-wrap">
     <button class="brand" id="brand" aria-label="Your neighbourhood">
       <span class="brand-pin" id="brand-pin"></span>
       <span class="brand-text">
@@ -31,6 +32,8 @@
       </span>
       <i class="dot" id="brand-dot" hidden></i>
     </button>
+    <button class="swap" id="swap" aria-label="Switch restaurant" hidden></button>
+    </div>
     <div class="pills">
       <div class="pill money" id="money" aria-label="Tips in this restaurant's tip jar"><span class="icon"></span><span class="pill-num"><b id="money-n">0</b><small>tips</small></span></div>
       <button class="pill gems" id="gems" aria-label="Gem shop"><span class="icon"></span><span class="pill-num"><b id="gems-n">0</b><small>gems</small></span><i class="dot" hidden></i></button>
@@ -180,7 +183,14 @@
     <div class="isl-stats" id="isl-stats"></div>
     <div class="isl-mapwrap">
       <div class="isl-map" id="isl-map"></div>
-      <button class="isl-night" id="isl-night" aria-label="Switch to night">☾</button>
+      <div class="isl-tools left">
+        <button class="isl-tool" data-isl-turn="-1" aria-label="Turn the map left">⟲</button>
+        <button class="isl-tool" data-isl-turn="1" aria-label="Turn the map right">⟳</button>
+      </div>
+      <div class="isl-tools">
+        <button class="isl-tool" id="isl-full" aria-label="Show the map full screen">⛶</button>
+        <button class="isl-tool" id="isl-night" aria-label="Switch to night">☾</button>
+      </div>
       <div class="isl-banner" id="isl-banner" hidden></div>
     </div>
     <div class="isl-tabs" role="tablist">
@@ -194,10 +204,20 @@
   </div>
 </div>
 
+<div class="sheet" id="switch" hidden>
+  <div class="sheet-card" role="dialog" aria-labelledby="switch-title">
+    <h2 id="switch-title">Your restaurants</h2>
+    <p class="muted small">Pick where to cook. Each restaurant keeps its own board, stars and tip jar.</p>
+    <ul class="list" id="switch-list"></ul>
+    <button class="btn ghost" id="switch-island">See them on your island</button>
+    <button class="btn ghost" data-close>Close</button>
+  </div>
+</div>
+
 <div class="sheet" id="restaurant" hidden>
   <div class="sheet-card" role="dialog" aria-labelledby="rest-title">
     <div class="rest-photo">
-      <h2 id="rest-title">Your restaurant</h2>
+      <div class="rest-head"><h2 id="rest-title">Your restaurant</h2><button class="btn rest-switch" id="rest-switch" hidden>Switch</button></div>
       <div class="rest-art" id="rest-art"></div>
       <p class="muted small" id="rest-caption"></p>
     </div>

@@ -66,6 +66,21 @@ button:focus-visible, summary:focus-visible, .file-btn:focus-within { outline: 3
 .brand-bar { height: 5px; border-radius: 3px; background: var(--panel); overflow: hidden; }
 .brand-bar i { display: block; height: 100%; width: 0; border-radius: 3px; background: var(--leaf); transition: width .4s ease; }
 .brand .dot { top: 4px; right: 6px; }
+/* Switch restaurant: once a second restaurant opens, the round badge at the start of the chip becomes its own button. */
+.brand-wrap { position: relative; flex: 1; min-width: 0; display: flex; }
+.swap {
+  position: absolute; left: 0; top: 0; bottom: 0; width: 46px; border: 0; padding: 0 0 0 4px; background: none; cursor: pointer;
+  display: flex; align-items: center;
+}
+.swap svg { width: 34px; height: 34px; padding: 7px; box-sizing: border-box; border-radius: 50%; background: var(--eggplant); color: #fff8ec; box-shadow: 0 0 0 2px #f7c873; }
+.swap[hidden] { display: none; }
+.shop-pic { flex: none; width: 52px; height: 52px; border-radius: 12px; overflow: hidden; background: #a6dcea; }
+.shop-pic svg { width: 100%; height: 100%; display: block; }
+.rest-head { display: flex; align-items: center; gap: 8px; }
+.rest-head h2 { flex: 1; min-width: 0; }
+.rest-switch { flex: none; min-height: 40px; padding: 0 14px; gap: 6px; color: var(--eggplant); }
+.rest-switch svg { width: 18px; height: 18px; }
+.rest-switch[hidden] { display: none; }
 .dot { position: absolute; top: -2px; right: -12px; width: 11px; height: 11px; border-radius: 50%; background: var(--tomato); box-shadow: 0 0 0 2px var(--sun-bg); }
 .city { font-size: .78rem; font-weight: 700; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
 .pills { display: flex; gap: 6px; }
@@ -649,7 +664,14 @@ textarea { width: 100%; border: 2px solid var(--edge); border-radius: 12px; padd
 .isl-map { width: 100%; height: 100%; overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; scrollbar-width: none; cursor: grab; }
 .isl-map::-webkit-scrollbar { display: none; }
 .isl-map svg { display: block; }
-.isl-night { position: absolute; top: 8px; right: 8px; width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 250, 240, .92); color: var(--eggplant); font-size: 1.25rem; cursor: pointer; box-shadow: 0 2px 6px rgba(0, 0, 0, .15); }
+.isl-tools { position: absolute; top: 8px; right: 8px; display: flex; flex-direction: column; gap: 6px; }
+.isl-tools.left { right: auto; left: 8px; flex-direction: row; }
+.isl-tool { width: 40px; height: 40px; border: 0; border-radius: 50%; background: rgba(255, 250, 240, .92); color: var(--eggplant); font-size: 1.25rem; line-height: 1; padding: 0; cursor: pointer; box-shadow: 0 2px 6px rgba(0, 0, 0, .15); }
+/* Full screen: the map covers everything, and the buttons stay clear of the phone's notch. */
+.isl-mapwrap.full { position: fixed; inset: 0; z-index: 90; height: auto; border-radius: 0; box-shadow: none; }
+.isl-mapwrap.full .isl-tools { top: max(10px, env(safe-area-inset-top, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); }
+.isl-mapwrap.full .isl-tools.left { right: auto; left: max(10px, env(safe-area-inset-left, 0px)); }
+.isl-mapwrap.full .isl-banner { bottom: max(10px, env(safe-area-inset-bottom, 0px)); left: max(10px, env(safe-area-inset-left, 0px)); right: max(10px, env(safe-area-inset-right, 0px)); }
 .isl-banner { position: absolute; left: 8px; right: 8px; bottom: 8px; background: var(--card); border-radius: 14px; padding: 8px; display: flex; align-items: center; gap: 6px; flex-wrap: wrap; box-shadow: 0 6px 18px rgba(36, 27, 74, .25); }
 .isl-b-text { flex: 1 1 150px; min-width: 0; display: flex; flex-direction: column; }
 .isl-b-text b { font-family: var(--display); font-weight: 400; color: var(--eggplant); }

@@ -3,8 +3,10 @@
 // can go where live in js/main.js and the sizes in data/island.js.
 //
 // Squares: x runs down to the right, y runs down to the left. A square's top corner is isoPoint(x, y).
+// The map can be turned a quarter at a time: turn() moves a point to where it sits in the turned view,
+// and everything is drawn from there, so the island's own squares never change.
 
-import { ISLAND } from '../data/island.js';
+import { ISLAND, PIECES } from '../data/island.js';
 
 const TW = 64, TH = 32; // one square on screen, in picture units
 const f = n => Math.round(n * 10) / 10;
@@ -14,14 +16,30 @@ export function islandGeom(size = ISLAND.size) {
   return { size, OX: size * (TW / 2) + pad, OY, W: size * TW + pad * 2, H: size * TH + OY + 70 };
 }
 export const isoPoint = (g, x, y) => [(x - y) * (TW / 2) + g.OX, (x + y) * (TH / 2) + g.OY];
-export const isoTile = (g, px, py) => {
+// The point on the ground under a spot on the picture (not rounded to a square).
+export const isoAt = (g, px, py) => {
   const u = (px - g.OX) / (TW / 2), v = (py - g.OY) / (TH / 2);
-  return [Math.floor((u + v) / 2), Math.floor((v - u) / 2)];
+  return [(u + v) / 2, (v - u) / 2];
 };
+// Turning the view clockwise r quarter turns around the middle of the island, and back again.
+export const turn = (r, x, y) => { const C2 = ISLAND.centre * 2; for (let i = 0; i < (r & 3); i++) [x, y] = [C2 - y, x]; return [x, y]; };
+export const unturn = (r, x, y) => turn(4 - (r & 3), x, y);
 // Distance from the middle of the island to the middle of a square.
 export const fromCentre = (x, y) => Math.hypot(x + .5 - ISLAND.centre, y + .5 - ISLAND.centre);
 // Is this square land? (Squares under docks and harbours always stay water.)
 export const isLand = (radius, water, x, y) => fromCentre(x, y) <= radius && !water.has(`${x},${y}`);
+// Docks reach straight out from the shore: land all along one side and open water all along the other.
+// Returns the side the land is on (0: smaller y, 1: bigger x, 2: bigger y, 3: smaller x), or -1 if neither.
+// A dock longer one way than the other can only have land along a long side.
+export function dockFace(land, x, y, w, d) {
+  const along = (n, fn) => [...Array(n)].map((_, i) => fn(i));
+  const side = s => s === 0 ? along(w, i => [x + i, y - 1]) : s === 2 ? along(w, i => [x + i, y + d])
+    : s === 1 ? along(d, j => [x + w, y + j]) : along(d, j => [x - 1, y + j]);
+  for (const s of w === d ? [0, 1, 2, 3] : w > d ? [0, 2] : [1, 3]) {
+    if (side(s).every(q => land(...q)) && !side((s + 2) % 4).some(q => land(...q))) return s;
+  }
+  return -1;
+}
 
 const SEA = '#7cc6e0', SEA_DEEP = '#6ab9d6', SHALLOW = '#a6dcea', GRASS = '#9fd486', GRASS2 = '#93cc7a', SAND = '#f1dcaa', SAND2 = '#ead09a';
 const ROAD = '#a39d97', PAVE = '#e3d3b4', PAVE2 = '#d9c7a4', WOOD = '#b5773a', WOOD_DARK = '#8f5a2a';
@@ -61,23 +79,31 @@ function ferry(big) {
 
 // ---------- the drawing ----------
 // o: { radius, saleRadius, water: Set, paths: Set, shops, pieces, choices, people, sailboats, night, event,
-//      focus (a piece uid), ghost: { kind, type, x, y, w, d, stage, ok }, ferry: { x, y, w, d, stage }, crop, scale, label }
+//      focus (a piece uid), ghost: { kind, type, x, y, w, d, stage, ok }, ferry: { x, y, w, d, stage }, crop, scale, label,
+//      turn (quarter turns clockwise) }
 export function islandSvg(o) {
   const g = islandGeom(), N = g.size, C = ISLAND.centre, R = o.radius;
-  const P = (x, y) => isoPoint(g, x, y);
+  let local = null; // while a dock is drawn: turns it so its walkway meets the shore
+  const view = (x, y) => { if (local) [x, y] = local(x, y); return turn(o.turn || 0, x, y); };
+  const P = (x, y) => isoPoint(g, ...view(x, y));
+  // How far toward the viewer a spot is: nearer things are drawn on top.
+  const D = (x, y) => { const [a, b] = view(x, y); return a + b; };
   const dia = (x, y, w = 1, d = 1) => [P(x, y), P(x + w, y), P(x + w, y + d), P(x, y + d)];
   const land = (x, y) => isLand(R, o.water, x, y);
   const ground = [], objs = [], boats = [], glow = [], top = [], labels = [];
-  const add = (depth, svg, uid) => objs.push([depth, uid && o.focus === uid ? `<g style="${GLOW}">${svg}</g>` : svg]);
+  const add = (depth, svg, uid) => objs.push([Math.round(depth * 100) / 100, uid && o.focus === uid ? `<g style="${GLOW}">${svg}</g>` : svg]);
   const paths = o.paths || new Set();
 
   // a building: footprint x..x+w, y..y+d, h tall. The front (left) face looks onto the viewer.
+  // However the map is turned, the two walls along the bottom of the footprint are the ones she sees.
   function box(x, y, w, d, h, c) {
-    const A = P(x, y), B = P(x + w, y), Cc = P(x + w, y + d), D = P(x, y + d), up = p => [p[0], p[1] - h];
-    let s = ell((A[0] + Cc[0]) / 2, (A[1] + Cc[1]) / 2 + 3, w * 30, d * 15, '#000', 'opacity=".09"');
-    s += poly([D, Cc, up(Cc), up(D)], c.wall) + poly([Cc, B, up(B), up(Cc)], c.side || shade(c.wall)) + poly([up(A), up(B), up(Cc), up(D)], c.roof);
-    const at = t => [D[0] + (Cc[0] - D[0]) * t, D[1] + (Cc[1] - D[1]) * t];
-    if (c.awning) for (let i = 0, n = Math.max(4, Math.round(w * 4)); i < n; i++) {
+    const q = [P(x, y), P(x + w, y), P(x + w, y + d), P(x, y + d)], k = q.reduce((m, p, i) => (p[1] > q[m][1] ? i : m), 0);
+    const T = q[(k + 2) % 4], Bt = q[k], [L, Rt] = q[(k + 3) % 4][0] < q[(k + 1) % 4][0] ? [q[(k + 3) % 4], q[(k + 1) % 4]] : [q[(k + 1) % 4], q[(k + 3) % 4]];
+    const up = p => [p[0], p[1] - h], odd = (o.turn || 0) & 1;
+    let s = ell((T[0] + Bt[0]) / 2, (T[1] + Bt[1]) / 2 + 3, (odd ? d : w) * 30, (odd ? w : d) * 15, '#000', 'opacity=".09"');
+    s += poly([L, Bt, up(Bt), up(L)], c.wall) + poly([Bt, Rt, up(Rt), up(Bt)], c.side || shade(c.wall)) + poly(q.map(up), c.roof);
+    const at = t => [L[0] + (Bt[0] - L[0]) * t, L[1] + (Bt[1] - L[1]) * t];
+    if (c.awning) for (let i = 0, n = Math.max(4, Math.round(Math.hypot(Bt[0] - L[0], Bt[1] - L[1]) / Math.hypot(TW / 2, TH / 2) * 4)); i < n; i++) {
       const p = at(i / n), q = at((i + 1) / n);
       s += poly([[p[0], p[1] - h * .66], [q[0], q[1] - h * .66], [q[0], q[1] - h * .46], [p[0], p[1] - h * .46]], i % 2 ? '#fff3dc' : c.awning);
     }
@@ -140,10 +166,10 @@ export function islandSvg(o) {
 
   // ----- restaurants on Main Street -----
   for (const s of o.shops) {
-    const [x, y] = [s.x, s.y], dep = x + y + 3;
+    const [x, y] = [s.x, s.y], dep = D(x + 1, y + 1) + 1;
     if (!s.open) {
       add(dep, box(x + .1, y + .1, 1.8, 1.8, 30, { wall: '#ece6db', roof: '#c9c1b3', awning: '#b9b2a6' }));
-      const c = P(x + 1, y + 1); labels.push(label(c[0], c[1] - 46, s.label, '#9c8a7a', 10));
+      const c = P(x + 1, y + 1); if (s.label) labels.push(label(c[0], c[1] - 46, s.label, '#9c8a7a', 10));
       continue;
     }
     const h = 46 + s.stars * 8;
@@ -152,7 +178,7 @@ export function islandSvg(o) {
     for (let n = 0; n < Math.min(6, Math.ceil(s.ups / 3)); n++) b += roof(n);
     add(dep, b);
     const c = P(x + 1, y + 1);
-    labels.push(label(c[0], c[1] - h - 26, s.sign) + (s.here ? `<g transform="translate(${f(c[0])} ${f(c[1] - h - 52)})"><path d="M0,10 C-8,0 -9,-4 -9,-7 a9,9 0 0 1 18,0 c0,3 -1,7 -9,17 Z" fill="#e8475f"/>${circ(0, -7, 3.5, '#fff')}</g>` : ''));
+    labels.push((s.sign ? label(c[0], c[1] - h - 26, s.sign) : '') + (s.here ? `<g transform="translate(${f(c[0])} ${f(c[1] - h - 52)})"><path d="M0,10 C-8,0 -9,-4 -9,-7 a9,9 0 0 1 18,0 c0,3 -1,7 -9,17 Z" fill="#e8475f"/>${circ(0, -7, 3.5, '#fff')}</g>` : ''));
   }
 
   // ----- pieces she placed -----
@@ -160,64 +186,80 @@ export function islandSvg(o) {
   const treeCol = C3.trees || '#e8742f', flowerCol = C3.flowers || '#e8475f', mural = C3.mural || 'Tulips';
   const DRAW = {
     // landmarks
-    trees(p, n) { if (n === 3) ground.push(bed(p.x, p.y, 2, 2, [flowerCol, '#f6c33e', '#8b55a6'], 16, 3)); const spots = n === 3 ? [[.5, .5], [1.5, .5], [.5, 1.5], [1.5, 1.5], [1, 1]] : [[.5, .5], [1.5, .5], [.5, 1.5], [1.5, 1.5]]; for (const [a, b] of spots) add(p.x + a + p.y + b, tree(p.x + a, p.y + b, treeCol, n === 1 ? .55 : n === 2 ? 1 : 1.15), p.uid); },
-    lamps(p, n) { ground.push(poly(dia(p.x, p.y, 2, 1), PAVE)); const xs = n === 3 ? [.25, .75, 1.25, 1.75] : n === 2 ? [.3, 1, 1.7] : [.5, 1.5]; for (const a of xs) add(p.x + a + p.y + .5, lampPost(p.x + a, p.y + .5, n === 1 ? 'plain' : n === 2 ? 'basket' : 'lantern'), p.uid); },
-    benches(p, n) { const xs = n === 1 ? [1] : [.5, 1.5]; for (const a of xs) { add(p.x + a + p.y + .6, benchAt(p.x + a, p.y + .6), p.uid); if (n === 3) add(p.x + a + p.y + .3, umbrella(p.x + a, p.y + .3, a < 1 ? '#e8475f' : '#2f8a8f'), p.uid); } if (n >= 2) { const c = P(p.x + 1.95, p.y + .2); add(p.x + p.y + 2.1, rect(c[0] - 6, c[1] - 12, 12, 12, '#c96a3a', 'rx="2"') + circ(c[0], c[1] - 14, 6, '#5fb34a'), p.uid); } },
-    garden(p, n) { ground.push(bed(p.x, p.y, 2, 2, [flowerCol, '#f6c33e', '#8b55a6', flowerCol], n === 1 ? 7 : 22, 5)); if (n === 3) { const a = P(p.x + .2, p.y + 1), b = P(p.x + 1.8, p.y + 1); add(p.x + p.y + 2, `<path d="M${f(a[0])},${f(a[1])} L${f(a[0])},${f(a[1] - 30)} Q${f((a[0] + b[0]) / 2)},${f(a[1] - 58)} ${f(b[0])},${f(b[1] - 30)} L${f(b[0])},${f(b[1])}" fill="none" stroke="#5fb34a" stroke-width="4"/>` + [0, .25, .5, .75, 1].map(t => circ(a[0] + (b[0] - a[0]) * t, a[1] - 30 - Math.sin(t * Math.PI) * 24, 3.4, flowerCol)).join(''), p.uid); } },
-    mural(p, n) { const h = n === 1 ? 24 : n === 2 ? 36 : 42; let s = box(p.x, p.y, 2, .3, h, { wall: '#fff3dc', side: '#e9dcc0', roof: '#c96a3a' }); const D = P(p.x, p.y + .3), Cc = P(p.x + 2, p.y + .3), at = (t, k) => [D[0] + (Cc[0] - D[0]) * t, D[1] + (Cc[1] - D[1]) * t - h * k]; const cols = mural === 'Eggplants' ? ['#5b2c6f', '#7a4a90'] : mural === 'Food friends' ? FRIENDS : [flowerCol, '#8b55a6', '#f6c33e']; const k = n === 1 ? 2 : 4; for (let i = 0; i < k; i++) { const c = at((i + .5) / k, .5); s += mural === 'Tulips' ? `<path d="M${f(c[0])},${f(c[1] - 7)} l-5,4 l2,7 h6 l2,-7 Z" fill="${cols[i % cols.length]}"/>` + seg(c[0], c[1] + 4, c[0], c[1] + 10, '#3f9b3c', 1.6) : circ(c[0], c[1], h * .16, cols[i % cols.length]); } if (n === 3) for (let i = 0; i <= 8; i++) { const c = at(i / 8, 1.05); s += circ(c[0], c[1], 2, ['#ffd34d', '#e8475f', '#8b55a6'][i % 3]); glow.push(circ(c[0], c[1], 6, '#ffd34d', 'opacity=".4"')); } add(p.x + p.y + 1.5, s, p.uid); },
-    bikes(p, n) { const bike = (x, y, col) => { const c = P(x, y); return circ(c[0] - 6, c[1] - 6, 5, 'none', `stroke="#3a2a2a" stroke-width="1.6"`) + circ(c[0] + 6, c[1] - 6, 5, 'none', `stroke="#3a2a2a" stroke-width="1.6"`) + `<path d="M${f(c[0] - 6)},${f(c[1] - 6)} L${f(c[0])},${f(c[1] - 13)} L${f(c[0] + 6)},${f(c[1] - 6)} M${f(c[0])},${f(c[1] - 13)} L${f(c[0] + 2)},${f(c[1] - 16)}" stroke="${col}" stroke-width="2" fill="none"/>`; }; const xs = n === 1 ? [.6, 1.1] : n === 2 ? [.4, .8, 1.2] : [.3, .65, 1, 1.35, 1.7]; xs.forEach((a, i) => add(p.x + a + p.y + .7, bike(p.x + a, p.y + .7, ['#2f8a8f', '#e8475f', '#f6c33e'][i % 3]), p.uid)); if (n >= 2) add(p.x + p.y + 1.2, box(p.x + 1.3, p.y, .65, .5, 22, { wall: '#fff3dc', roof: '#2f8a8f', awning: '#2f8a8f' }), p.uid); if (n === 3) { const c = P(p.x + .3, p.y + .1); labels.push(label(c[0], c[1] - 30, 'Bikes', '#2f8a8f', 9)); } },
+    trees(p, n) { if (n === 3) ground.push(bed(p.x, p.y, 2, 2, [flowerCol, '#f6c33e', '#8b55a6'], 16, 3)); const spots = n === 3 ? [[.5, .5], [1.5, .5], [.5, 1.5], [1.5, 1.5], [1, 1]] : [[.5, .5], [1.5, .5], [.5, 1.5], [1.5, 1.5]]; for (const [a, b] of spots) add(D(p.x + a, p.y + b), tree(p.x + a, p.y + b, treeCol, n === 1 ? .55 : n === 2 ? 1 : 1.15), p.uid); },
+    lamps(p, n) { ground.push(poly(dia(p.x, p.y, 2, 1), PAVE)); const xs = n === 3 ? [.25, .75, 1.25, 1.75] : n === 2 ? [.3, 1, 1.7] : [.5, 1.5]; for (const a of xs) add(D(p.x + a, p.y + .5), lampPost(p.x + a, p.y + .5, n === 1 ? 'plain' : n === 2 ? 'basket' : 'lantern'), p.uid); },
+    benches(p, n) { const xs = n === 1 ? [1] : [.5, 1.5]; for (const a of xs) { add(D(p.x + a, p.y + .6), benchAt(p.x + a, p.y + .6), p.uid); if (n === 3) add(D(p.x + a, p.y + .3), umbrella(p.x + a, p.y + .3, a < 1 ? '#e8475f' : '#2f8a8f'), p.uid); } if (n >= 2) { const c = P(p.x + 1.95, p.y + .2); add(D(p.x + 1.95, p.y + .15), rect(c[0] - 6, c[1] - 12, 12, 12, '#c96a3a', 'rx="2"') + circ(c[0], c[1] - 14, 6, '#5fb34a'), p.uid); } },
+    garden(p, n) { ground.push(bed(p.x, p.y, 2, 2, [flowerCol, '#f6c33e', '#8b55a6', flowerCol], n === 1 ? 7 : 22, 5)); if (n === 3) { const a = P(p.x + .2, p.y + 1), b = P(p.x + 1.8, p.y + 1); add(D(p.x + 1, p.y + 1), `<path d="M${f(a[0])},${f(a[1])} L${f(a[0])},${f(a[1] - 30)} Q${f((a[0] + b[0]) / 2)},${f(a[1] - 58)} ${f(b[0])},${f(b[1] - 30)} L${f(b[0])},${f(b[1])}" fill="none" stroke="#5fb34a" stroke-width="4"/>` + [0, .25, .5, .75, 1].map(t => circ(a[0] + (b[0] - a[0]) * t, a[1] - 30 - Math.sin(t * Math.PI) * 24, 3.4, flowerCol)).join(''), p.uid); } },
+    mural(p, n) { const h = n === 1 ? 24 : n === 2 ? 36 : 42; let s = box(p.x, p.y, 2, .3, h, { wall: '#fff3dc', side: '#e9dcc0', roof: '#c96a3a' }); const Lf = P(p.x, p.y + .3), Cc = P(p.x + 2, p.y + .3), at = (t, k) => [Lf[0] + (Cc[0] - Lf[0]) * t, Lf[1] + (Cc[1] - Lf[1]) * t - h * k]; const cols = mural === 'Eggplants' ? ['#5b2c6f', '#7a4a90'] : mural === 'Food friends' ? FRIENDS : [flowerCol, '#8b55a6', '#f6c33e']; const k = n === 1 ? 2 : 4; for (let i = 0; i < k; i++) { const c = at((i + .5) / k, .5); s += mural === 'Tulips' ? `<path d="M${f(c[0])},${f(c[1] - 7)} l-5,4 l2,7 h6 l2,-7 Z" fill="${cols[i % cols.length]}"/>` + seg(c[0], c[1] + 4, c[0], c[1] + 10, '#3f9b3c', 1.6) : circ(c[0], c[1], h * .16, cols[i % cols.length]); } if (n === 3) for (let i = 0; i <= 8; i++) { const c = at(i / 8, 1.05); s += circ(c[0], c[1], 2, ['#ffd34d', '#e8475f', '#8b55a6'][i % 3]); glow.push(circ(c[0], c[1], 6, '#ffd34d', 'opacity=".4"')); } add(D(p.x + 1, p.y + .5), s, p.uid); },
+    bikes(p, n) { const bike = (x, y, col) => { const c = P(x, y); return circ(c[0] - 6, c[1] - 6, 5, 'none', `stroke="#3a2a2a" stroke-width="1.6"`) + circ(c[0] + 6, c[1] - 6, 5, 'none', `stroke="#3a2a2a" stroke-width="1.6"`) + `<path d="M${f(c[0] - 6)},${f(c[1] - 6)} L${f(c[0])},${f(c[1] - 13)} L${f(c[0] + 6)},${f(c[1] - 6)} M${f(c[0])},${f(c[1] - 13)} L${f(c[0] + 2)},${f(c[1] - 16)}" stroke="${col}" stroke-width="2" fill="none"/>`; }; const xs = n === 1 ? [.6, 1.1] : n === 2 ? [.4, .8, 1.2] : [.3, .65, 1, 1.35, 1.7]; xs.forEach((a, i) => add(D(p.x + a, p.y + .7), bike(p.x + a, p.y + .7, ['#2f8a8f', '#e8475f', '#f6c33e'][i % 3]), p.uid)); if (n >= 2) add(D(p.x + 1, p.y + .2), box(p.x + 1.3, p.y, .65, .5, 22, { wall: '#fff3dc', roof: '#2f8a8f', awning: '#2f8a8f' }), p.uid); if (n === 3) { const c = P(p.x + .3, p.y + .1); labels.push(label(c[0], c[1] - 30, 'Bikes', '#2f8a8f', 9)); } },
     streetcar(p, n) { // the ferry dock, out in the water
       ground.push(poly(dia(p.x, p.y, 2, n === 1 ? 1 : 2), WOOD, `stroke="${WOOD_DARK}" stroke-width="1"`) + [.33, .66].map(t => { const a = P(p.x + t * 2, p.y), b = P(p.x + t * 2, p.y + (n === 1 ? 1 : 2)); return seg(a[0], a[1], b[0], b[1], WOOD_DARK, .8); }).join(''));
-      if (n === 1) { const c = P(p.x + 1, p.y + 1.6); add(p.x + p.y + 2.6, `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob">${rowboat()}</g></g>`, p.uid); }
-      if (n >= 2) { add(p.x + p.y + 1.6, box(p.x + .15, p.y + .15, .7, .7, 22, { wall: '#fff3dc', roof: '#2f8a8f', windows: [.3] }), p.uid); const c = P(p.x + 1.7, p.y + .4); add(p.x + p.y + 2.1, seg(c[0], c[1], c[0], c[1] - 40, '#5a4636', 1.6) + `<path d="M${f(c[0])},${f(c[1] - 40)} l14,4 l-14,4 Z" fill="#e8475f"/>`, p.uid); }
-      if (n === 3) { add(p.x + p.y + 2.8, box(p.x + .9, p.y + .9, 1, 1, 30, { wall: '#f3ead8', roof: '#2f6e8f', awning: '#2f8a8f', windows: [.35] }), p.uid); const c = P(p.x + 1.4, p.y + 1.4); labels.push(label(c[0], c[1] - 50, 'Ferry', '#2f8a8f', 10)); }
+      if (n === 1) { const c = P(p.x + 1, p.y + 1.6); add(D(p.x + 1, p.y + 1.6), `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob">${rowboat()}</g></g>`, p.uid); }
+      if (n >= 2) { add(D(p.x + .8, p.y + .8), box(p.x + .15, p.y + .15, .7, .7, 22, { wall: '#fff3dc', roof: '#2f8a8f', windows: [.3] }), p.uid); const c = P(p.x + 1.7, p.y + .4); add(D(p.x + 1.7, p.y + .4), seg(c[0], c[1], c[0], c[1] - 40, '#5a4636', 1.6) + `<path d="M${f(c[0])},${f(c[1] - 40)} l14,4 l-14,4 Z" fill="#e8475f"/>`, p.uid); }
+      if (n === 3) { add(D(p.x + 1.4, p.y + 1.4), box(p.x + .9, p.y + .9, 1, 1, 30, { wall: '#f3ead8', roof: '#2f6e8f', awning: '#2f8a8f', windows: [.35] }), p.uid); const c = P(p.x + 1.4, p.y + 1.4); labels.push(label(c[0], c[1] - 50, 'Ferry', '#2f8a8f', 10)); }
     },
-    market(p, n) { ground.push(poly(dia(p.x, p.y, 2, 2), PAVE)); const spots = n === 1 ? [[.65, .65]] : n === 2 ? [[.15, .2], [1.15, .2], [.65, 1.15]] : [[.15, .15], [1.15, .15], [.15, 1.15], [1.15, 1.15]]; spots.forEach(([a, b], i) => add(p.x + a + p.y + b + 1.4, stall(p.x + a, p.y + b, ['#2f8a8f', '#f6b62e', '#e8475f', '#8b55a6'][i]), p.uid)); if (n === 3) add(p.x + p.y + 2.2, stringLights([p.x, p.y + 1], [p.x + 2, p.y + 1], 30, true, ['#e8475f', '#f6b62e', '#6cc6e0']), p.uid); },
-    lights(p, n) { const xs = [.2, 1.5, 2.8]; for (const a of xs) { const c = P(p.x + a, p.y + .5); add(p.x + a + p.y + .5, seg(c[0], c[1], c[0], c[1] - 36, '#5a4636', 2.4), p.uid); } add(p.x + p.y + 2.5, stringLights([p.x + .2, p.y + .5], [p.x + 1.5, p.y + .5], 34, n >= 2) + stringLights([p.x + 1.5, p.y + .5], [p.x + 2.8, p.y + .5], 34, n >= 2) + (n === 3 ? stringLights([p.x + .2, p.y + .5], [p.x + 2.8, p.y + .5], 24, true, ['#f6b62e', '#8b55a6']) : ''), p.uid); },
-    fountain(p, n) { const c = P(p.x + 1, p.y + 1); let s; if (n === 1) s = rect(c[0] - 4, c[1] - 18, 8, 18, '#a9a39b', 'rx="2"') + ell(c[0], c[1] - 18, 7, 3, '#a9a39b') + `<path d="M${f(c[0])},${f(c[1] - 20)} q4,-8 8,0" fill="none" stroke="#6cc6e0" stroke-width="1.8"/>`; else { const r = n === 3 ? 34 : 26; s = ell(c[0], c[1], r, r / 2, '#a9a39b') + ell(c[0], c[1] - 2, r - 5, (r - 5) / 2, '#7cc6e0') + rect(c[0] - 3, c[1] - 22, 6, 20, '#a9a39b') + `<path d="M${f(c[0])},${f(c[1] - 24)} Q${f(c[0] - 12)},${f(c[1] - 44)} ${f(c[0] - 18)},${f(c[1] - 4)} M${f(c[0])},${f(c[1] - 24)} Q${f(c[0] + 12)},${f(c[1] - 44)} ${f(c[0] + 18)},${f(c[1] - 4)}" fill="none" stroke="#bfe6f2" stroke-width="2.4"/>`; if (n === 3) s += [-24, 24, 0].map((dx, i) => `<path d="M${f(c[0] + dx)},${f(c[1] - (i === 2 ? 10 : 2))} l0,-${i === 2 ? 46 : 26}" stroke="#6cc6e0" stroke-width="2.4"/>`).join(''); } add(p.x + p.y + 2, s, p.uid); },
-    stage(p, n) { if (n === 1) { const c = P(p.x + 1, p.y + 1); add(p.x + p.y + 2, box(p.x + .7, p.y + .7, .6, .6, 10, { wall: WOOD, roof: '#c98a4a' }) + friend(c[0], c[1] - 20, 8, '#c96a3a') + `<text x="${f(c[0] + 14)}" y="${f(c[1] - 30)}" font-size="13" fill="#f6b62e">♪</text>`, p.uid); return; } let s = box(p.x, p.y + .3, 2, 1.5, 9, { wall: WOOD, roof: '#c98a4a' }); const back = [P(p.x, p.y + .3), P(p.x + 2, p.y + .3)]; s += back.map(b => seg(b[0], b[1] - 9, b[0], b[1] - 50, '#3a2a2a', 2.4)).join('') + poly([[back[0][0] - 6, back[0][1] - 50], [back[1][0] + 6, back[1][1] - 50], [back[1][0], back[1][1] - 42], [back[0][0], back[0][1] - 42]], '#5b2c6f'); const c = P(p.x + 1, p.y + 1); s += `<text x="${f(c[0])}" y="${f(c[1] - 24)}" text-anchor="middle" font-size="14" fill="#f6b62e">♪ ♫ ♪</text>`; if (n === 3) { s += [P(p.x - .1, p.y + 1.6), P(p.x + 2, p.y + 1.6)].map(q => rect(q[0] - 6, q[1] - 26, 12, 20, '#3a3a3a', 'rx="2"') + circ(q[0], q[1] - 18, 3, '#777')).join(''); [0, 1, 2, 3].forEach(i => { const t = P(p.x + .3 + i * .45, p.y + .3); s += circ(t[0], t[1] - 46, 3, ['#ffd34d', '#e8475f', '#6cc6e0', '#8b55a6'][i]); glow.push(`<path d="M${f(t[0])},${f(t[1] - 46)} L${f(t[0] - 14)},${f(t[1] + 6)} L${f(t[0] + 14)},${f(t[1] + 6)} Z" fill="#fff6c0" opacity=".18"/>`); }); s += friend(c[0] + 10, c[1] - 22, 7, '#f6c33e'); } add(p.x + p.y + 2.2, s, p.uid); },
-    arch(p, n) { const a = P(p.x + .15, p.y + .5), b = P(p.x + 1.85, p.y + .5); if (n === 1) { const c = P(p.x + 1, p.y + .5); add(p.x + p.y + 1.5, seg(c[0], c[1], c[0], c[1] - 30, '#7a4b3a', 3), p.uid); labels.push(label(c[0], c[1] - 36, o.name || 'Welcome', '#5b2c6f', 10)); return; } let s = [a, b].map(q => rect(q[0] - 4, q[1] - 56, 8, 56, WOOD)).join(''); s += poly([[a[0] - 8, a[1] - 60], [b[0] + 8, b[1] - 60], [b[0] + 8, b[1] - 46], [a[0] - 8, a[1] - 46]], '#5b2c6f'); if (n === 3) { for (let i = 0; i <= 10; i++) { const t = i / 10, x = a[0] - 8 + (b[0] - a[0] + 16) * t, y = a[1] - 61 + (b[1] - a[1]) * t; s += circ(x, y, 2, ['#ffd34d', '#e8475f', '#8b55a6'][i % 3]); glow.push(circ(x, y, 6, '#ffd34d', 'opacity=".4"')); } s += [a, b].map(q => seg(q[0], q[1] - 60, q[0], q[1] - 76, '#7a4b3a', 1.4) + `<path d="M${f(q[0])},${f(q[1] - 76)} l12,4 l-12,4 Z" fill="#e8475f"/>`).join(''); } add(p.x + p.y + 1.6, s, p.uid); const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 53]; labels.push(`<text x="${f(m[0])}" y="${f(m[1] + 4)}" text-anchor="middle" font-family="Righteous, sans-serif" font-size="10" fill="#fff8ec" transform="rotate(26.6 ${f(m[0])} ${f(m[1])})">${esc(o.name || 'Welcome')}</text>`); },
+    market(p, n) { ground.push(poly(dia(p.x, p.y, 2, 2), PAVE)); const spots = n === 1 ? [[.65, .65]] : n === 2 ? [[.15, .2], [1.15, .2], [.65, 1.15]] : [[.15, .15], [1.15, .15], [.15, 1.15], [1.15, 1.15]]; spots.forEach(([a, b], i) => add(D(p.x + a + .7, p.y + b + .7), stall(p.x + a, p.y + b, ['#2f8a8f', '#f6b62e', '#e8475f', '#8b55a6'][i]), p.uid)); if (n === 3) add(D(p.x + 1, p.y + 1.2), stringLights([p.x, p.y + 1], [p.x + 2, p.y + 1], 30, true, ['#e8475f', '#f6b62e', '#6cc6e0']), p.uid); },
+    lights(p, n) { const xs = [.2, 1.5, 2.8]; for (const a of xs) { const c = P(p.x + a, p.y + .5); add(D(p.x + a, p.y + .5), seg(c[0], c[1], c[0], c[1] - 36, '#5a4636', 2.4), p.uid); } add(D(p.x + 1.5, p.y + 1), stringLights([p.x + .2, p.y + .5], [p.x + 1.5, p.y + .5], 34, n >= 2) + stringLights([p.x + 1.5, p.y + .5], [p.x + 2.8, p.y + .5], 34, n >= 2) + (n === 3 ? stringLights([p.x + .2, p.y + .5], [p.x + 2.8, p.y + .5], 24, true, ['#f6b62e', '#8b55a6']) : ''), p.uid); },
+    fountain(p, n) { const c = P(p.x + 1, p.y + 1); let s; if (n === 1) s = rect(c[0] - 4, c[1] - 18, 8, 18, '#a9a39b', 'rx="2"') + ell(c[0], c[1] - 18, 7, 3, '#a9a39b') + `<path d="M${f(c[0])},${f(c[1] - 20)} q4,-8 8,0" fill="none" stroke="#6cc6e0" stroke-width="1.8"/>`; else { const r = n === 3 ? 34 : 26; s = ell(c[0], c[1], r, r / 2, '#a9a39b') + ell(c[0], c[1] - 2, r - 5, (r - 5) / 2, '#7cc6e0') + rect(c[0] - 3, c[1] - 22, 6, 20, '#a9a39b') + `<path d="M${f(c[0])},${f(c[1] - 24)} Q${f(c[0] - 12)},${f(c[1] - 44)} ${f(c[0] - 18)},${f(c[1] - 4)} M${f(c[0])},${f(c[1] - 24)} Q${f(c[0] + 12)},${f(c[1] - 44)} ${f(c[0] + 18)},${f(c[1] - 4)}" fill="none" stroke="#bfe6f2" stroke-width="2.4"/>`; if (n === 3) s += [-24, 24, 0].map((dx, i) => `<path d="M${f(c[0] + dx)},${f(c[1] - (i === 2 ? 10 : 2))} l0,-${i === 2 ? 46 : 26}" stroke="#6cc6e0" stroke-width="2.4"/>`).join(''); } add(D(p.x + 1, p.y + 1), s, p.uid); },
+    stage(p, n) { if (n === 1) { const c = P(p.x + 1, p.y + 1); add(D(p.x + 1, p.y + 1), box(p.x + .7, p.y + .7, .6, .6, 10, { wall: WOOD, roof: '#c98a4a' }) + friend(c[0], c[1] - 20, 8, '#c96a3a') + `<text x="${f(c[0] + 14)}" y="${f(c[1] - 30)}" font-size="13" fill="#f6b62e">♪</text>`, p.uid); return; } let s = box(p.x, p.y + .3, 2, 1.5, 9, { wall: WOOD, roof: '#c98a4a' }); const back = [P(p.x, p.y + .3), P(p.x + 2, p.y + .3)]; s += back.map(b => seg(b[0], b[1] - 9, b[0], b[1] - 50, '#3a2a2a', 2.4)).join('') + poly([[back[0][0] - 6, back[0][1] - 50], [back[1][0] + 6, back[1][1] - 50], [back[1][0], back[1][1] - 42], [back[0][0], back[0][1] - 42]], '#5b2c6f'); const c = P(p.x + 1, p.y + 1); s += `<text x="${f(c[0])}" y="${f(c[1] - 24)}" text-anchor="middle" font-size="14" fill="#f6b62e">♪ ♫ ♪</text>`; if (n === 3) { s += [P(p.x - .1, p.y + 1.6), P(p.x + 2, p.y + 1.6)].map(q => rect(q[0] - 6, q[1] - 26, 12, 20, '#3a3a3a', 'rx="2"') + circ(q[0], q[1] - 18, 3, '#777')).join(''); [0, 1, 2, 3].forEach(i => { const t = P(p.x + .3 + i * .45, p.y + .3); s += circ(t[0], t[1] - 46, 3, ['#ffd34d', '#e8475f', '#6cc6e0', '#8b55a6'][i]); glow.push(`<path d="M${f(t[0])},${f(t[1] - 46)} L${f(t[0] - 14)},${f(t[1] + 6)} L${f(t[0] + 14)},${f(t[1] + 6)} Z" fill="#fff6c0" opacity=".18"/>`); }); s += friend(c[0] + 10, c[1] - 22, 7, '#f6c33e'); } add(D(p.x + 1, p.y + 1.2), s, p.uid); },
+    arch(p, n) { const a = P(p.x + .15, p.y + .5), b = P(p.x + 1.85, p.y + .5); if (n === 1) { const c = P(p.x + 1, p.y + .5); add(D(p.x + 1, p.y + .5), seg(c[0], c[1], c[0], c[1] - 30, '#7a4b3a', 3), p.uid); labels.push(label(c[0], c[1] - 36, o.name || 'Welcome', '#5b2c6f', 10)); return; } let s = [a, b].map(q => rect(q[0] - 4, q[1] - 56, 8, 56, WOOD)).join(''); s += poly([[a[0] - 8, a[1] - 60], [b[0] + 8, b[1] - 60], [b[0] + 8, b[1] - 46], [a[0] - 8, a[1] - 46]], '#5b2c6f'); if (n === 3) { for (let i = 0; i <= 10; i++) { const t = i / 10, x = a[0] - 8 + (b[0] - a[0] + 16) * t, y = a[1] - 61 + (b[1] - a[1]) * t; s += circ(x, y, 2, ['#ffd34d', '#e8475f', '#8b55a6'][i % 3]); glow.push(circ(x, y, 6, '#ffd34d', 'opacity=".4"')); } s += [a, b].map(q => seg(q[0], q[1] - 60, q[0], q[1] - 76, '#7a4b3a', 1.4) + `<path d="M${f(q[0])},${f(q[1] - 76)} l12,4 l-12,4 Z" fill="#e8475f"/>`).join(''); } add(D(p.x + 1, p.y + .6), s, p.uid); const m = [(a[0] + b[0]) / 2, (a[1] + b[1]) / 2 - 53], tilt = Math.atan(Math.tan(Math.atan2(b[1] - a[1], b[0] - a[0]))) * 180 / Math.PI; labels.push(`<text x="${f(m[0])}" y="${f(m[1] + 4)}" text-anchor="middle" font-family="Righteous, sans-serif" font-size="10" fill="#fff8ec" transform="rotate(${f(tilt)} ${f(m[0])} ${f(m[1])})">${esc(o.name || 'Welcome')}</text>`); },
     // amenities
-    washrooms(p) { add(p.x + p.y + 1, box(p.x + .1, p.y + .1, .8, .8, 24, { wall: '#ffffff', roof: '#2f8a8f', windows: [.4] }), p.uid); const c = P(p.x + .5, p.y + .5); labels.push(label(c[0], c[1] - 34, 'WC', '#2f8a8f', 9)); },
-    park(p) { ground.push(poly(dia(p.x, p.y, 3, 2), '#7cc365')); add(p.x + p.y + 1, tree(p.x + .5, p.y + .5, '#5fb34a', 1.1), p.uid); add(p.x + p.y + 3, tree(p.x + 2.5, p.y + .5, '#e8742f', 1.1), p.uid); for (const [a, b] of [[1.2, 1.3], [2.2, 1.4]]) { const c = P(p.x + a, p.y + b); add(p.x + a + p.y + b, poly([[c[0] - 12, c[1] - 6], [c[0] + 4, c[1] - 14], [c[0] + 12, c[1] - 10], [c[0] - 4, c[1] - 2]], '#c98a4a') + friend(c[0] - 12, c[1] - 12, 5, FRIENDS[Math.round(a * 3) % 6]), p.uid); } const k = P(p.x + 1.5, p.y); add(p.x + p.y + 1.5, `<g class="fx-bob">${seg(k[0], k[1], k[0] + 16, k[1] - 50, '#3a2a2a', .8)}<path d="M${f(k[0] + 16)},${f(k[1] - 62)} l8,8 l-8,8 l-8,-8 Z" fill="#e8475f"/></g>`, p.uid); },
-    splash(p) { ground.push(poly(dia(p.x, p.y, 2, 2), '#bfe6f2') + poly(dia(p.x + .3, p.y + .3, 1.4, 1.4), '#d8f1f8')); const c = P(p.x + 1, p.y + 1); add(p.x + p.y + 2, [-16, 0, 16].map((dx, i) => `<path d="M${f(c[0] + dx)},${f(c[1])} Q${f(c[0] + dx - 6)},${f(c[1] - 26 - i * 4)} ${f(c[0] + dx - 12)},${f(c[1])}" fill="none" stroke="#6cc6e0" stroke-width="2.4"/>`).join('') + friend(c[0] - 18, c[1] + 6, 6, '#e2412f') + friend(c[0] + 16, c[1] + 4, 6, '#f6c33e'), p.uid); },
-    pool(p) { ground.push(poly(dia(p.x, p.y, 3, 2), '#f3ead8') + poly(dia(p.x + .3, p.y + .3, 2.4, 1.4), '#6cc6e0', 'stroke="#fff" stroke-width="3"') + [.8, 1.3].map(b => { const a1 = P(p.x + .35, p.y + b), a2 = P(p.x + 2.65, p.y + b); return seg(a1[0], a1[1], a2[0], a2[1], '#fff', 1, 'stroke-dasharray="4 4" opacity=".8"'); }).join('')); add(p.x + p.y + 1.6, umbrella(p.x + .2, p.y + 1.8, '#e8475f'), p.uid); add(p.x + p.y + 4.6, umbrella(p.x + 2.8, p.y + 1.8, '#f6b62e'), p.uid); const c = P(p.x + 1.4, p.y + 1); add(p.x + p.y + 2.4, friend(c[0], c[1], 6, '#5b2c6f'), p.uid); },
-    zoo(p) { ground.push(poly(dia(p.x, p.y, 3, 3), '#c9e3a0')); const corners = [P(p.x, p.y), P(p.x + 3, p.y), P(p.x + 3, p.y + 3), P(p.x, p.y + 3)]; let fence = ''; for (let i = 0; i < 4; i++) { const a = corners[i], b = corners[(i + 1) % 4]; fence += seg(a[0], a[1] - 8, b[0], b[1] - 8, WOOD, 2) + seg(a[0], a[1] - 3, b[0], b[1] - 3, WOOD, 2); } add(p.x + p.y + 5, fence, p.uid); add(p.x + p.y + 1.6, box(p.x + .2, p.y + .2, 1, .9, 24, { wall: '#c0392b', roof: '#8e2b20', windows: [.4] }), p.uid); const goat = (a, b) => { const c = P(p.x + a, p.y + b); return ell(c[0], c[1] - 7, 9, 6, '#fff') + circ(c[0] + 8, c[1] - 12, 4.5, '#fff') + seg(c[0] - 5, c[1] - 2, c[0] - 5, c[1] + 3, '#7a5f52', 1.6) + seg(c[0] + 4, c[1] - 2, c[0] + 4, c[1] + 3, '#7a5f52', 1.6); }; add(p.x + p.y + 3.6, goat(1.9, 1.7), p.uid); add(p.x + p.y + 3.4, goat(1.2, 2.2), p.uid); const pond = P(p.x + 2.2, p.y + 2.4); ground.push(ell(pond[0], pond[1], 18, 8, '#7cc6e0')); add(p.x + p.y + 4.6, `<g transform="translate(${f(pond[0])} ${f(pond[1] - 2)})">${duck()}</g>`, p.uid); },
-    lighthouse(p) { const c = P(p.x + .5, p.y + .5); let s = ell(c[0], c[1], 14, 7, '#000', 'opacity=".1"') + poly([[c[0] - 10, c[1]], [c[0] + 10, c[1]], [c[0] + 6, c[1] - 70], [c[0] - 6, c[1] - 70]], '#fff'); for (const t of [.2, .55]) s += poly([[c[0] - 10 + 4 * t, c[1] - 70 * t], [c[0] + 10 - 4 * t, c[1] - 70 * t], [c[0] + 10 - 4 * (t + .15), c[1] - 70 * (t + .15)], [c[0] - 10 + 4 * (t + .15), c[1] - 70 * (t + .15)]], '#e8475f'); s += rect(c[0] - 8, c[1] - 84, 16, 14, '#3a2a2a', 'rx="2"') + rect(c[0] - 5, c[1] - 82, 10, 10, '#ffd34d') + `<path d="M${f(c[0] - 10)},${f(c[1] - 84)} L${f(c[0])},${f(c[1] - 96)} L${f(c[0] + 10)},${f(c[1] - 84)} Z" fill="#e8475f"/>`; add(p.x + p.y + 1, s, p.uid); glow.push(`<g class="isl-beam" style="transform-origin:${f(c[0])}px ${f(c[1] - 77)}px"><path d="M${f(c[0])},${f(c[1] - 77)} L${f(c[0] + 170)},${f(c[1] - 110)} L${f(c[0] + 170)},${f(c[1] - 44)} Z" fill="#fff6c0" opacity=".28"/></g>` + circ(c[0], c[1] - 77, 12, '#ffd34d', 'opacity=".6"')); },
+    washrooms(p) { add(D(p.x + .5, p.y + .5), box(p.x + .1, p.y + .1, .8, .8, 24, { wall: '#ffffff', roof: '#2f8a8f', windows: [.4] }), p.uid); const c = P(p.x + .5, p.y + .5); labels.push(label(c[0], c[1] - 34, 'WC', '#2f8a8f', 9)); },
+    park(p) { ground.push(poly(dia(p.x, p.y, 3, 2), '#7cc365')); add(D(p.x + .5, p.y + .5), tree(p.x + .5, p.y + .5, '#5fb34a', 1.1), p.uid); add(D(p.x + 2.5, p.y + .5), tree(p.x + 2.5, p.y + .5, '#e8742f', 1.1), p.uid); for (const [a, b] of [[1.2, 1.3], [2.2, 1.4]]) { const c = P(p.x + a, p.y + b); add(D(p.x + a, p.y + b), poly([[c[0] - 12, c[1] - 6], [c[0] + 4, c[1] - 14], [c[0] + 12, c[1] - 10], [c[0] - 4, c[1] - 2]], '#c98a4a') + friend(c[0] - 12, c[1] - 12, 5, FRIENDS[Math.round(a * 3) % 6]), p.uid); } const k = P(p.x + 1.5, p.y); add(D(p.x + 1.5, p.y), `<g class="fx-bob">${seg(k[0], k[1], k[0] + 16, k[1] - 50, '#3a2a2a', .8)}<path d="M${f(k[0] + 16)},${f(k[1] - 62)} l8,8 l-8,8 l-8,-8 Z" fill="#e8475f"/></g>`, p.uid); },
+    splash(p) { ground.push(poly(dia(p.x, p.y, 2, 2), '#bfe6f2') + poly(dia(p.x + .3, p.y + .3, 1.4, 1.4), '#d8f1f8')); const c = P(p.x + 1, p.y + 1); add(D(p.x + 1, p.y + 1), [-16, 0, 16].map((dx, i) => `<path d="M${f(c[0] + dx)},${f(c[1])} Q${f(c[0] + dx - 6)},${f(c[1] - 26 - i * 4)} ${f(c[0] + dx - 12)},${f(c[1])}" fill="none" stroke="#6cc6e0" stroke-width="2.4"/>`).join('') + friend(c[0] - 18, c[1] + 6, 6, '#e2412f') + friend(c[0] + 16, c[1] + 4, 6, '#f6c33e'), p.uid); },
+    pool(p) { ground.push(poly(dia(p.x, p.y, 3, 2), '#f3ead8') + poly(dia(p.x + .3, p.y + .3, 2.4, 1.4), '#6cc6e0', 'stroke="#fff" stroke-width="3"') + [.8, 1.3].map(b => { const a1 = P(p.x + .35, p.y + b), a2 = P(p.x + 2.65, p.y + b); return seg(a1[0], a1[1], a2[0], a2[1], '#fff', 1, 'stroke-dasharray="4 4" opacity=".8"'); }).join('')); add(D(p.x + .2, p.y + 1.4), umbrella(p.x + .2, p.y + 1.8, '#e8475f'), p.uid); add(D(p.x + 2.8, p.y + 1.8), umbrella(p.x + 2.8, p.y + 1.8, '#f6b62e'), p.uid); const c = P(p.x + 1.4, p.y + 1); add(D(p.x + 1.4, p.y + 1), friend(c[0], c[1], 6, '#5b2c6f'), p.uid); },
+    zoo(p) { ground.push(poly(dia(p.x, p.y, 3, 3), '#c9e3a0')); const corners = [P(p.x, p.y), P(p.x + 3, p.y), P(p.x + 3, p.y + 3), P(p.x, p.y + 3)]; let fence = ''; for (let i = 0; i < 4; i++) { const a = corners[i], b = corners[(i + 1) % 4]; fence += seg(a[0], a[1] - 8, b[0], b[1] - 8, WOOD, 2) + seg(a[0], a[1] - 3, b[0], b[1] - 3, WOOD, 2); } add(D(p.x + 2.5, p.y + 2.5), fence, p.uid); add(D(p.x + .8, p.y + .8), box(p.x + .2, p.y + .2, 1, .9, 24, { wall: '#c0392b', roof: '#8e2b20', windows: [.4] }), p.uid); const goat = (a, b) => { const c = P(p.x + a, p.y + b); return ell(c[0], c[1] - 7, 9, 6, '#fff') + circ(c[0] + 8, c[1] - 12, 4.5, '#fff') + seg(c[0] - 5, c[1] - 2, c[0] - 5, c[1] + 3, '#7a5f52', 1.6) + seg(c[0] + 4, c[1] - 2, c[0] + 4, c[1] + 3, '#7a5f52', 1.6); }; add(D(p.x + 1.9, p.y + 1.7), goat(1.9, 1.7), p.uid); add(D(p.x + 1.2, p.y + 2.2), goat(1.2, 2.2), p.uid); const pond = P(p.x + 2.2, p.y + 2.4); ground.push(ell(pond[0], pond[1], 18, 8, '#7cc6e0')); add(D(p.x + 2.2, p.y + 2.4), `<g transform="translate(${f(pond[0])} ${f(pond[1] - 2)})">${duck()}</g>`, p.uid); },
+    lighthouse(p) { const c = P(p.x + .5, p.y + .5); let s = ell(c[0], c[1], 14, 7, '#000', 'opacity=".1"') + poly([[c[0] - 10, c[1]], [c[0] + 10, c[1]], [c[0] + 6, c[1] - 70], [c[0] - 6, c[1] - 70]], '#fff'); for (const t of [.2, .55]) s += poly([[c[0] - 10 + 4 * t, c[1] - 70 * t], [c[0] + 10 - 4 * t, c[1] - 70 * t], [c[0] + 10 - 4 * (t + .15), c[1] - 70 * (t + .15)], [c[0] - 10 + 4 * (t + .15), c[1] - 70 * (t + .15)]], '#e8475f'); s += rect(c[0] - 8, c[1] - 84, 16, 14, '#3a2a2a', 'rx="2"') + rect(c[0] - 5, c[1] - 82, 10, 10, '#ffd34d') + `<path d="M${f(c[0] - 10)},${f(c[1] - 84)} L${f(c[0])},${f(c[1] - 96)} L${f(c[0] + 10)},${f(c[1] - 84)} Z" fill="#e8475f"/>`; add(D(p.x + .5, p.y + .5), s, p.uid); glow.push(`<g class="isl-beam" style="transform-origin:${f(c[0])}px ${f(c[1] - 77)}px"><path d="M${f(c[0])},${f(c[1] - 77)} L${f(c[0] + 170)},${f(c[1] - 110)} L${f(c[0] + 170)},${f(c[1] - 44)} Z" fill="#fff6c0" opacity=".28"/></g>` + circ(c[0], c[1] - 77, 12, '#ffd34d', 'opacity=".6"')); },
     cart(p) { // the pretzel cart on the beach
       const c = P(p.x + .5, p.y + .5);
-      add(p.x + p.y + 1, ell(c[0], c[1], 13, 6, '#000', 'opacity=".1"') + box(p.x + .22, p.y + .3, .56, .42, 13, { wall: '#fff3dc', roof: '#c98a4a' }) +
+      add(D(p.x + .5, p.y + .5), ell(c[0], c[1], 13, 6, '#000', 'opacity=".1"') + box(p.x + .22, p.y + .3, .56, .42, 13, { wall: '#fff3dc', roof: '#c98a4a' }) +
         circ(c[0] - 8, c[1] + 1, 3, '#5a4636') + circ(c[0] + 8, c[1] + 1, 3, '#5a4636') + umbrella(p.x + .5, p.y + .5, '#e8475f'), p.uid);
       labels.push(label(c[0], c[1] - 52, 'Pretzels', '#c96a3a', 9));
     },
     cafeboat(p) { // the Bagel boat café, tied up at a little pier
       ground.push(poly(dia(p.x, p.y, 2, .45), WOOD, `stroke="${WOOD_DARK}" stroke-width=".8"`));
       const c = P(p.x + 1, p.y + 1.25);
-      add(p.x + p.y + 2.3, `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob">${cafeBoat()}</g></g>`, p.uid);
+      add(D(p.x + 1, p.y + 1.3), `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob">${cafeBoat()}</g></g>`, p.uid);
       glow.push(circ(c[0], c[1] - 14, 18, '#ffd77a', 'opacity=".3"'));
       labels.push(label(c[0], c[1] - 50, 'Bagel boat', '#5b2c6f', 9));
     },
-    marina(p) { ground.push([0, 1, 2].map(i => poly(dia(p.x + i + .4, p.y, .2, 2), WOOD, `stroke="${WOOD_DARK}" stroke-width=".8"`)).join('') + poly(dia(p.x, p.y, 3, .25), WOOD, `stroke="${WOOD_DARK}" stroke-width=".8"`)); [[.95, 1.2, '#e8475f'], [1.95, 1.4, '#2f8a8f'], [2.75, 1, '#f6b62e']].forEach(([a, b, col], i) => { const c = P(p.x + a, p.y + b); add(p.x + a + p.y + b, `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob" style="animation-delay:-${i * .4}s">${sailboat(col)}</g></g>`, p.uid); glow.push(circ(c[0], c[1] - 27, 5, '#ffd34d', 'opacity=".7"')); }); },
+    marina(p) { ground.push([0, 1, 2].map(i => poly(dia(p.x + i + .4, p.y, .2, 2), WOOD, `stroke="${WOOD_DARK}" stroke-width=".8"`)).join('') + poly(dia(p.x, p.y, 3, .25), WOOD, `stroke="${WOOD_DARK}" stroke-width=".8"`)); [[.95, 1.2, '#e8475f'], [1.95, 1.4, '#2f8a8f'], [2.75, 1, '#f6b62e']].forEach(([a, b, col], i) => { const c = P(p.x + a, p.y + b); add(D(p.x + a, p.y + b), `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob" style="animation-delay:-${i * .4}s">${sailboat(col)}</g></g>`, p.uid); glow.push(circ(c[0], c[1] - 27, 5, '#ffd34d', 'opacity=".7"')); }); },
     // decorations
-    maple: p => add(p.x + p.y + 1, tree(p.x + .5, p.y + .5, '#e8742f'), p.uid),
-    cherry: p => add(p.x + p.y + 1, tree(p.x + .5, p.y + .5, '#f6b3c8'), p.uid),
-    leafy: p => add(p.x + p.y + 1, tree(p.x + .5, p.y + .5, '#5fb34a'), p.uid),
+    maple: p => add(D(p.x + .5, p.y + .5), tree(p.x + .5, p.y + .5, '#e8742f'), p.uid),
+    cherry: p => add(D(p.x + .5, p.y + .5), tree(p.x + .5, p.y + .5, '#f6b3c8'), p.uid),
+    leafy: p => add(D(p.x + .5, p.y + .5), tree(p.x + .5, p.y + .5, '#5fb34a'), p.uid),
     flowers: p => ground.push(bed(p.x, p.y, 1, 1, [flowerCol, '#8b55a6', '#f6c33e'], 7, p.x * 31 + p.y)),
-    bench: p => add(p.x + p.y + 1, benchAt(p.x + .5, p.y + .55), p.uid),
-    lamp: p => add(p.x + p.y + 1, lampPost(p.x + .5, p.y + .5, 'basket'), p.uid),
+    bench: p => add(D(p.x + .5, p.y + .5), benchAt(p.x + .5, p.y + .55), p.uid),
+    lamp: p => add(D(p.x + .5, p.y + .5), lampPost(p.x + .5, p.y + .5, 'basket'), p.uid),
     path: () => {},
-    rowboat: p => { const c = P(p.x + .5, p.y + .5); add(p.x + p.y + 1, `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob">${rowboat()}</g></g>`, p.uid); },
-    sailboat: p => { const c = P(p.x + .5, p.y + .5); add(p.x + p.y + 1, `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob">${sailboat(['#e8475f', '#2f8a8f', '#8b55a6'][(p.x + p.y) % 3])}</g></g>`, p.uid); glow.push(circ(c[0], c[1] - 27, 5, '#ffd34d', 'opacity=".7"')); },
-    duck: p => { const c = P(p.x + .5, p.y + .5); add(p.x + p.y + 1, `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob">${duck()}</g></g>`, p.uid); },
+    rowboat: p => { const c = P(p.x + .5, p.y + .5); add(D(p.x + .5, p.y + .5), `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob">${rowboat()}</g></g>`, p.uid); },
+    sailboat: p => { const c = P(p.x + .5, p.y + .5); add(D(p.x + .5, p.y + .5), `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob">${sailboat(['#e8475f', '#2f8a8f', '#8b55a6'][(p.x + p.y) % 3])}</g></g>`, p.uid); glow.push(circ(c[0], c[1] - 27, 5, '#ffd34d', 'opacity=".7"')); },
+    duck: p => { const c = P(p.x + .5, p.y + .5); add(D(p.x + .5, p.y + .5), `<g transform="translate(${f(c[0])} ${f(c[1])})"><g class="fx-bob">${duck()}</g></g>`, p.uid); },
   };
-  for (const p of o.pieces) { if (p.uid && o.focus === p.uid) ground.push(poly(dia(p.x, p.y, p.w, p.d), '#e9d4f5', 'opacity=".7"')); DRAW[p.type]?.(p, p.stage || 1); }
+  // Docks are drawn with the shore along their smaller-y side, then turned to meet the land wherever it is.
+  const shoreSide = p => {
+    const s = dockFace((x, y) => land(x, y), p.x, p.y, p.w, p.d);
+    if (s >= 0) return s;
+    const dx = p.x + p.w / 2 - C, dy = p.y + p.d / 2 - C; // a dock from an older game: face the middle of the island
+    return p.w !== p.d || Math.abs(dy) >= Math.abs(dx) ? (dy > 0 ? 0 : 2) : (dx > 0 ? 3 : 1);
+  };
+  const facing = (p, s) => {
+    const cx = p.x + p.w / 2, cy = p.y + p.d / 2;
+    return s === 0 ? null : (X, Y) => { const u = X - cx, v = Y - cy; return s === 2 ? [cx - u, cy - v] : s === 1 ? [cx - v, cy + u] : [cx + v, cy - u]; };
+  };
+  const drawPiece = (p, n) => {
+    local = PIECES[p.type]?.on === 'water' ? facing(p, shoreSide(p)) : null;
+    DRAW[p.type]?.(p, n);
+    local = null;
+  };
+  for (const p of o.pieces) { if (p.uid && o.focus === p.uid) ground.push(poly(dia(p.x, p.y, p.w, p.d), '#e9d4f5', 'opacity=".7"')); drawPiece(p, p.stage || 1); }
 
   // the piece she's placing: its squares glow green (fits) or red (doesn't), with a see-through preview
   if (o.ghost) {
     const q = o.ghost;
     ground.push(poly(dia(q.x, q.y, q.w, q.d), q.ok ? '#fff6a8' : '#f6a8a8', `opacity=".85" stroke="${q.ok ? '#3f9b3c' : '#e2412f'}" stroke-width="2.4"`));
     const before = objs.length;
-    DRAW[q.type]?.({ ...q, uid: null }, q.stage || 1);
+    drawPiece({ ...q, uid: null }, q.stage || 1);
     for (let i = before; i < objs.length; i++) objs[i][1] = `<g opacity=".6">${objs[i][1]}</g>`;
   }
 
@@ -230,8 +272,8 @@ export function islandSvg(o) {
   // the ferry runs from out at sea to the dock and back, and waits at the dock in between
   if (o.ferry && o.ferry.stage >= 2) {
     const fr = o.ferry, mid = [fr.x + fr.w / 2, fr.y + fr.d / 2];
-    const dx = mid[0] - C, dy = mid[1] - C, len = Math.hypot(dx, dy) || 1;
-    const dockPt = P(mid[0] + dx / len * 1.4, mid[1] + dy / len * 1.4), far = P(mid[0] + dx / len * 12, mid[1] + dy / len * 12);
+    const [dx, dy] = [[0, 1], [-1, 0], [0, -1], [1, 0]][shoreSide(fr)]; // straight out to sea, away from the shore
+    const dockPt = P(mid[0] + dx * 1.4, mid[1] + dy * 1.4), far = P(mid[0] + dx * 12, mid[1] + dy * 12);
     for (let i = 0; i < (fr.stage === 3 ? 2 : 1); i++) {
       boats.push(`<g class="isl-move"><g class="fx-bob">${ferry(fr.stage === 3)}</g><animateMotion dur="24s" begin="-${i * 12}s" repeatCount="indefinite" calcMode="linear" keyPoints="1;0;0;1;1" keyTimes="0;.35;.55;.9;1" path="M${f(dockPt[0])},${f(dockPt[1])} L${f(far[0])},${f(far[1])}"/></g>`);
       glow.push(`<g class="isl-move">${circ(0, -8, 22, '#ffd77a', 'opacity=".25"')}<animateMotion dur="24s" begin="-${i * 12}s" repeatCount="indefinite" calcMode="linear" keyPoints="1;0;0;1;1" keyTimes="0;.35;.55;.9;1" path="M${f(dockPt[0])},${f(dockPt[1])} L${f(far[0])},${f(far[1])}"/></g>`);
@@ -256,8 +298,8 @@ export function islandSvg(o) {
   const ev = o.event;
   if (ev && xs.length) {
     const lo = Math.min(...xs), hi = Math.max(...xs) + 1, y = ISLAND.mainStreet;
-    if (ev === 'trucks') [lo + 1, (lo + hi) / 2, hi - 1.5].forEach((x, i) => add(x + y + 1, box(x - .4, y + .1, .9, .55, 20, { wall: ['#e8475f', '#f6b62e', '#2f8a8f'][i], roof: '#fff3dc', awning: '#fff3dc' })));
-    if (ev === 'festival' || ev === 'tulipfest') add(y + hi, stringLights([lo, y + .5], [hi, y + .5], 44, true, ev === 'tulipfest' ? ['#e8475f', '#8b55a6', '#f6c33e'] : ['#e8475f', '#2f8a8f', '#f6b62e']));
+    if (ev === 'trucks') [lo + 1, (lo + hi) / 2, hi - 1.5].forEach((x, i) => add(D(x, y + 1), box(x - .4, y + .1, .9, .55, 20, { wall: ['#e8475f', '#f6b62e', '#2f8a8f'][i], roof: '#fff3dc', awning: '#fff3dc' })));
+    if (ev === 'festival' || ev === 'tulipfest') add(D(hi, y), stringLights([lo, y + .5], [hi, y + .5], 44, true, ev === 'tulipfest' ? ['#e8475f', '#8b55a6', '#f6c33e'] : ['#e8475f', '#2f8a8f', '#f6b62e']));
     if (ev === 'festival' || ev === 'tulipfest') {
       const c = P(C, C);
       for (let i = 0; i < 26; i++) {
@@ -281,7 +323,8 @@ export function islandSvg(o) {
   const night = o.night || ev === 'fireworks';
   let vb = `0 0 ${g.W} ${g.H}`, W = g.W, H = g.H;
   if (o.crop) {
-    const s = R + 2.2, l = P(C - s, C + s)[0], r = P(C + s, C - s)[0], t = P(C - s, C - s)[1] - 120, b = P(C + s, C + s)[1] + 6;
+    const s = R + 2.2, q = [P(C - s, C - s), P(C + s, C - s), P(C + s, C + s), P(C - s, C + s)];
+    const l = Math.min(...q.map(p => p[0])), r = Math.max(...q.map(p => p[0])), t = Math.min(...q.map(p => p[1])) - 120, b = Math.max(...q.map(p => p[1])) + 6;
     vb = `${f(l)} ${f(t)} ${f(r - l)} ${f(b - t)}`; W = r - l; H = b - t;
   }
   const sc = o.scale || 1;

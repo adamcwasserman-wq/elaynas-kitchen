@@ -19,7 +19,7 @@ import { VIPS, VIP_RULES } from '../data/vips.js';
 import { ROUNDS, CRAZY, ROUND_RULES, ORDER_STARS, SPEED_TIP, BIG_ORDER_BONUS, COMPLAINTS, MAX_WANTS } from '../data/orders.js';
 import { MOODS, DEFAULT_MOOD } from '../data/moods.js';
 import { buildSprite, use, ICONS, badgeSvg, restaurantSvg } from './art.js';
-import { islandSvg, islandGeom, isoPoint, isoTile, isLand, fromCentre } from './island.js';
+import { islandSvg, islandGeom, isoPoint, isoAt, turn, unturn, isLand, fromCentre, dockFace } from './island.js';
 import { ISLAND, PIECES, ISLAND_DECOR } from '../data/island.js';
 import { HOOD, BIA, IMPROVEMENTS, AMENITIES, EVENTS, HOOD_CHOICES, RESTAURANT_BUZZ, KITCHEN_BUZZ, BUZZ_LEVELS, VISITORS_PER_BUZZ } from '../data/neighbourhood.js';
 import { MISSIONS } from '../data/missions.js';
@@ -210,13 +210,14 @@ function fits(kind, type, x, y, skip = null) {
     for (const [da, db] of [[1, 0], [-1, 0], [0, 1], [0, -1]]) { if (land(a + da, b + db)) nextToLand = true; else nextToSea = true; }
   }
   if (on === 'water' && !nextToLand) return { ok: false, why: 'Put it right next to the island.' };
+  if (on === 'water' && dockFace(land, x, y, w, d) < 0) return { ok: false, why: w === d ? 'Docks need land all along one side and open water on the other.' : 'Docks need land all along a long side and open water on the other.' };
   if (on === 'shore' && !nextToSea) return { ok: false, why: 'Put it on the shore, next to the water.' };
   return { ok: true };
 }
-// The best free spot for a piece: as close to the middle of the island as it fits.
-function suggestSpot(kind, type, skip = null) {
+// The best free spot for a piece: as close to the middle of the island as it fits (or to "near", if given).
+function suggestSpot(kind, type, skip = null, near = null) {
   const [w, d] = sizeOf(kind, type), spots = [];
-  for (let y = 0; y < ISLAND.size; y++) for (let x = 0; x < ISLAND.size; x++) spots.push([x, y, fromCentre(x + (w - 1) / 2, y + (d - 1) / 2)]);
+  for (let y = 0; y < ISLAND.size; y++) for (let x = 0; x < ISLAND.size; x++) spots.push([x, y, near ? Math.hypot(x - near.x, y - near.y) : fromCentre(x + (w - 1) / 2, y + (d - 1) / 2)]);
   spots.sort((a, b) => a[2] - b[2]);
   const hit = spots.find(([x, y]) => fits(kind, type, x, y, skip).ok);
   return hit ? { x: hit[0], y: hit[1] } : null;
@@ -228,6 +229,17 @@ function autoPlace(kind, type) {
     if (spot) { isl().pieces.push({ uid: isl().next++, kind, type, ...spot }); return; }
     if (isl().land >= ISLAND.land.length - 1) return;
     isl().land++;
+  }
+}
+// When the island grows, docks, boats and ducks it reaches move out to the new shoreline nearby.
+// (onlyCovered: just the ones the land has grown over, for games saved before docks moved.)
+function resettleWater(onlyCovered = false) {
+  for (const p of isl().pieces) {
+    if (!['water', 'sea'].includes(placeOf(p.kind, p.type))) continue;
+    const covered = squaresOf(p.x, p.y, ...sizeOf(p.kind, p.type)).some(([x, y]) => fromCentre(x, y) <= landRadius());
+    if (onlyCovered ? !covered : fits(p.kind, p.type, p.x, p.y, p.uid).ok) continue;
+    const spot = suggestSpot(p.kind, p.type, p.uid, p);
+    if (spot) Object.assign(p, spot);
   }
 }
 function ensureIsland() {
@@ -242,12 +254,15 @@ function ensureIsland() {
   }
   for (const x of IMPROVEMENTS) if (stageOf(x.id) && !pieceOf('imp', x.id)) autoPlace('imp', x.id);
   for (const id of S.hood.built) if (!pieceOf('amen', id)) autoPlace('amen', id);
+  resettleWater(true);
 }
 
 let islNight = null; // null: follow the clock
 const clockNight = () => { const h = new Date().getHours(); return h >= ISLAND.night.from || h < ISLAND.night.to; };
 const isNight = () => islNight ?? clockNight();
-const islScale = () => (innerWidth < 600 ? .72 : .9);
+// Full screen, the map grows so the sea fills the whole screen.
+const islScale = () => { const base = innerWidth < 600 ? .72 : .9, g = islandGeom(); return $('.isl-mapwrap').classList.contains('full') ? Math.max(base, innerWidth / g.W, innerHeight / g.H) : base; };
+const islTurn = () => isl().turn || 0; // how many quarter turns she has turned the map
 function islandScene({ crop = false, focus = null, event = S.hood.event?.id || null, ghost = null } = {}) {
   const lv = isl().land, water = waterSquares();
   const shops = CITIES.map(c => {
@@ -263,7 +278,7 @@ function islandScene({ crop = false, focus = null, event = S.hood.event?.id || n
     shops, pieces, focus, ghost, event, crop, name: S.hood.name,
     choices: { trees: hoodChoice('trees').colour, flowers: hoodChoice('flowers').colour, mural: hoodChoice('mural').name },
     people: Math.min(40, 2 + Math.floor(hoodBuzz() / 90)), sailboats: ISLAND.sailboats[S.hood.level] || 1,
-    ferry: dock ? { ...dock, stage: dock.stage } : null, night: isNight(),
+    ferry: dock ? { ...dock, stage: dock.stage } : null, night: isNight(), turn: islTurn(),
     scale: crop ? 1 : islScale(), label: `${S.hood.name}, seen from above`,
   });
 }
@@ -339,9 +354,33 @@ function renderIslandMap() {
 // Bring the map back into view when she picks something from the lists below it.
 const showMap = () => $('.isl-mapwrap').scrollIntoView({ block: 'nearest', behavior: reduceMotion ? 'auto' : 'smooth' });
 function centreMap(x, y, smooth = false) {
-  const box = $('#isl-map'), p = isoPoint(islandGeom(), x, y), s = islScale();
+  const box = $('#isl-map'), p = isoPoint(islandGeom(), ...turn(islTurn(), x, y)), s = islScale();
   box.scrollTo({ left: p[0] * s - box.clientWidth / 2, top: p[1] * s - box.clientHeight / 2 - 30 * s, behavior: smooth && !reduceMotion ? 'smooth' : 'auto' });
 }
+// The spot on the island in the middle of the map window.
+function mapMiddle() {
+  const box = $('#isl-map'), s = islScale();
+  return unturn(islTurn(), ...isoAt(islandGeom(), (box.scrollLeft + box.clientWidth / 2) / s, (box.scrollTop + box.clientHeight / 2) / s + 30));
+}
+// Turn the map a quarter turn (1: clockwise, -1: the other way), keeping the same spot in the middle.
+function turnMap(by) {
+  const [x, y] = mapMiddle();
+  isl().turn = (islTurn() + by + 4) % 4;
+  buzz('tap');
+  renderIslandMap();
+  centreMap(x, y);
+  save();
+}
+// The map can fill the whole screen, and goes back with the same button (or Escape).
+function fullMap(on = !$('.isl-mapwrap').classList.contains('full')) {
+  const [x, y] = mapMiddle();
+  $('.isl-mapwrap').classList.toggle('full', on);
+  $('#isl-full').setAttribute('aria-label', on ? 'Make the map smaller' : 'Show the map full screen');
+  $('#isl-full').textContent = on ? '↙' : '⛶';
+  renderIslandMap();
+  centreMap(x, y);
+}
+addEventListener('keydown', e => { if (e.key === 'Escape' && $('.isl-mapwrap').classList.contains('full')) fullMap(false); });
 // The card over the bottom of the map: placing, moving, a tapped piece, or growing the island.
 function renderBanner() {
   const el = $('#isl-banner');
@@ -355,7 +394,7 @@ function renderBanner() {
     } else {
       const cost = islMode.do === 'place' ? costToPlace(islMode.kind, islMode.type) : 0;
       const can = g && g.ok && S.hood.bia >= cost;
-      html = `<div class="isl-b-text"><b>${name}${cost ? ` · $${cost.toLocaleString()}` : ''}</b><span>${why || (islMode.do === 'move' ? 'Tap where it should go.' : 'Tap the map to choose a spot.')}</span></div>` +
+      html = `<div class="isl-b-text"><b>${name}${cost ? ` · $${cost.toLocaleString()}` : ''}</b><span>${why || (placeOf(islMode.kind, islMode.type) === 'water' ? 'Tap the water by a straight bit of shore. It reaches out from the beach.' : islMode.do === 'move' ? 'Tap where it should go.' : 'Tap the map to choose a spot.')}</span></div>` +
         `<button class="btn primary" data-isl-confirm${can ? '' : ' disabled'}>${islMode.do === 'move' ? 'Move here' : 'Build here'}</button><button class="btn ghost" data-isl-cancel>Cancel</button>`;
     }
   } else if (islSel === 'land') {
@@ -401,15 +440,30 @@ function renderIslandPanel() {
       const note = locked ? `Opens when ${S.hood.name} is a ${BUZZ_LEVELS[e.needs].name}.` : `${e.about} ${perk}${S.hood.hosted[e.id] ? '' : ` First time: +${e.firstBuzz} buzz.`}`;
       return `<li class="upg${on ? ' next' : locked ? ' later' : ''}"><div class="upg-text"><b>${e.name}</b><span>${note}</span></div>${right}</li>`;
     }).join('')}</ul>`;
-  } else {
-    panel.innerHTML = `<ul class="list">${CITIES.map((c, i) => {
-      const here = c.id === S.city, open = S.openCities.includes(c.id);
-      const lv = here ? S.starLevel : (S.cityData[c.id]?.starLevel || 0), prev = CITIES[i - 1];
-      const right = here ? '<span class="map-here">You\'re here</span>' : open ? `<button class="btn primary" data-travel="${c.id}">Go there</button>` : '<span class="upg-cost">For lease</span>';
-      const note = open ? `${c.cuisine} · ★ ${lv} of ${ROUND_RULES.stars}` : `Opens when ${prev.name} has ${ROUND_RULES.opensNextAt} stars.`;
-      return `<li class="${here ? 'upg next' : open ? 'upg' : 'upg later'}"><div class="upg-text"><b>${c.name}</b><span>${note}</span></div>${right}</li>`;
-    }).join('') + COMING_SOON.map(c => `<li class="upg later"><div class="upg-text"><b>${c.name}</b><span>${c.cuisine} · coming in a later update.</span></div></li>`).join('')}</ul>`;
-  }
+  } else panel.innerHTML = `<ul class="list">${restaurantRows()}</ul>`;
+}
+// Her restaurants, with a button to go to each one (for the island's Restaurants tab and the switcher).
+function restaurantRows() {
+  return CITIES.map((c, i) => {
+    const here = c.id === S.city, open = S.openCities.includes(c.id), d = here ? S : S.cityData[c.id] || {}, prev = CITIES[i - 1];
+    const right = here ? '<span class="map-here">You\'re here</span>' : open ? `<button class="btn primary" data-travel="${c.id}">Go there</button>` : '<span class="upg-cost">For lease</span>';
+    const note = open ? `${c.cuisine} · ★ ${d.starLevel || 0} of ${ROUND_RULES.stars}${d.dollars ? ` · $${d.dollars.toLocaleString()} in tips` : ''}` : `Opens when ${prev.name} has ${ROUND_RULES.opensNextAt} stars.`;
+    return `<li class="${here ? 'upg next' : open ? 'upg' : 'upg later'}"><span class="shop-pic">${shopPreview(c, open)}</span><div class="upg-text"><b>${c.name}</b><span>${note}</span></div>${right}</li>`;
+  }).join('') + COMING_SOON.map(c => `<li class="upg later"><span class="shop-pic">${shopPreview(c, false)}</span><div class="upg-text"><b>${c.name}</b><span>${c.cuisine} · coming in a later update.</span></div></li>`).join('');
+}
+// A small picture of one restaurant, as it stands on the island.
+function shopPreview(c, open) {
+  const d = c.id === S.city ? S : S.cityData[c.id] || {};
+  const shop = open ? { x: 10, y: 10, open, wall: c.look.wall, roof: c.look.awning, awning: c.look.awning,
+    stars: Math.round((d.starLevel || 0) * 3 / ROUND_RULES.stars), ups: Object.values(d.upLv || {}).reduce((t, n) => t + n, 0) } : { x: 10, y: 10, open };
+  const svg = islandSvg({ radius: 2.2, saleRadius: 0, water: new Set(), paths: new Set(), shops: [shop], pieces: [], choices: {}, people: 0, sailboats: 0, scale: 1 });
+  const p = isoPoint(islandGeom(), 11, 11);
+  return svg.replace(/width="[^"]*" height="[^"]*" viewBox="[^"]*"/, `viewBox="${p[0] - 76} ${p[1] - 124} 152 160"`);
+}
+// The restaurant switcher: from the button next to her restaurant's name at the top.
+function openSwitch() {
+  $('#switch-list').innerHTML = restaurantRows();
+  openSheet('#switch');
 }
 // A small picture of a decoration for the Decorate tab.
 const decorPreview = id => {
@@ -439,7 +493,7 @@ function renderHood() {
   renderBanner();
   renderIslandPanel();
 }
-function openHood() { islMode = null; islGhost = null; islSel = null; $('#isl-map').innerHTML = ''; openSheet('#hood'); renderHood(); }
+function openHood() { islMode = null; islGhost = null; islSel = null; $('#isl-map').innerHTML = ''; $('.isl-mapwrap').classList.remove('full'); openSheet('#hood'); renderHood(); }
 
 function startPlacing(kind, type) {
   islMode = { do: 'place', kind, type };
@@ -488,6 +542,7 @@ function growIsland() {
   if (!next || S.hood.bia < next.cost) return;
   S.hood.bia -= next.cost;
   isl().land++;
+  resettleWater();
   islSel = null;
   buzz('serve');
   renderHood();
@@ -528,10 +583,17 @@ function tapIsland(e) {
   if (!svg) return;
   const pt = svg.createSVGPoint(); pt.x = e.clientX; pt.y = e.clientY;
   const q = pt.matrixTransform(svg.getScreenCTM().inverse());
-  const [tx, ty] = isoTile(islandGeom(), q.x, q.y);
+  // The spot she tapped in the turned view, back on the island's own squares.
+  const [vx, vy] = isoAt(islandGeom(), q.x, q.y), square = (a, b) => unturn(islTurn(), a, b).map(Math.floor);
+  const [tx, ty] = square(vx, vy);
   if (islMode) {
     const [w, d] = sizeOf(islMode.kind, islMode.type);
-    const at = { x: tx - Math.floor((w - 1) / 2), y: ty - Math.floor((d - 1) / 2) };
+    let at = { x: tx - Math.floor((w - 1) / 2), y: ty - Math.floor((d - 1) / 2) };
+    // Docks snap to the nearest straight bit of shore close to where she tapped.
+    if (placeOf(islMode.kind, islMode.type) === 'water' && !fits(islMode.kind, islMode.type, at.x, at.y, islMode.uid).ok) {
+      const near = suggestSpot(islMode.kind, islMode.type, islMode.uid, at);
+      if (near && Math.hypot(near.x - at.x, near.y - at.y) <= 3) at = near;
+    }
     // Decorations go down with one tap; landmarks show where they'd go first and wait for "Build here".
     islGhost = null;
     if (islMode.do === 'place' && islMode.kind === 'decor' && placePiece('decor', islMode.type, at.x, at.y)) return;
@@ -541,7 +603,7 @@ function tapIsland(e) {
   }
   // Tall things stand above their squares, so also look one and two squares further down.
   for (let k = 0; k <= 2; k++) {
-    const x = tx + k, y = ty + k;
+    const [x, y] = square(vx + k, vy + k);
     const c = CITIES.find(cc => { const [lx, ly] = lotOf(cc.slot); return x >= lx && x < lx + 2 && y >= ly && y < ly + 2; });
     if (c) { if (!S.openCities.includes(c.id)) { toast(`${c.name} opens later.`); return; } if (c.id !== S.city) travel(c.id); else closeSheets(); return; }
     const hits = isl().pieces.filter(p => { const [w, dd] = sizeOf(p.kind, p.type); return x >= p.x && x < p.x + w && y >= p.y && y < p.y + dd; });
@@ -590,6 +652,8 @@ $('#hood').addEventListener('click', e => {
     return;
   }
   if (b?.id === 'isl-night') { islNight = !isNight(); buzz('tap'); renderIslandMap(); return; }
+  if (b?.dataset.islTurn) { turnMap(+b.dataset.islTurn); return; }
+  if (b?.id === 'isl-full') { buzz('tap'); fullMap(); return; }
   if (b) return;
   const li = e.target.closest('[data-isl-find]');
   if (li) { const p = isl().pieces.find(q => q.uid === +li.dataset.islFind); if (p) { islSel = p.uid; islMode = null; buzz('tap'); renderHood(); showMap(); const [w, dd] = sizeOf(p.kind, p.type); centreMap(p.x + w / 2, p.y + dd / 2, true); } }
@@ -680,7 +744,7 @@ function openCityAfter(id) {
   if (!next || S.openCities.includes(next.id)) return;
   S.openCities.push(next.id);
   celebrate({ art: islandScene({ crop: true }), wide: true, title: `${next.name} opens on ${S.hood.name}!`, name: `A new ${next.cuisine.toLowerCase()} restaurant`,
-    line: `Tap your restaurant's name at the top to see your island, then tap the new restaurant to walk over. Each restaurant keeps its own tip jar.` });
+    line: `Tap the arrows next to your restaurant's name at the top to switch restaurants any time. Each restaurant keeps its own tip jar.` });
   checkBadges();
   checkHood();
 }
@@ -1884,6 +1948,7 @@ function renderHeader() {
   $('#brand-next').innerHTML = `${roundShort()}: ${cityStars()} of ${goal} ★ <span class="hearts" title="Customers who can leave unhappy before the round starts over">${hearts}</span>`;
   $('#brand-fill').style.width = `${Math.min(100, Math.round(cityStars() / goal * 100))}%`;
   $('#brand-dot').hidden = !hoodNews();
+  $('#swap').hidden = $('#rest-switch').hidden = S.openCities.length < 2;
   $('#nav-restaurant .dot').hidden = !can;
   $('#gems .dot').hidden = !missionReady();
 }
@@ -2240,6 +2305,8 @@ document.addEventListener('click', e => {
   else if (t.id === 'hint-btn') hint(true);
   else if (t.id === 'charges') openRefill();
   else if (t.id === 'brand') openHood();
+  else if (t.id === 'swap' || t.id === 'rest-switch') { buzz('tap'); openSwitch(); }
+  else if (t.id === 'switch-island') { islTab = 'shops'; openHood(); }
   else if (t.id === 'nav-restaurant') openRestaurant();
   else if (t.dataset.travel !== undefined) travel(t.dataset.travel);
   else if (t.id === 'nav-recipes') openRecipes();
@@ -2651,6 +2718,8 @@ function boot() {
     firstStar: shift => waterfrontNews(shift),
   });
   $('#brand-pin').innerHTML = ICONS.pin;
+  $('#swap').innerHTML = ICONS.swap;
+  $('#rest-switch').innerHTML = `${ICONS.swap}Switch`;
   $('#charges .icon').innerHTML = ICONS.bolt;
   $('#hint-btn .nav-icon').innerHTML = ICONS.bulb;
   $('#nav-restaurant .nav-icon').innerHTML = ICONS.house;
