@@ -848,3 +848,8 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .board-wait { text-align: center; color: var(--muted); padding: 18px 0; }
 .board-me { font-weight: 700; text-align: center; min-height: 1.4em; margin: 4px 0 8px; }
 .k-intro svg.k-out { width: auto; height: 96px; max-width: 100%; }
+
+/* The testing copy's tag, so it's never mistaken for the real game. */
+.testing #app { padding-top: calc(max(8px, env(safe-area-inset-top, 0px)) + 12px); }
+.testing-tag { position: fixed; top: env(safe-area-inset-top, 0px); left: 50%; transform: translateX(-50%); z-index: 300; pointer-events: none;
+  background: var(--tomato); color: #fff; font: 700 .62rem/1 var(--body); letter-spacing: .08em; text-transform: uppercase; padding: 3px 10px 4px; border-radius: 0 0 8px 8px; }

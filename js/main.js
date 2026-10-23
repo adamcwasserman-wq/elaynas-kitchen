@@ -23,7 +23,7 @@ import { islandSvg, islandGeom, isoPoint, isoAt, turn, unturn, isLand, fromCentr
 import { ISLAND, PIECES, ISLAND_DECOR } from '../data/island.js';
 import { HOOD, BIA, IMPROVEMENTS, AMENITIES, EVENTS, HOOD_CHOICES, RESTAURANT_BUZZ, KITCHEN_BUZZ, BUZZ_LEVELS, VISITORS_PER_BUZZ } from '../data/neighbourhood.js';
 import { MISSIONS } from '../data/missions.js';
-import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION } from './save.js';
+import { loadSave, writeSave, clearSave, toCode, fromCode, SAVE_VERSION, TESTING } from './save.js';
 import { createArcade } from './arcade.js';
 import { createKitchen } from './kitchen.js';
 import { createTrack } from './track.js';
@@ -2520,7 +2520,15 @@ $('#rf-free').addEventListener('click', () => {
 // The version line at the bottom of Settings (also used in feedback emails). It comes from VERSION
 // in sw.js, so it can't drift: ask the service worker that's running the game, or, with none yet
 // (a first visit), read sw.js itself.
-const showVersion = v => { gameVersion = v; $('.version').textContent = `Tulip Kitchen · version ${v}`; };
+const showVersion = v => { gameVersion = v; $('.version').textContent = `Tulip Kitchen · version ${v}${TESTING ? ' · testing copy' : ''}`; };
+// The testing copy says so: a tag at the top, and its own name on the home screen.
+if (TESTING) {
+  document.title = 'Tulip Kitchen (testing)';
+  document.querySelector('meta[name="apple-mobile-web-app-title"]').content = 'Tulip Test';
+  document.querySelector('link[rel="manifest"]').href = 'manifest-testing.webmanifest';
+  document.body.classList.add('testing');
+  document.body.insertAdjacentHTML('beforeend', '<div class="testing-tag" aria-hidden="true">Testing copy</div>');
+}
 navigator.serviceWorker?.addEventListener('message', e => { if (e.data?.version) showVersion(e.data.version); });
 async function loadVersion() {
   if (navigator.serviceWorker?.controller) { navigator.serviceWorker.controller.postMessage('version'); return; }

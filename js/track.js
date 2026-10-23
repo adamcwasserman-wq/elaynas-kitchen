@@ -5,8 +5,10 @@
 // A failed send is never a problem: notes wait on the phone and go with the next one.
 
 import { CONFIG } from '../data/config.js';
+import { TESTING } from './save.js';
 
-const KEY = 'tulip-kitchen-track';
+// The testing copy never sends anything, so test games stay off the real leaderboard.
+const KEY = TESTING ? 'tulip-kitchen-track-testing' : 'tulip-kitchen-track';
 const IDLE_MS = 30000;            // no touches for this long and the play clock stops
 const NEW_SESSION_MS = 30 * 60000; // away this long and coming back counts as a new session
 const FLUSH_EVERY = 45000;
@@ -26,7 +28,7 @@ function load() {
 export function createTrack(api) {
   // api: ready(), name(), version(), scores(), area(), playing(), roundKey()
   const T = load();
-  const url = CONFIG.cloud?.url || '';
+  const url = TESTING ? '' : CONFIG.cloud?.url || '';
   let sess = null;           // this play session: { sid, start, active, areas }
   let sessDirty = false;
   let lastTouch = Date.now();

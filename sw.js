@@ -1,12 +1,17 @@
 // Keeps a copy of the game on the phone so it works with no connection.
 // When you change any game file, bump VERSION so phones pick up the new copy.
 
-const VERSION = 'ek-0.40.0';
+const VERSION = 'ek-0.40.1';
+// The testing copy and the real game share one website, so each keeps its saved copy under its own name
+// and only ever clears out its own old ones.
+const SITE = new URL(self.registration.scope).pathname;
+const CACHE = `${SITE}${VERSION}`;
 const FILES = [
   './',
   'index.html',
   'install.html',
   'manifest.webmanifest',
+  'manifest-testing.webmanifest',
   'css/game.css',
   'js/main.js',
   'js/art.js',
@@ -46,7 +51,7 @@ const FILES = [
 
 self.addEventListener('install', event => {
   // "reload" skips the browser's own short-term copy, so the new version really is new.
-  event.waitUntil(caches.open(VERSION)
+  event.waitUntil(caches.open(CACHE)
     .then(cache => cache.addAll(FILES.map(f => new Request(f, { cache: 'reload' }))))
     .then(() => self.skipWaiting()));
 });
@@ -54,7 +59,7 @@ self.addEventListener('install', event => {
 self.addEventListener('activate', event => {
   event.waitUntil(
     caches.keys()
-      .then(keys => Promise.all(keys.filter(k => k !== VERSION).map(k => caches.delete(k))))
+      .then(keys => Promise.all(keys.filter(k => k !== CACHE && (k.startsWith(SITE) || k.startsWith('ek-'))).map(k => caches.delete(k))))
       .then(() => self.clients.claim())
   );
 });
@@ -74,7 +79,7 @@ self.addEventListener('fetch', event => {
   if (url.origin !== location.origin && !isFont) return;
 
   event.respondWith(
-    caches.open(VERSION).then(async cache => {
+    caches.open(CACHE).then(async cache => {
       const cached = await cache.match(req, { ignoreSearch: true });
       const fresh = fetch(req).then(res => {
         if (res && (res.ok || res.type === 'opaque')) cache.put(req, res.clone());

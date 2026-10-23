@@ -2,13 +2,19 @@
 // The game saves to the phone after every change. Because a browser can clear its storage,
 // Settings also offers a backup code (or file) that can be pasted back in later.
 
-const KEY = 'elayna-kitchen-save';
+// The game lives at two addresses on the same website: the testing copy (elaynas-kitchen), where new
+// changes go first, and the real game (tulip-kitchen), which only changes on a release. The browser
+// treats them as one site, so the testing copy keeps its own save: trying things out never touches the
+// real game. Its first visit starts from a copy of the real save, so there's progress to test with.
+export const TESTING = /\/elaynas-kitchen\//.test(location.pathname);
+const REAL_KEY = 'elayna-kitchen-save';
+const KEY = TESTING ? `${REAL_KEY}-testing` : REAL_KEY;
 const CODE_PREFIX = 'EK1.';
 export const SAVE_VERSION = 2;
 
 export function loadSave() {
   try {
-    const raw = localStorage.getItem(KEY);
+    const raw = localStorage.getItem(KEY) ?? (TESTING ? localStorage.getItem(REAL_KEY) : null);
     const data = raw ? JSON.parse(raw) : null;
     return isValid(data) ? data : null;
   } catch {

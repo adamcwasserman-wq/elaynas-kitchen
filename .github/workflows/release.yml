@@ -1,0 +1,39 @@
+# The Release button: copies the tested game (main in elaynas-kitchen) to the real game the kids
+# play (tulip-kitchen). Run it from the Actions tab: Release > Run workflow. See RELEASING.md.
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency: release
+
+jobs:
+  release:
+    # This file is copied to tulip-kitchen with everything else; it only does anything here.
+    if: github.repository == 'adamcwasserman-wq/elaynas-kitchen'
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          fetch-depth: 0
+          persist-credentials: false
+
+      - name: Copy the tested game to tulip-kitchen
+        env:
+          RELEASE_TOKEN: ${{ secrets.RELEASE_TOKEN }}
+        run: |
+          if [ -z "$RELEASE_TOKEN" ]; then
+            echo "::error::The RELEASE_TOKEN secret is missing. See RELEASING.md for the one-time setup."
+            exit 1
+          fi
+          version=$(sed -n "s/^const VERSION = '\(.*\)';/\1/p" sw.js)
+          # A plain push, never a forced one: if tulip-kitchen was changed by hand, this stops instead of overwriting it.
+          if ! git push "https://x-access-token:${RELEASE_TOKEN}@github.com/adamcwasserman-wq/tulip-kitchen.git" HEAD:main; then
+            echo "::error::tulip-kitchen has changes that aren't in elaynas-kitchen, so nothing was copied. Ask Claude to bring them together."
+            exit 1
+          fi
+          echo "Released version $version. The kids' game updates in a minute or two; reopen it twice to pick it up." >> "$GITHUB_STEP_SUMMARY"
