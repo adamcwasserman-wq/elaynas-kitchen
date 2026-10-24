@@ -1,8 +1,9 @@
 // Cooking shifts: the Cooking Fever style kitchen inside each restaurant.
 // Grab dough from the pantry, bake it in the oven, plate it, add toppings, pour drinks, and tap
 // a finished food to hand it to the customer who wants it.
-// Only the bakery (Toronto) has a kitchen so far. Tips go into that restaurant's tip jar, and a
-// share goes to Island dollars, the same as serving on the merge board.
+// This file is the bakery's kitchen (Toronto) and the rules every kitchen shares. La Cocina's is in
+// data/cocina.js, and data/kitchens.js lists which restaurants have one. Tips go into that
+// restaurant's tip jar, and a share goes to Island dollars, the same as serving on the merge board.
 // Times are in seconds. Prices are dollars.
 
 // Everything a customer can order in the bakery.
@@ -106,7 +107,7 @@ export const SHIFTS = [
 //   patience  times a normal customer's patience
 //   pay       times the normal price
 //   items     orders this many things
-//   wants     always orders this food
+//   wants     always orders this food ('treat': the kitchen's own favourite, its vipWants; {wants} in hello names it)
 //   tip       always leaves this share of the price as a tip
 //   hearts    hearts lost if they leave unhappy (instead of 1)
 //   changes   changes one thing in the order partway through the wait
@@ -114,7 +115,7 @@ export const SHIFTS = [
 export const KITCHEN_VIPS = [
   { id: 'zip', name: 'Zip', art: 'zip', patience: .5, pay: 2, hearts: 2, hello: 'Zip is here and he is in a hurry! Serve him fast for double pay.' },
   { id: 'party', name: 'Pina', art: 'party', items: 3, pay: 2, hello: 'Pina is ordering for a party: three things, for double pay!' },
-  { id: 'bubbie', name: 'Bubbie', art: 'bubbie', wants: 'creamBagel', patience: 2, tip: .5, hello: 'Bubbie came for a cream cheese bagel. She is patient, and she tips well.' },
+  { id: 'bubbie', name: 'Bubbie', art: 'bubbie', wants: 'treat', patience: 2, tip: .5, hello: 'Bubbie came for {wants}. She is patient, and she tips well.' },
   { id: 'penny', name: 'Penny', art: 'penny', pay: 1.5, changes: true, hello: 'Penny is here. Watch out, she might change her mind!' },
   { id: 'critic', name: 'Monsieur Croissant', art: 'critic', review: 6, hello: 'The food critic! Serve him fast for a three spoon review.' },
 ];
@@ -183,9 +184,6 @@ export const APPLIANCES = [
     { name: 'Long board', perk: 'Room for 3 plates.', cost: 200, plates: 3 },
     { name: 'Marble counter', perk: 'Room for 4 plates.', cost: 750, plates: 4 }] },
 ];
-
-// Which restaurants have a kitchen. More arrive one at a time.
-export const KITCHEN_CITIES = ['toronto'];
 
 // Helpers: food friends hired once with this restaurant's tips. They join one at a time as the
 // shifts get harder (each one takes over a chore that just got busier). Every hired helper works
@@ -257,3 +255,16 @@ export const HELPER_LEVELS = [
 ];
 // Before training cost tips, helpers levelled up by doing jobs. Older saves keep the level they earned.
 export const OLD_HELPER_JOBS = [0, 12, 35, 80, 150];
+
+// How the bakery kitchen looks and talks (data/kitchens.js has every restaurant's kitchen).
+//   room, wall      which room to draw (js/kitchenArt.js roomBack)
+//   ovenArt, drinkArt  which drawings stand for the oven and the coffee machine
+//   drink           the poured drink's food id; words: how the kitchen talks about its things
+//   vipWants        what a VIP with wants: 'treat' orders here
+export const BAKERY = {
+  room: 'toronto', wall: null, ovenArt: 'oven', drinkArt: 'coffee', pourColour: '#6b3a1e', drink: 'coffee',
+  words: { oven: 'oven', machine: 'coffee machine', cup: 'cup', cold: 'went cold', coldTo: 'goes cold', mixer: 'mixer', cook: 'bake', cooking: 'Baking', doughs: 'bagel or pretzel', bread: 'bread' },
+  blurb: 'Bake bagels and pretzels, pour coffee, serve customers',
+  vipWants: { bubbie: 'creamBagel' },
+  foods: FOODS, pantry: PANTRY, shifts: SHIFTS, appliances: APPLIANCES, helpers: HELPERS, doughIntro: DOUGH_INTRO,
+};

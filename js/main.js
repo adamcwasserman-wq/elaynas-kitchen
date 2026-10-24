@@ -28,8 +28,8 @@ import { createArcade } from './arcade.js';
 import { createKitchen } from './kitchen.js';
 import { createTrack } from './track.js';
 import { createBoard } from './board.js';
-import { KITCHEN_CITIES, SHIFTS } from '../data/kitchen.js';
-import { newsArt as kitchenNewsArt } from './kitchenArt.js';
+import { KITCHEN_CITIES, KITCHENS } from '../data/kitchens.js';
+import { newsArt as kitchenNewsArt, cocinaNewsArt } from './kitchenArt.js';
 import { GEMS, TICKETS_PER_GEM, SHOP } from '../data/arcade.js';
 
 const COLS = CONFIG.board.cols;
@@ -1702,7 +1702,7 @@ function kitchenStat(stat) {
   switch (stat) {
     case 'kitchenShifts': return sum(k => (k.best || []).filter(b => b > 0).length);
     case 'perfectShifts': return sum(k => (k.best || []).filter(b => b >= 3).length);
-    case 'rushWins': return sum(k => SHIFTS.filter((sh, i) => sh.rush && (k.best?.[i] || 0) > 0).length);
+    case 'rushWins': return Object.entries(S.kitchen || {}).reduce((t, [id, k]) => t + (KITCHENS[id]?.shifts || []).filter((sh, i) => sh.rush && (k.best?.[i] || 0) > 0).length, 0);
     case 'helpersHired': return sum(k => (k.helpers || []).length);
     case 'helperTraining': return sum(k => Object.values(k.helperLv || {}).reduce((t, n) => t + n - 1, 0));
     case 'kitchenUpgrades': return sum(k => Object.values(k.appl || {}).reduce((t, n) => t + n - 1, 0));
@@ -2389,7 +2389,7 @@ function renderKitchenButton() {
   if (!KITCHEN_CITIES.includes(S.city)) { el.innerHTML = '<p class="muted small k-soon">This kitchen opens for cooking shifts in a later update.</p>'; return; }
   const k = S.kitchen?.[S.city], done = (k?.best || []).filter(b => b > 0).length;
   el.innerHTML = `<button class="k-open" id="k-open"><span class="k-open-art">${ICONS.cloche}</span><span><b>Cook a shift</b>` +
-    `<small>${done ? `${done} of ${SHIFTS.length} shifts done` : 'Bake bagels and pretzels, pour coffee, serve customers'}</small></span></button>`;
+    `<small>${done ? `${done} of ${KITCHENS[S.city].shifts.length} shifts done` : KITCHENS[S.city].blurb}</small></span></button>`;
 }
 $('#rest-kitchen').addEventListener('click', e => {
   if (!e.target.closest('#k-open')) return;
@@ -2753,6 +2753,12 @@ function boot() {
     const bakery = cityOf(KITCHEN_CITIES[0]).name;
     celebrate({ art: kitchenNewsArt(), title: 'New: cooking shifts!', name: 'Bake, pour and serve',
       line: S.city === KITCHEN_CITIES[0] ? 'Tap Restaurant, then Cook a shift.' : `Go back to ${bakery}, tap Restaurant, then Cook a shift.` });
+    save();
+  } else if (!S.cocinaNews && S.openCities.includes('mexico')) {
+    // La Cocina's kitchen arrived in ek-0.42.0: tell her once, when La Cocina is open.
+    S.cocinaNews = true;
+    celebrate({ art: cocinaNewsArt(), title: 'New: La Cocina has a kitchen!', name: 'Tacos, churros and frozen margaritas',
+      line: S.city === 'mexico' ? 'Tap Restaurant, then Cook a shift.' : `Go to ${cityOf('mexico').name}, tap Restaurant, then Cook a shift.` });
     save();
   } else {
     // The leaderboard question comes once, a moment after the game opens (and never on top of a celebration).

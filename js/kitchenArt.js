@@ -47,6 +47,20 @@ const FRIEND = {
   cinnamon: s => circ(0, 1, 19, '#a8611e') + circ(-1, 0, 17.5, '#d99a5c') +
     line('M0,1 m-4,0 a4,4 0 1,1 8,0 a8,8 0 1,1 -16,0 a12,12 0 1,1 24,0 a15,15 0 0,1 -10,14', '#a8611e', 2, { opacity: .55 }) +
     line('M-12,-9 Q-4,-14 4,-10 Q10,-6 14,-10', CREAM, 3) + shine(-9, -7, 3.5, 2) + face(0, 2, .9, s),
+  // La Cocina's helpers.
+  chili: s => path('M-4,-14 C10,-16 18,-4 14,8 C10,18 -2,22 -12,16 C-6,12 -10,2 -10,-6 C-10,-11 -8,-13 -4,-14 Z', '#b8321f') +
+    path('M-3,-13 C9,-14 16,-4 12,7 C8,16 -2,19 -10,15 C-5,11 -8,2 -8,-6 C-8,-10 -6,-12 -3,-13 Z', '#e2412f') +
+    path('M-6,-14 Q-2,-20 4,-18 Q2,-14 -6,-14 Z M-1,-18 Q0,-24 4,-25', '#3f9b3c') + line('M-1,-18 Q0,-24 4,-25', '#3f9b3c', 2.4) + shine(-4, -7, 3, 2) + face(1, 0, .9, s),
+  melon: s => path('M-20,-6 A20,20 0 0 0 20,-6 Z', '#2e7a2c') + path('M-18,-6 A18,18 0 0 0 18,-6 Z', '#bfe6a0') + path('M-16,-6 A16,16 0 0 0 16,-6 Z', '#f0566a') +
+    [[-9, 0], [-3, 5], [4, 4], [10, -1], [0, 10]].map(([x, y]) => ell(x, y, 1, 1.6, INK)).join('') + rect(-20, -8, 40, 3, 1.5, '#ff8a96') + face(0, -2, .85, s),
+  lime: s => circ(0, 0, 17, '#3f8f2c') + circ(-1.5, -1.5, 15.5, '#7cc242') + circ(-1.5, -1.5, 11, '#b9e07a', { opacity: .35 }) +
+    path('M12,-12 Q18,-18 22,-14 Q17,-9 12,-12 Z', '#3f9b3c') + shine(-8, -7, 3.5, 2.2) + face(0, 1, 1, s),
+  corn: s => path('M-9,-18 Q0,-26 9,-18 L11,12 Q0,20 -11,12 Z', '#d9a400') + path('M-8,-17 Q0,-24 8,-17 L9,11 Q0,17 -9,11 Z', '#f8d23a') +
+    [-12, -6, 0, 6].map(y => line(`M-8,${y} L8,${y}`, '#e2b419', 1, { opacity: .6 })).join('') +
+    path('M-11,6 Q-20,-2 -16,-16 Q-10,0 -6,12 Z M11,6 Q20,-2 16,-16 Q10,0 6,12 Z', '#5cb85a') + face(0, -2, .85, s),
+  cactus: s => rect(-10, -18, 20, 38, 10, '#2e7a2c') + rect(-9, -17, 17, 36, 9, '#4fa84a') +
+    rect(-20, -6, 8, 16, 4, '#4fa84a') + rect(-20, -6, 6, 6, 3, '#4fa84a') + rect(12, -12, 8, 14, 4, '#4fa84a') +
+    [[-5, -10], [5, -12], [-6, 12], [6, 10], [-17, 2], [16, -6]].map(([x, y]) => circ(x, y, .9, '#d9f2a6')).join('') + face(0, -2, .85, s),
   peach: s => circ(0, 0, 17, '#e0704a') + circ(-2, -2, 15.5, '#f5a06a') + line('M0,-15 Q-4,-2 0,10', '#e0704a', 1.6, { opacity: .6 }) + path('M1,-17 Q8,-24 14,-20 Q8,-15 1,-17 Z', '#3f9b3c') + shine(-8, -6, 3.5, 2.2) + face(0, 2, 1, s),
 };
 export const CUSTOMER_KINDS = ['eggplant', 'lemon', 'blueberry', 'pear', 'peach'];
@@ -65,6 +79,12 @@ const LOOK = {
     path('M-7.6,4 a2.6,2.6 0 0 1 5.2,0 Z M2.4,4 a2.6,2.6 0 0 1 5.2,0 Z', '#a8673a') },
   avocado: { anim: 'h-lean', extra: () => ell(-4.5, -16, 3.6, 2.6, INK) + ell(4.5, -16, 3.6, 2.6, INK) + line('M-1,-16.5 L1,-16.5', INK, 1.2) + circ(-5.5, -17, .9, '#fff', { opacity: .7 }) },
   mushroom: { anim: 'h-shy', extra: () => path('M-11,13 Q0,17 11,13 L11,17 Q0,21 -11,17 Z', '#2f8a8f') + path('M6,17 L10,23 L4,20 Z', '#2f8a8f') },
+  // La Cocina: Chili wears a tiny bandana, Cocoa has a marshmallow, Lime a flower, Corn a straw hat band, Cactus a pink bloom.
+  chili: { anim: 'h-hop', extra: () => path('M-12,-4 Q0,0 12,-6 L12,-2 Q0,4 -12,0 Z', '#1f9e9a') + path('M10,-4 L16,0 L11,1 Z', '#1f9e9a') },
+  melon: { anim: 'h-sway', extra: () => line('M9,-14 L13,-28', '#5a2a14', 1.2) + path('M5,-28 Q13,-36 21,-28 Z', '#1f9e9a') + path('M9,-28 Q13,-33 17,-28 Z', '#f6b62e') },
+  lime: { anim: 'h-lean', extra: () => [0, 72, 144, 216, 288].map(a => ell(12, -16, 2.2, 4, '#ff7eb6', { transform: `rotate(${a} 12 -12)` })).join('') + circ(12, -12, 1.8, GOLD) },
+  corn: { anim: 'h-shy', extra: () => rect(-10, -19, 20, 3, 1.5, '#e8475f') },
+  cactus: { anim: 'h-breathe', extra: () => [0, 72, 144, 216, 288].map(a => ell(0, -24, 2.4, 4.2, '#ff7eb6', { transform: `rotate(${a} 0 -20)` })).join('') + circ(0, -20, 2, GOLD) },
   cinnamon: { anim: 'h-breathe', extra: () => `<g class="kheart">${path('M0,2 C-3,-1 -6,1 -4,4 L0,7 L4,4 C6,1 3,-1 0,2 Z', '#ff7eb6', { transform: 'translate(15 -24)' })}</g>` },
 };
 // "quip" is something they're saying; "atX" is where they really are on the floor (when x is 0 inside
@@ -90,6 +110,23 @@ export const vip = (art, x, y, cls = '') => g(`translate(${x} ${y})`, `<g class=
 const RING = (r, h) => `M${-r},0 a${r},${r} 0 1,0 ${2 * r},0 a${r},${r} 0 1,0 ${-2 * r},0 Z M${-h},0 a${h},${h} 0 1,0 ${2 * h},0 a${h},${h} 0 1,0 ${-2 * h},0 Z`;
 const bagelArt = (dark, light, seeds) => g('scale(1 .8)', path(RING(12, 4), dark, { 'fill-rule': 'evenodd' }) + g('translate(-1 -1.5)', path(RING(11, 4.2), light, { 'fill-rule': 'evenodd' })) +
   (seeds ? [[-6, -6], [3, -8], [7, -2], [-8, 2], [5, 5]].map(([x, y]) => ell(x, y, 1.4, .8, CREAM)).join('') : '') + shine(-6, -5, 3, 1.4));
+// A taco: a folded tortilla with meat, lettuce and tomato.
+const tacoArt = (dark, light, filled) => (filled ? ell(0, -3, 11, 3.5, '#7a4524') + path('M-11,-4 q3,-4 5,-1 q3,-4 5,-1 q3,-4 5,-1 q3,-4 5,-1 L11,-2 L-11,-2 Z', '#5cb85a') + circ(-4, -6, 1.6, '#e2412f') + circ(4, -6, 1.6, '#e2412f') : '') +
+  path('M-13,-3 Q0,20 13,-3 Q0,4 -13,-3 Z', dark) + path('M-12,-3 Q0,17 12,-3 Q0,3 -12,-3 Z', light) + shine(-6, 3, 2.5, 1.2);
+// A churro: a ridged golden stick, with cinnamon sugar when "sugar".
+const churroArt = (dark, light, sugar) => g('rotate(-25)', rect(-14, -4, 28, 8, 4, dark) + rect(-14, -4.5, 27, 7, 3.5, light) +
+  [-9, -4, 1, 6, 11].map(x => line(`M${x},-3.5 L${x},2.5`, dark, .9, { opacity: .6 })).join('') +
+  (sugar ? [[-10, -2], [-5, 1], [0, -2], [5, 1], [10, -1], [-8, 2], [3, -3]].map(([x, y]) => circ(x, y, .9, (x + y) % 2 ? '#fff' : '#8a5a2e')).join('') : ''));
+// A frozen margarita (tequila, lime and ice): a margarita glass with a salted rim, a lime wedge and a
+// straw. "melted" when it waited too long, "empty" while it's being poured.
+const glassArt = state => {
+  const slush = state === 'full' ? path('M-11,-8 Q-12,-15 -6,-14 Q-4,-19 1,-16 Q5,-20 8,-15 Q13,-15 11,-8 Z', '#a6e07a') + [[-6, -11], [0, -13], [5, -11]].map(([x, y]) => circ(x, y, 1.4, '#e6f7c9')).join('') : '';
+  const top = state === 'melted' ? ell(0, -6, 10, 2.2, '#cfe8b8') : state === 'full' ? '' : '';
+  return path('M-12,-8 L12,-8 L3,3 L3,10 L7,12 L-7,12 L-3,10 L-3,3 Z', '#dff2f2', { stroke: '#9fc9c6', 'stroke-width': 1 }) +
+    (state !== 'empty' ? path('M-11,-7 L11,-7 L2.5,2.5 L-2.5,2.5 Z', state === 'melted' ? '#cfe8b8' : '#8fd05a') : '') + slush + top +
+    line('M-12,-8 L12,-8', '#fff', 2) + [-11, -8, -5, -2, 1, 4, 7, 10].map((x, i) => rect(x - .7, -9.6 - (i % 2) * .8, 1.6, 1.6, .3, '#fff', { stroke: '#cfe0e0', 'stroke-width': .3 })).join('') + (state === 'full' ? circ(10, -10, 4.5, '#3f8f2c') + circ(10, -10, 3.2, '#c9e88a') + line('M-4,-12 L-9,-22', '#e8475f', 2) : '') +
+    (state === 'melted' ? line('M-13,-12 l3,3 M-13,-9 l3,-3', '#e2412f', 1.4, { opacity: 0 }) + path('M-8,-3 q-2,4 0,6', '#8fd05a') : '');
+};
 // A pretzel: two loops and crossed arms, drawn as a thick rope. Salt grains on top when salted.
 const KNOT = 'M0,-1 C-4,-9 -13,-9 -13,-1 C-13,7 -6,10 0,10 C6,10 13,7 13,-1 C13,-9 4,-9 0,-1 M-7,8 Q0,2 4,-6 M7,8 Q0,2 -4,-6';
 const pretzelArt = (dark, light, salt) => line(KNOT, dark, 6.4) + line(KNOT, light, 4) + shine(-9, -4, 2.2, 1.1) +
@@ -103,6 +140,33 @@ export const FOOD = {
   bagelDough: () => bagelArt('#d9bf94', '#f3e2c2', false),
   bagelBurnt: () => bagelArt('#2e1d16', '#57382a', false),
   creamBagel: () => FOOD.bagel() + path('M-9,-3 Q-7,-8 0,-8 Q8,-8 9,-3 Q4,1 0,-1 Q-5,2 -9,-3 Z', CREAM) + path('M-3,-2 Q0,-6 4,-4 Q1,-2 -3,-2 Z', '#e8dccb'),
+  // La Cocina
+  taco: () => tacoArt('#e9a640', '#f3c34a', true),
+  tacoDough: () => ell(0, 3, 13, 6, '#e8cf98') + ell(-1, 2, 12, 5, '#f8e7b8') + [[-5, 1], [4, 3], [0, 0], [6, 0]].map(([x, y]) => circ(x, y, .8, '#e2c27a')).join(''),
+  tacoBurnt: () => tacoArt('#2e1d16', '#57382a', false),
+  salsaTaco: () => tacoArt('#e9a640', '#f3c34a', true) + [[-6, -6], [-1, -8], [4, -6], [8, -7]].map(([x, y]) => circ(x, y, 2.2, '#d7372a')).join('') + [[-3, -9], [6, -9]].map(([x, y]) => circ(x, y, 1.1, '#3f9b3c')).join(''),
+  churro: () => churroArt('#b8732f', '#e3a24f', false),
+  churroDough: () => churroArt('#d9bf94', '#f3e2c2', false),
+  churroBurnt: () => churroArt('#2e1d16', '#57382a', false),
+  dulceChurro: () => churroArt('#b8732f', '#e3a24f', false) + line('M-12,-3 q3,4 6,0 q3,-4 6,0 q3,4 6,0 q3,-4 6,0', '#c7741f', 2.6) + line('M-12,-3.6 q3,4 6,0 q3,-4 6,0 q3,4 6,0 q3,-4 6,0', '#e9a03c', 1.2) + circ(-2, 3, 1.4, '#c7741f'),
+  // A jar of dulce de leche, with a gingham lid and a spoon.
+  dulce: () => rect(-8, -4, 16, 16, 4, '#e8d9bc', { stroke: '#c9a87a', 'stroke-width': .8 }) + rect(-7, 0, 14, 11, 3, '#c7741f') +
+    rect(-9, -9, 18, 6, 2, '#e8475f') + [-6, -2, 2, 6].map(x => rect(x - 1, -9, 2, 6, 0, '#fff', { opacity: .5 })).join('') +
+    line('M5,-8 L9,-16', '#b5ada2', 1.8) + ell(9.5, -17, 2, 1.4, '#b5ada2') + shine(-4, 4, 1.2, 3),
+  // Drinks: each kitchen's drink has a full, an empty (being poured) and a cold or melted look.
+  coffeeEmpty: () => cupArt(false),
+  margaritaCold: () => glassArt('melted'),
+  margarita: () => glassArt('full'),
+  margaritaEmpty: () => glassArt('empty'),
+  margaritaMelted: () => glassArt('melted'),
+  salsa: () => ell(0, 4, 11, 6, '#1f5f9a') + ell(0, 2, 11, 5, '#2f78c0') + ell(0, 0, 9, 3, '#d7372a') + circ(-3, -1, 1, '#3f9b3c') + circ(3, 0, 1, '#3f9b3c') + path('M-8,4 Q0,8 8,4', '#fff', { opacity: .5 }),
+  cinnamon: () => rect(-7, -6, 14, 17, 5, '#c9d8d8') + rect(-7, -6, 13, 16, 5, '#eef7f7') + rect(-5, 1, 10, 8, 3, '#a8673a') +
+    rect(-7, -11, 14, 6, 2.5, '#9a9088') + [-3, 0, 3].map(x => circ(x, -8, .9, INK)).join('') + shine(-4, -1, 1.2, 3),
+  tequila: () => path('M-4,-14 L4,-14 L4,-9 Q8,-7 8,-2 L8,12 Q8,14 6,14 L-6,14 Q-8,14 -8,12 L-8,-2 Q-8,-7 -4,-9 Z', '#e8f2ee', { stroke: '#9fc9c6', 'stroke-width': .8 }) +
+    rect(-7, 0, 14, 12, 2, '#f6e7b0', { opacity: .9 }) + rect(-6, 2, 12, 6, 1.5, '#1f9e9a') + path('M0,3 l-2,4 h4 Z', '#7cc242') + rect(-3, -18, 6, 5, 1.5, '#c96a3a'),
+  cornCob: () => g('rotate(-30)', ell(0, 0, 5, 11, '#f8d23a') + path('M-6,4 Q-10,-6 -3,-12 Q-4,0 0,10 Z M6,4 Q10,-6 3,-12 Q4,0 0,10 Z', '#5cb85a')),
+  chiliPepper: () => path('M-10,-4 Q0,-8 10,2 Q6,8 -2,4 Q-8,2 -10,-4 Z', '#e2412f') + line('M-10,-4 Q-12,-8 -9,-10', '#3f9b3c', 2),
+  limeHalf: () => circ(0, 0, 8, '#3f8f2c') + circ(0, 0, 6.5, '#c9e88a') + [0, 60, 120].map(a => line(`M0,0 L${(6 * Math.cos(a * Math.PI / 180)).toFixed(1)},${(6 * Math.sin(a * Math.PI / 180)).toFixed(1)} M0,0 L${(-6 * Math.cos(a * Math.PI / 180)).toFixed(1)},${(-6 * Math.sin(a * Math.PI / 180)).toFixed(1)}`, '#7cc242', .8)).join(''),
   pretzel: () => pretzelArt('#8a4a1e', '#c47a3a', false),
   pretzelDough: () => pretzelArt('#d9bf94', '#f3e2c2', false),
   pretzelBurnt: () => pretzelArt('#2e1d16', '#57382a', false),
@@ -171,6 +235,39 @@ export function oven(level) {
   return { art: s, W, H, slots, rings, scale: level === 3 ? .8 : level === 2 ? .78 : .85 };
 }
 
+// La Cocina's stove (in place of the oven): a talavera-tiled stove with a black comal on top,
+// where the food sits while it cooks. Returns the same shape as oven().
+export function stove(level) {
+  const W = [100, 116, 132][level - 1], H = [104, 126, 150][level - 1], n = level + 1, top = -78;
+  let s = rect(0, top, W, -top, 10, '#d9cfbe') + rect(0, top, W - 4, -top - 3, 10, '#fbf6ec');
+  for (let i = 0; i < Math.floor((W - 16) / 22); i++) s += circ(14 + i * 22, top + 22, 5, '#2f78c0') + circ(14 + i * 22, top + 22, 2, '#f39a1e');
+  s += path(`M${W / 2 - 18},0 L${W / 2 - 18},-30 Q${W / 2},-48 ${W / 2 + 18},-30 L${W / 2 + 18},0 Z`, '#5a2a14') +
+    `<g class="flame">${path(`M${W / 2 - 12},-4 Q${W / 2 - 8},-24 ${W / 2},-14 Q${W / 2 + 6},-28 ${W / 2 + 12},-4 Z`, '#f08a2a')}</g>`;
+  s += rect(-4, top - 10, W + 4, 12, 6, '#2e1d16') + rect(-4, top - 10, W + 4, 4, 3, '#57382a');
+  if (level >= 2) s += path(`M10,${-H} L${W - 14},${-H} L${W - 4},${top - 26} L0,${top - 26} Z`, '#b86b3a') + rect(4, top - 30, W - 12, 6, 3, '#d98a52') + rect(W / 2 - 8, -H - 10, 16, 12, 2, '#8a4a1e');
+  if (level === 3) s += rect(0, top - 8, W, 3, 1.5, GOLD) + path(`M${W / 2 - 10},${-H + 8} l4,-6 l4,6 l4,-6 l4,6 l4,-6`, GOLD, { opacity: 0 }) + circ(W / 2, -H + 14, 6, GOLD) + circ(W / 2, -H + 14, 3, '#f6d27a');
+  const slots = [], rings = [];
+  for (let i = 0; i < n; i++) { const x = (W - 4) * (i + .5) / n; slots.push([x, top - 14]); rings.push([x, top - (level >= 2 ? 44 : 38)]); }
+  return { art: s, W, H, slots, rings, scale: level === 3 ? .8 : .85 };
+}
+// La Cocina's frozen margarita station (in place of the coffee machine): a frozen margarita machine
+// with swirling tanks, one, two, then three. Returns the same shape as coffee().
+export function slushie(level) {
+  const W = [64, 80, 92][level - 1], H = [112, 124, 140][level - 1], n = level;
+  const cols = ['#8fd05a', '#ff7e9e', '#f6c33e'];
+  let s = rect(0, -54, W, 54, 8, '#1f7f7c') + rect(0, -54, W - 4, 50, 8, '#1f9e9a') + rect(4, -46, W - 12, 6, 3, '#167a77');
+  const tw = (W - 8) / n;
+  for (let i = 0; i < n; i++) {
+    const x = 4 + i * tw;
+    s += rect(x + 1, -H, tw - 2, H - 56, 8, '#dff2f2') + rect(x + 3, -H + 18, tw - 6, H - 76, 6, cols[i]) +
+      `<g class="slosh">${path(`M${x + 6},${-H + 30} q${(tw - 12) / 2},-6 ${tw - 12},0`, '#fff', { opacity: .55 })}</g>` +
+      rect(x + 1, -H - 4, tw - 2, 8, 4, level === 3 ? GOLD : '#e8475f') + shine(x + 6, -H + 26, 1.4, 8);
+  }
+  const xs = Array.from({ length: n }, (_, i) => 4 + (i + .5) * tw);
+  const cups = xs.map(x => { s += rect(x - 4, -58, 8, 7, 2, '#5a2a14'); return [x, -22]; });
+  return { art: s, W, H, cups, scale: level === 1 ? .95 : level === 2 ? .82 : .74, spoutY: -52 };
+}
+
 // The coffee machine body, and where each cup sits.
 export function coffee(level) {
   const [W, H] = SIZE.coffee[level - 1];
@@ -196,7 +293,7 @@ export function coffee(level) {
 
 // The pantry. "items" are the pantry ids on today's menu, big enough to tap: doughs on the top row,
 // toppings (cream cheese, salt) on the bottom row. Decorations make room for them.
-export function pantry(level, items) {
+export function pantry(level, items, theme = 'toronto') {
   const [W, H] = SIZE.pantry[level - 1];
   let s = '';
   const decor = [];
@@ -218,6 +315,8 @@ export function pantry(level, items) {
     rowY = -H + 92; row2Y = -34;
     decor.push(['salt', 30, -H + 48], ['creamCheese', 54, -H + 48], ['flour', 78, -H + 48], ['dough', 34, -30], ['beans', 66, -28]);
   }
+  // La Cocina stocks corn, chilies and limes instead of flour and beans.
+  if (theme === 'mexico') for (const d of decor) d[0] = { flour: 'cornCob', beans: 'tequila', dough: 'limeHalf', salt: 'chiliPepper', creamCheese: 'limeHalf' }[d[0]] || d[0];
   // Tappable spots, spread across their row.
   const usable = level === 3 ? W - 30 : W;
   const x0 = level === 3 ? 8 : 0;
@@ -303,21 +402,64 @@ function awning() {
   for (let i = 0; i < 8; i++) { const c = i % 2 ? CREAM : '#5b2c6f', w = 43; s += rect(i * w, 0, w, 22, 0, c) + circ(i * w + w / 2, 22, w / 2, c); }
   return s + rect(0, 0, 344, 3, 0, '#43204f');
 }
-// The parts of the room that never change during a shift: harbour, awning, counter, tiles, cupboards, floor.
-export function roomBack() {
-  const tiles = `<defs><pattern id="ktiles" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="#fdebd0"/><path d="M24 0 L0 0 0 24" fill="none" stroke="#f1d7b2" stroke-width="2"/></pattern></defs>`;
-  return rect(0, 0, 344, 672, 0, '#fdebd0') +
-    rect(0, 0, 344, 150, 0, '#cfeeea') + rect(0, 84, 344, 66, 0, '#7cc6c2') +
-    line('M30,98 q8,-4 16,0 M150,106 q8,-4 16,0 M250,96 q8,-4 16,0', '#fff', 2, { opacity: .7 }) +
-    circ(300, 46, 16, '#ffe08a') + ferry(214, 74, .55) + awning() +
-    tiles + rect(0, 178, 344, 210, 0, 'url(#ktiles)');
+// La Cocina's room: a sarape-striped awning, papel picado, a star piñata, talavera tiles,
+// terracotta counters, turquoise cupboards and a terracotta floor.
+function sarape() {
+  const cols = ['#e8475f', '#f39a1e', '#1f9e9a', '#7b3fa0'];
+  let s = '';
+  for (let i = 0; i < 8; i++) { const c = cols[i % 4], w = 43; s += rect(i * w, 0, w, 22, 0, c) + rect(i * w, 8, w, 3, 0, CREAM, { opacity: .7 }) + circ(i * w + w / 2, 22, w / 2, c); }
+  return s + rect(0, 0, 344, 3, 0, '#5a2a14');
 }
-export function roomFront() {
-  const cupboards = [[10, 154], [178, 156]].map(([x, w]) => rect(x, 448, w, 92, 8, 'none', { stroke: '#b5774a', 'stroke-width': 3 }) + circ(x + w / 2, 494, 4, '#b5774a')).join('');
-  return rect(0, 144, 344, 12, 0, WOODL) + rect(0, 156, 344, 22, 0, WOOD) +
-    rect(0, 388, 344, 50, 0, WOODL) + rect(0, 388, 344, 3, 0, '#d9a066') +
-    rect(0, 438, 344, 112, 0, WOODM) + cupboards +
-    rect(0, 550, 344, 122, 0, '#e7c49a') + line('M0,550 L344,550', '#c98a5a', 3);
+function papelPicado() {
+  const cols = ['#e8475f', '#f6b62e', '#1f9e9a', '#ff7eb6', '#7cc242', '#7b3fa0'];
+  let s = line('M0,50 Q172,64 344,50', '#5a2a14', 1.2);
+  for (let i = 0; i < 11; i++) {
+    const x = 8 + i * 31.5, y = 50 + 14 * Math.sin(Math.PI * x / 344) * .9, c = cols[i % cols.length];
+    s += path(`M${x},${y} L${x + 22},${y} L${x + 22},${y + 18} L${x + 19},${y + 21} L${x + 16},${y + 18} L${x + 13},${y + 21} L${x + 10},${y + 18} L${x + 7},${y + 21} L${x + 4},${y + 18} L${x + 1},${y + 21} L${x},${y + 18} Z`, c, { opacity: .95 }) +
+      circ(x + 11, y + 8, 3, CREAM, { opacity: .8 }) + path(`M${x + 4},${y + 4} l3,3 l-3,0 Z M${x + 18},${y + 4} l-3,3 l3,0 Z`, CREAM, { opacity: .8 });
+  }
+  return s;
+}
+const pinata = (x, y) => g(`translate(${x} ${y})`, line('M0,-30 L0,-12', '#5a2a14', 1.2) +
+  [0, 72, 144, 216, 288].map((a, i) => path('M0,0 L-6,-16 L6,-16 Z', ['#e8475f', '#f6b62e', '#1f9e9a', '#ff7eb6', '#7cc242'][i], { transform: `rotate(${a}) translate(0 -6)` })).join('') +
+  circ(0, 0, 9, '#fff3dc') + [0, 72, 144, 216, 288].map(a => line('M0,0 L0,14', '#e8475f', 1.4, { transform: `rotate(${a + 36}) translate(0 8)` })).join(''));
+const potCactus = (x, y) => g(`translate(${x} ${y})`, rect(-9, -26, 18, 26, 8, '#2e7a2c') + rect(-8, -25, 15, 24, 7, '#4fa84a') + rect(-17, -18, 7, 10, 3.5, '#4fa84a') +
+  path('M-11,0 L11,0 L8,12 L-8,12 Z', '#c96a3a') + rect(-12, -2, 24, 4, 2, '#a8562e') + circ(0, -27, 3, '#ff7eb6'));
+// The parts of the room that never change during a shift: harbour, awning, counter, tiles, cupboards, floor.
+// "theme" is the restaurant: 'toronto' (the bakery) or 'mexico' (La Cocina).
+// La Cocina's wall, three calm choices: warm mango plaster with a tile border, pink stucco with a
+// painted flower border, or soft adobe brick.
+function cocinaWall(wall) {
+  if (wall === 'pink') {
+    let s = rect(0, 178, 344, 210, 0, '#f9cfd8') + [[40, 230], [140, 300], [250, 220], [300, 330], [80, 350]].map(([x, y]) => circ(x, y, 1.2, '#efb3c0')).join('');
+    for (let x = 12; x < 344; x += 32) s += [0, 90, 180, 270].map(a => ell(x, 190, 2.2, 4, '#f39a1e', { transform: `rotate(${a} ${x} 190) translate(0 -3)` })).join('') + circ(x, 190, 1.8, '#e8475f') + line(`M${x + 6},190 q5,-4 10,0`, '#7cc242', 1.4);
+    return s + rect(0, 200, 344, 2, 0, '#e8475f', { opacity: .4 });
+  }
+  if (wall === 'adobe') {
+    let s = rect(0, 178, 344, 210, 0, '#f2c9a0');
+    for (let r = 0, y = 182; y < 388; r++, y += 22) for (let x = (r % 2) * -24; x < 344; x += 48) s += rect(x + 2, y, 44, 18, 4, '#f6d5b2');
+    return s;
+  }
+  const band = y => { let b = rect(0, y, 344, 16, 0, '#fbf6ec'); for (let x = 8; x < 344; x += 16) b += circ(x, y + 8, 4, '#2f78c0') + circ(x, y + 8, 1.6, '#f39a1e'); return b + rect(0, y, 344, 1.5, 0, '#c96a3a') + rect(0, y + 14.5, 344, 1.5, 0, '#c96a3a'); };
+  return rect(0, 178, 344, 210, 0, '#ffd9a8') + [[60, 240], [170, 300], [280, 250], [110, 340], [310, 200]].map(([x, y]) => circ(x, y, 1.4, '#f6c58a')).join('') + band(180);
+}
+export function roomBack(theme = 'toronto', wall = 'plaster') {
+  const sea = rect(0, 0, 344, 150, 0, '#cfeeea') + rect(0, 84, 344, 66, 0, '#7cc6c2') + line('M30,98 q8,-4 16,0 M150,106 q8,-4 16,0 M250,96 q8,-4 16,0', '#fff', 2, { opacity: .7 }) + ferry(214, 74, .55);
+  if (theme === 'mexico') {
+    return rect(0, 0, 344, 672, 0, '#fbf6ec') + sea + sarape() + papelPicado() + pinata(304, 86) + cocinaWall(wall);
+  }
+  const tiles = `<defs><pattern id="ktiles" width="24" height="24" patternUnits="userSpaceOnUse"><rect width="24" height="24" fill="#fdebd0"/><path d="M24 0 L0 0 0 24" fill="none" stroke="#f1d7b2" stroke-width="2"/></pattern></defs>`;
+  return rect(0, 0, 344, 672, 0, '#fdebd0') + sea + circ(300, 46, 16, '#ffe08a') + awning() + tiles + rect(0, 178, 344, 210, 0, 'url(#ktiles)');
+}
+export function roomFront(theme = 'toronto') {
+  const mx = theme === 'mexico';
+  const [top, edge, low, door, floor, floorLine] = mx ? ['#e3a06a', '#c96a3a', '#1f9e9a', '#167a77', '#e8a56f', '#c96a3a'] : [WOODL, WOOD, WOODM, '#b5774a', '#e7c49a', '#c98a5a'];
+  const cupboards = [[10, 154], [178, 156]].map(([x, w]) => rect(x, 448, w, 92, 8, 'none', { stroke: door, 'stroke-width': 3 }) + circ(x + w / 2, 494, 4, mx ? '#f6b62e' : door)).join('');
+  const floorTiles = mx ? `<defs><pattern id="kbarro" width="32" height="32" patternUnits="userSpaceOnUse"><rect width="32" height="32" fill="${floor}"/><path d="M32 0 L0 0 0 32" fill="none" stroke="#d98a52" stroke-width="2"/></pattern></defs>` : '';
+  return rect(0, 144, 344, 12, 0, top) + rect(0, 156, 344, 22, 0, edge) + (mx ? potCactus(326, 156) : '') +
+    rect(0, 388, 344, 50, 0, top) + rect(0, 388, 344, 3, 0, mx ? '#f39a1e' : '#d9a066') +
+    rect(0, 438, 344, 112, 0, low) + cupboards +
+    floorTiles + rect(0, 550, 344, 122, 0, mx ? 'url(#kbarro)' : floor) + line('M0,550 L344,550', floorLine, 3);
 }
 // The green bin on the counter, for tossing food nobody wants. "on" when she has picked it up.
 // The bin at level 1 to 3: green, a bigger green one, then a wooden compost bin with a leaf.
@@ -329,5 +471,7 @@ export function bin(on, level = 1) {
     line(`M-6,${-h + 8} L-6,-6 M0,${-h + 8} L0,-6 M6,${-h + 8} L6,-6`, '#2e7a2c', 2.2, { opacity: on ? 0 : 1 }) + (on ? line('M-7,-16 L-2,-10 L8,-22', '#fff', 3) : '');
 }
 
+// For the "New: La Cocina has a kitchen!" card: Chili with a taco and a frozen margarita.
+export const cocinaNewsArt = () => `<svg viewBox="-60 -50 120 80" aria-hidden="true">${friend('chili', -26, 0, 1.3, chefHat())}${plate(18, 4, 'taco', 1.3)}${food('margarita', 44, 0, 1.2)}</svg>`;
 // For the "New: cooking shifts!" card: Tomato in a chef's hat with a fresh bagel.
 export const newsArt = () => `<svg viewBox="-60 -50 120 80" aria-hidden="true">${friend('tomato', -22, 0, 1.3, chefHat())}${plate(26, 4, 'bagel', 1.4)}</svg>`;
