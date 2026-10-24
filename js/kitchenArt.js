@@ -55,10 +55,32 @@ export const friend = (kind, x, y, s = 1, extra = '', cls = '', sad = false) =>
 
 // A kitchen helper: a small chef's hat, whatever they're carrying held up over their head, and a
 // red question mark when they fumbled. "moving" stops the idle bob while they walk.
-export const helper = (kind, x, y, carry = null, oops = false, moving = false) => friend(kind, x, y, .9, g('translate(0 -1) scale(.62)', chefHat()) +
+// Each helper's own look and idle dance (see .h-* in the CSS):
+//   Strawberry wears a pink bow and bounces. Bean has sleepy eyelids and a curl of steam and sways slowly.
+//   Avocado wears sunglasses up on the hat and leans back. Mushroom wears a teal scarf and wiggles shyly.
+//   Cinnamon Roll has a floating heart and gently breathes.
+const LOOK = {
+  strawberry: { anim: 'h-hop', extra: () => path('M-13,-20 L-7,-17 L-13,-13 Z M-1,-20 L-7,-17 L-1,-13 Z', '#ff7eb6') + circ(-7, -17, 1.8, '#e2508f') },
+  bean: { anim: 'h-sway', extra: () => line('M11,-22 q3,-4 0,-8 q-3,-4 0,-8', '#c9b8a8', 1.6, { class: 'steam' }) +
+    path('M-7.6,4 a2.6,2.6 0 0 1 5.2,0 Z M2.4,4 a2.6,2.6 0 0 1 5.2,0 Z', '#a8673a') },
+  avocado: { anim: 'h-lean', extra: () => ell(-4.5, -16, 3.6, 2.6, INK) + ell(4.5, -16, 3.6, 2.6, INK) + line('M-1,-16.5 L1,-16.5', INK, 1.2) + circ(-5.5, -17, .9, '#fff', { opacity: .7 }) },
+  mushroom: { anim: 'h-shy', extra: () => path('M-11,13 Q0,17 11,13 L11,17 Q0,21 -11,17 Z', '#2f8a8f') + path('M6,17 L10,23 L4,20 Z', '#2f8a8f') },
+  cinnamon: { anim: 'h-breathe', extra: () => `<g class="kheart">${path('M0,2 C-3,-1 -6,1 -4,4 L0,7 L4,4 C6,1 3,-1 0,2 Z', '#ff7eb6', { transform: 'translate(15 -24)' })}</g>` },
+};
+// "quip" is something they're saying; "atX" is where they really are on the floor (when x is 0 inside
+// a moving group), so the speech bubble stays on screen.
+export const helper = (kind, x, y, carry = null, oops = false, moving = false, quip = null, atX = x) => friend(kind, x, y, .9, g('translate(0 -1) scale(.62)', chefHat()) +
+  (LOOK[kind]?.extra() || '') +
   (carry ? g('translate(0 -38) scale(.9)', FOOD[carry]()) : '') +
   (oops ? g('translate(0 -42)', circ(0, 0, 13, CREAM, { stroke: '#e2412f', 'stroke-width': 2 }) + text(0, 6, '?', 17, '#e2412f', { 'text-anchor': 'middle', 'font-family': 'Righteous' })) : ''),
-  moving || oops ? '' : 'bob b', oops);
+  moving || oops ? '' : (LOOK[kind]?.anim || 'bob b'), oops) + (quip ? speech(x, y, quip, atX) : '');
+// A little speech bubble over a helper's head, nudged sideways to stay on screen near the edges.
+function speech(x, y, words, atX) {
+  const w = words.length * 5.2 + 14, shift = Math.min(0, 340 - (atX + w / 2)) + Math.max(0, 4 - (atX - w / 2));
+  return g(`translate(${x + shift} ${y - 50})`, rect(-w / 2, -11, w, 18, 9, '#fff', { stroke: '#e8dccb', 'stroke-width': 1 }) +
+    path(`M${-shift - 4},7 L${-shift},12 L${-shift + 3},7 Z`, '#fff') +
+    text(0, 2.5, words, 9.5, INK, { 'text-anchor': 'middle', 'font-family': 'Righteous' }));
+}
 
 // A VIP from the merge game's pictures (on the page as #cust-<art>), with a gold star.
 export const vip = (art, x, y, cls = '') => g(`translate(${x} ${y})`, `<g class="${cls}">${ell(0, 21, 15, 3, INK, { opacity: .12 })}<use href="#cust-${art}" x="-29" y="-33" width="58" height="58"/></g>` +

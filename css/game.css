@@ -853,3 +853,18 @@ a.btn { display: inline-flex; align-items: center; justify-content: center; text
 .testing #app { padding-top: calc(max(8px, env(safe-area-inset-top, 0px)) + 12px); }
 .testing-tag { position: fixed; top: env(safe-area-inset-top, 0px); left: 50%; transform: translateX(-50%); z-index: 300; pointer-events: none;
   background: var(--tomato); color: #fff; font: 700 .62rem/1 var(--body); letter-spacing: .08em; text-transform: uppercase; padding: 3px 10px 4px; border-radius: 0 0 8px 8px; }
+/* Kitchen helpers' own idle dances (see LOOK in js/kitchenArt.js). */
+.kitchen .h-hop, .kitchen .h-sway, .kitchen .h-lean, .kitchen .h-shy, .kitchen .h-breathe { transform-box: fill-box; transform-origin: center bottom; }
+.kitchen .h-hop { animation: khop 1.4s ease-in-out infinite; }
+.kitchen .h-sway { animation: ksway 3.4s ease-in-out infinite; }
+.kitchen .h-lean { animation: klean 4.2s ease-in-out infinite; }
+.kitchen .h-shy { animation: kshy 3s ease-in-out infinite; }
+.kitchen .h-breathe { animation: kbreathe 2.4s ease-in-out infinite; }
+.kitchen .kheart { animation: kheart 2.6s ease-in infinite; transform-box: fill-box; transform-origin: center; }
+@keyframes khop { 0%, 55%, 100% { transform: translateY(0) scaleY(1); } 25% { transform: translateY(-5px) scaleY(1.05); } 40% { transform: translateY(0) scaleY(.94); } }
+@keyframes ksway { 0%, 100% { transform: rotate(-5deg); } 50% { transform: rotate(5deg); } }
+@keyframes klean { 0%, 100% { transform: rotate(-7deg); } 45%, 60% { transform: rotate(2deg); } }
+@keyframes kshy { 0%, 70%, 100% { transform: rotate(0); } 78% { transform: rotate(-4deg); } 86% { transform: rotate(4deg); } 94% { transform: rotate(-2deg); } }
+@keyframes kbreathe { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.06); } }
+@keyframes kheart { 0% { opacity: 0; transform: translateY(4px); } 20% { opacity: 1; } 100% { opacity: 0; transform: translateY(-10px); } }
+@media (prefers-reduced-motion: reduce) { .kitchen .h-hop, .kitchen .h-sway, .kitchen .h-lean, .kitchen .h-shy, .kitchen .h-breathe, .kitchen .kheart { animation: none; } }

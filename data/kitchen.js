@@ -34,7 +34,9 @@ export const PANTRY = [
 //   5 to 8    new chores (cold coffee, the mixer, dirty dishes, a rush) and helpers she can hire
 //   9 to 11   everyone's working, it's busy, and VIPs drop in
 //   12 to 13  a helper calls in sick each shift
-//   14 to 15  two helpers call in sick, more VIPs, and a big rush to finish
+//   14 to 15  two helpers call in sick, more VIPs, and a big rush
+//   16 to 20  big orders (up to three things), quicker customers
+//   21 to 25  two VIPs at once, up to three helpers out, and a three minute grand finale rush
 // Each has a set number of customers; serving them all ends the shift.
 //   menu      what customers can order
 //   wantsMax  each customer orders at most this many things (moods can lower it)
@@ -44,6 +46,8 @@ export const PANTRY = [
 //             The first customer asks for intro.food. "art" picks a picture other than that food.
 //   away      how many hired helpers call in sick (picked at random when the shift starts)
 //   vip       the chance a new customer is a VIP (see KITCHEN_VIPS)
+//   vips      how many VIPs can be at the counter at once (1 if not set)
+//   hearts    extra hearts on the toughest shifts (on top of SHIFT_RULES.hearts and the mood's)
 //   rush      a rush hour shift: customers keep coming until the clock runs out, and stars come
 //             from money earned. secs: how long. goals: dollars for 1, 2 and 3 stars at "Just
 //             right" (calmer moods get lower goals, busier ones higher).
@@ -67,7 +71,7 @@ export const SHIFTS = [
   { customers: 8, menu: MOST, wantsMax: 2, gap: 6, patience: 34,
     intro: { id: 'dishes', food: 'bagel', art: 'dirty', title: 'New: dirty dishes!', line: 'Customers leave their dishes on the counter, and quick service gets a tip there too. Tap the dishes to clear them: nobody new can sit there until you do. They go in the dishwasher and come back clean. You get an extra plate to help.' } },
   { customers: 0, menu: MOST, wantsMax: 2, gap: 6, patience: 34, rush: { secs: 90, goals: [120, 180, 240] },
-    intro: { id: 'rush', food: 'bagel', art: 'clock', title: 'Rush hour!', line: 'Customers keep coming until the clock runs out. Earn the money goal for a star, and more for three stars.' } },
+    intro: { id: 'rush', food: 'bagel', art: 'clock', title: 'Rush hour!', line: 'Customers keep coming until the clock runs out. Earn the money goal for a star, and more for three stars. Nobody costs you a heart in rush hour: a customer who gets tired of waiting just takes their money with them.' } },
   // Part 3: everyone's working, it's busy, and VIPs drop in.
   { customers: 9, menu: MOST, wantsMax: 2, gap: 5.5, patience: 32, vip: .2,
     intro: { id: 'vips', food: 'bagel', art: 'vip', title: 'New: VIP customers!', line: 'Special guests drop in now and then. Zip is in a hurry, Pina orders for a party, Bubbie loves cream cheese bagels, Penny changes her mind, and the food critic reviews how fast you are. They pay extra!' } },
@@ -80,6 +84,21 @@ export const SHIFTS = [
   // Part 5: the big finish.
   { away: 2, customers: 12, menu: ALL, wantsMax: 2, gap: 5, patience: 30, vip: .3 },
   { away: 2, customers: 0, menu: ALL, wantsMax: 2, gap: 4.5, patience: 30, vip: .3, rush: { secs: 120, goals: [200, 300, 390] } },
+  // Part 6: big orders (three things at once), quicker customers, and sick days keep coming.
+  { away: 1, customers: 10, menu: ALL, wantsMax: 3, gap: 5.5, patience: 32, vip: .3,
+    intro: { id: 'big', food: 'creamBagel', title: 'New: big orders!', line: 'Some customers order three things now. They wait a little longer for big orders, but not much!' } },
+  { away: 1, customers: 11, menu: ALL, wantsMax: 3, gap: 5, patience: 30, vip: .3 },
+  { away: 1, customers: 0, menu: ALL, wantsMax: 3, gap: 4.5, patience: 30, vip: .3, rush: { secs: 120, goals: [200, 300, 400] } },
+  { away: 2, customers: 12, menu: ALL, wantsMax: 3, gap: 5, patience: 29, vip: .3 },
+  { away: 2, customers: 13, menu: ALL, wantsMax: 3, gap: 4.5, patience: 28, vip: .35 },
+  // Part 7: the grand finale. Two VIPs at once, three helpers can be out, and the biggest rush of all.
+  { away: 2, customers: 12, menu: ALL, wantsMax: 3, gap: 4.5, patience: 28, vip: .35, vips: 2,
+    intro: { id: 'twovips', food: 'bagel', art: 'vip', title: 'VIPs everywhere!', line: 'Now two VIPs can be at the counter at the same time. Keep an eye on both!' } },
+  { away: 3, hearts: 1, customers: 13, menu: ALL, wantsMax: 3, gap: 4.5, patience: 28, vip: .35, vips: 2 },
+  { away: 2, customers: 0, menu: ALL, wantsMax: 3, gap: 4, patience: 27, vip: .4, vips: 2, rush: { secs: 120, goals: [220, 330, 440] } },
+  { away: 3, hearts: 1, customers: 14, menu: ALL, wantsMax: 3, gap: 4, patience: 26, vip: .4, vips: 2 },
+  { away: 3, customers: 0, menu: ALL, wantsMax: 3, gap: 4, patience: 26, vip: .45, vips: 2, rush: { secs: 180, goals: [260, 420, 600] },
+    intro: { id: 'finale', food: 'saltPretzel', art: 'clock', title: 'The grand finale!', line: 'The busiest shift on the island: three minutes of rush hour, VIPs everywhere, and half the team is out. You can do it!' } },
 ];
 
 // VIPs in the kitchen: the same special guests as on the merge board, with kitchen rules.
@@ -174,17 +193,24 @@ export const KITCHEN_CITIES = ['toronto'];
 //   station  which station they mind: 'oven', 'coffee' or 'topping'
 //   opens    the shift number (1 to 10) that has to be open before she can hire them
 //   x        where they stand on the kitchen floor
+//   trait    their personality, shown on the kitchen card
+//   quips    what they say now and then as they work (and to say hello when a shift starts)
 export const HELPERS = [
   { id: 'strawberry', name: 'Strawberry', station: 'oven', cost: 150, opens: 8, x: 190,
-    job: 'Minds the oven. Puts golden food on a free plate, and tosses anything that burnt.' },
+    job: 'Minds the oven. Puts golden food on a free plate, and tosses anything that burnt.',
+    trait: 'Bubbly and bouncy, and always in a hurry.', quips: ['Berry nice!', 'Hot hot hot!', 'Zoom zoom!', 'Fresh out!', 'On it!'] },
   { id: 'bean', name: 'Bean', station: 'coffee', cost: 120, opens: 5, x: 300,
-    job: 'Pours coffee. Starts a cup whenever a customer is waiting for one.' },
+    job: 'Pours coffee. Starts a cup whenever a customer is waiting for one.',
+    trait: 'A little sleepy until the coffee kicks in.', quips: ['Brew-tiful!', 'Thanks a latte!', 'Espresso yourself!', 'Bean there, done that!', 'Yawn... coffee!'] },
   { id: 'avocado', name: 'Avocado', station: 'topping', cost: 180, opens: 9, x: 112,
-    job: 'Spreads cream cheese on bagels and sprinkles salt on pretzels when customers want them.' },
+    job: 'Spreads cream cheese on bagels and sprinkles salt on pretzels when customers want them.',
+    trait: 'Super chill, with cool shades and great jokes.', quips: ['Holy guacamole!', 'Avo nice day!', 'Smooth!', 'Chill vibes!', 'No pit-y party here!'] },
   { id: 'mushroom', name: 'Mushroom', station: 'dishes', cost: 160, opens: 7, x: 151,
-    job: 'Clears dishes off the counter into the dishwasher, and picks up the tips.' },
+    job: 'Clears dishes off the counter into the dishwasher, and picks up the tips.',
+    trait: 'A little shy, and very, very tidy.', quips: ['Squeaky clean!', 'Fun-gi to be with!', 'Mush-room for more!', 'All shiny!', 'Spore-tacular!'] },
   { id: 'cinnamon', name: 'Cinnamon Roll', station: 'mixer', cost: 170, opens: 6, x: 76,
-    job: 'Runs the mixer. Starts dough when the shelf runs low, and rolls it onto the shelf that needs it.' },
+    job: 'Runs the mixer. Starts dough when the shelf runs low, and rolls it onto the shelf that needs it.',
+    trait: 'Sweet as icing, and gives the best hugs.', quips: ["Let's roll!", 'Dough-licious!', 'Sweet!', 'Rolling, rolling!', 'You are un-bun-lievable!'] },
 ];
 
 // Why a helper isn't at work today (shifts with "away"). Just for fun.

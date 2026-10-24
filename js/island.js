@@ -216,6 +216,11 @@ export function islandSvg(o) {
         circ(c[0] - 8, c[1] + 1, 3, '#5a4636') + circ(c[0] + 8, c[1] + 1, 3, '#5a4636') + umbrella(p.x + .5, p.y + .5, '#e8475f'), p.uid);
       labels.push(label(c[0], c[1] - 52, 'Pretzels', '#c96a3a', 9));
     },
+    huts(p) { // a row of striped beach huts
+      [['#e8475f', 0], ['#2f8a8f', .68], ['#f6b62e', 1.36]].forEach(([col, a]) =>
+        add(p.x + a + p.y + 1, box(p.x + a + .06, p.y + .22, .56, .56, 22, { wall: '#fff3dc', roof: col, awning: col }), p.uid));
+      const c = P(p.x + 1, p.y + .5); labels.push(label(c[0], c[1] - 46, 'Beach huts', '#2f8a8f', 9));
+    },
     cafeboat(p) { // the Bagel boat café, tied up at a little pier
       ground.push(poly(dia(p.x, p.y, 2, .45), WOOD, `stroke="${WOOD_DARK}" stroke-width=".8"`));
       const c = P(p.x + 1, p.y + 1.25);

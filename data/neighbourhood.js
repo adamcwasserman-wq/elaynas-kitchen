@@ -80,6 +80,7 @@ export const AMENITIES = [
   { id: 'splash', name: 'Splash pad', cost: 1400, buzz: 130, needs: 3, about: 'Kids run through the fountains.' },
   { id: 'pool', name: 'Community pool', cost: 2200, buzz: 180, needs: 4, about: 'A summer favourite.' },
   { id: 'marina', name: 'Marina', cost: 2800, buzz: 200, kitchen: 13, about: 'A harbour full of sailboats. Goes in the water.' },
+  { id: 'huts', name: 'Beach huts', cost: 4500, buzz: 300, kitchen: 20, about: 'A row of striped beach huts for a day by the sea. Goes on the shore.' },
   { id: 'cafeboat', name: 'Bagel boat café', cost: 3500, buzz: 260, kitchen: 15, about: 'A floating café that serves bagels and pretzels. Goes in the water.' },
   { id: 'zoo', name: 'Petting zoo', cost: 3500, buzz: 250, needs: 5, about: 'Goats, bunnies and a very friendly duck.' },
 ];

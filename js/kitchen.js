@@ -17,6 +17,7 @@ const BIN = [314, 430];
 const DISHWASHER = [248, 452];             // the dishwasher's middle and top, in the right cupboard
 const MIXER_X = 246;                      // the mixer's middle, on the counter between the prep board and the bin
 const HELPER_Y = 540;                     // helpers stand on the floor, in front of the cupboards
+const andList = l => (l.length < 2 ? l.join('') : `${l.slice(0, -1).join(', ')} and ${l[l.length - 1]}`);
 const stars = n => '★'.repeat(n) + '☆'.repeat(3 - n);
 const article = f => (/^[aeiou]/i.test(FOODS[f].name) ? 'an' : 'a');
 
@@ -97,7 +98,7 @@ export function createKitchen(api) {
       plates: Array(spec('prep').plates + (i + 1 >= SHIFT_RULES.dirtyFrom ? SHIFT_RULES.dirtyPlates : 0)).fill(null),
       cust: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null),
       coming: sh.rush ? Infinity : sh.customers, first: true, sinceVip: 0, hadVip: false, spawnIn: .6, served: 0, lost: 0, earned: 0,
-      hearts: Math.max(1, SHIFT_RULES.hearts + (m.hearts || 0)),
+      hearts: Math.max(1, SHIFT_RULES.hearts + (m.hearts || 0) + (sh.hearts || 0)),
       toss: false, say: null, sayUntil: 0, over: false, trash: 0,
       counter: Array(Math.min(SHIFT_RULES.customersMax, m.customersMax || 9)).fill(null), wash: [], // seconds left for each plate in the dishwasher
       stock: Object.fromEntries(PANTRY.filter(p => FOODS[p.for].from === 'oven').map(p => [p.id, SHIFT_RULES.startDough])),
@@ -111,7 +112,7 @@ export function createKitchen(api) {
     if (sh.intro && !seen(sh.intro.id)) run.cards.push([sh.intro.id, sh.intro]);
     // A card for each helper who can now be hired (one joins at a time as the shifts get harder).
     for (const h of HELPERS) if (i + 1 >= h.opens && !hired(h.id) && !seen(`helper-${h.id}`))
-      run.cards.push([`helper-${h.id}`, { art: 'helper', helper: h.id, title: `New helper: ${h.name}!`, line: `${h.job} Hire ${h.name} with tips on the kitchen card, then train them to make them quicker.` }]);
+      run.cards.push([`helper-${h.id}`, { art: 'helper', helper: h.id, title: `New helper: ${h.name}!`, line: `${h.trait} ${h.job} Hire ${h.name} with tips on the kitchen card, then train them to make them quicker.` }]);
     if (i + 1 >= SHIFT_RULES.doughFrom && !seen(DOUGH_INTRO.id)) run.cards.push([DOUGH_INTRO.id, DOUGH_INTRO]);
     // Busier shifts: some helpers call in sick (with a silly excuse).
     for (let n = Math.min(sh.away || 0, run.team.length); n > 0; n--) {
@@ -119,7 +120,9 @@ export function createKitchen(api) {
       run.team = run.team.filter(x => x !== h);
       run.out.push({ h, why });
     }
-    if (run.out.length) run.cards.push([null, { art: 'out', out: run.out.map(o => o.h), title: `${run.out.map(o => o.h.name).join(' and ')} can't make it today!`,
+    // The helpers who came in say hello, one after another, as the shift starts.
+    run.team.forEach((h, n) => quip(h, run.help[h.id], .5 + n * 2.1, true));
+    if (run.out.length) run.cards.push([null, { art: 'out', out: run.out.map(o => o.h), title: `${andList(run.out.map(o => o.h.name))} can't make it today!`,
       line: run.out.map(o => `<b>${o.h.name}:</b> "Sorry, I'm ${o.why}"`).join('<br>') + '<br>You will have to cover for them.' }]);
     if (run.cards.length) { showIntro(run.cards[0][1]); return; }
     card = null;
@@ -159,7 +162,7 @@ export function createKitchen(api) {
     // Now and then a VIP (only one at a time, with a few regulars in between). On the shift that
     // introduces them, the first chance is a sure thing.
     let vip = null;
-    if (sh.vip && !run.first && run.sinceVip >= SHIFT_RULES.vipGap && !run.cust.some(c => c?.vip) && Math.random() < (sh.intro?.id === 'vips' && !run.hadVip ? 1 : sh.vip)) {
+    if (sh.vip && !run.first && run.sinceVip >= SHIFT_RULES.vipGap && run.cust.filter(c => c?.vip).length < (sh.vips || 1) && Math.random() < (sh.intro?.id === 'vips' && !run.hadVip ? 1 : sh.vip)) {
       vip = pick(KITCHEN_VIPS.filter(v => !v.wants || sh.menu.includes(v.wants)));
       run.sinceVip = 0; run.hadVip = true;
     } else run.sinceVip++;
@@ -179,7 +182,8 @@ export function createKitchen(api) {
     const now = performance.now(), dt = Math.min(.25, (now - last) / 1000);
     last = now;
     lastTick = now;
-    if (!run || run.over || card || document.visibilityState !== 'visible') return;
+    // Paused while a card covers the kitchen (its own, or a game-wide one like "Badge earned!").
+    if (!run || run.over || card || document.visibilityState !== 'visible' || !$('#celebrate').hidden) return;
     run.t += dt;
     let changed = false;
     for (const x of run.oven) {
@@ -249,7 +253,8 @@ export function createKitchen(api) {
         if (other?.length) { w.f = pick(other); say('Penny changed her mind!'); api.buzz('nope'); changed = true; }
       }
       if (run.m.complaints !== false && cu.wait >= cu.patience) {
-        cu.sad = true; cu.leaving = 1; run.lost++; run.hearts -= cu.vip?.hearts || 1; changed = true;
+        // In rush hour a customer who gives up just leaves (the race is for money); otherwise it costs hearts.
+        cu.sad = true; cu.leaving = 1; run.lost++; if (!run.sh.rush) run.hearts -= cu.vip?.hearts || 1; changed = true;
         api.buzz('nope');
         say(cu.vip ? `${cu.vip.name} got tired of waiting.` : 'A customer got tired of waiting.');
       }
@@ -399,10 +404,18 @@ export function createKitchen(api) {
     st.carry = null;
     st.trip = makeTrip({ pts: [st.trip.pts[k], home(h)], acts: {} }, speedOf(h.id));
   }
+  // A helper says one of their lines in a little bubble (one bubble at a time, so they don't overlap).
+  function quip(h, st, delay = 0, force = false) {
+    if (!force && run.t < (run.quipFree || 0)) return;
+    st.quip = pick(h.quips); st.quipAt = run.t + delay; st.quipUntil = st.quipAt + 1.8; st.quipOn = false;
+    run.quipFree = Math.max(run.quipFree || 0, st.quipUntil + .4);
+  }
   function helpers(dt) {
     let changed = false;
     for (const h of run.team) {
       const st = run.help[h.id], how = HELPER_LEVELS[helperLevel(h.id) - 1];
+      if (st.quip && !st.quipOn && run.t >= st.quipAt) { st.quipOn = true; changed = true; }
+      if (st.quip && run.t >= st.quipUntil) { st.quip = null; st.quipOn = false; changed = true; }
       if (st.trip) {
         const tr = st.trip;
         tr.t += dt;
@@ -413,6 +426,8 @@ export function createKitchen(api) {
           // The first stop is where a low level helper might fumble.
           if (+k === 1 && Math.random() > how.hit) { st.oops = true; headHome(h, st, 1); break; }
           if (!tr.acts[k](st)) { headHome(h, st, +k); break; }
+          // Now and then, a little cheer when the job is done.
+          if (+k === Math.max(...Object.keys(tr.acts).map(Number)) && Math.random() < .35) quip(h, st);
         }
         if (st.trip.t >= st.trip.end) { st.trip = null; st.oops = false; st.carry = null; st.wait = how.every; changed = true; }
         continue;
@@ -922,14 +937,14 @@ export function createKitchen(api) {
     // The helpers on this shift, each standing under the station they mind.
     for (const h of run ? run.team : team().filter(h => chosen + 1 >= h.opens)) {
       const st = run?.help[h.id], [x, y] = st?.trip ? tripPos(st.trip, st.trip.t) : home(h);
-      s += `<g id="kh-${h.id}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})">${A.helper(h.id, 0, 0, st?.carry || null, st?.oops, !!st?.trip)}</g>`;
+      s += `<g id="kh-${h.id}" transform="translate(${x.toFixed(1)} ${y.toFixed(1)})">${A.helper(h.id, 0, 0, st?.carry || null, st?.oops, !!st?.trip, st?.quipOn ? st.quip : null, x)}</g>`;
     }
     // Tomato, the head chef, says what to do next.
     s += A.friend('tomato', 46, 604, 1.2, A.chefHat(), 'bob');
     s += A.rect(84, 572, 250, 64, 16, A.CREAM, { stroke: '#e8dccb', 'stroke-width': 1.5 }) + A.path('M86,596 L74,604 L86,608 Z', A.CREAM);
     s += `<foreignObject x="94" y="576" width="232" height="56"><div xmlns="http://www.w3.org/1999/xhtml" class="k-say" id="k-say">${gd.text}</div></foreignObject>`;
     if (run) {
-      s += A.text(172, 664, `${'♥'.repeat(Math.max(0, run.hearts))}`, 16, '#e2412f', { 'text-anchor': 'middle', 'font-family': 'Righteous', id: 'k-hearts' });
+      if (!run.sh.rush) s += A.text(172, 664, `${'♥'.repeat(Math.max(0, run.hearts))}`, 16, '#e2412f', { 'text-anchor': 'middle', 'font-family': 'Righteous', id: 'k-hearts' });
     }
     // The dough she is dragging, on top of everything.
     if (run?.drag) s += `<g id="k-drag" transform="translate(${run.drag.x.toFixed(1)} ${run.drag.y.toFixed(1)})" pointer-events="none">${dragArt()}</g>`;
@@ -973,7 +988,7 @@ export function createKitchen(api) {
   }
   function status() {
     $('#k-title').textContent = run ? `Shift ${run.i + 1}` : `${api.cityName()} kitchen`;
-    let stat = `$${S().dollars.toLocaleString()} in the tip jar`;
+    let stat = `$${S().dollars.toLocaleString()} tips`;
     if (run?.sh.rush) {
       const next = goals(run.sh, run.m).find(g => run.earned < g);
       stat = `${clock(timeLeft())} left · $${run.earned}${next ? ` of $${next}` : ''}`;
@@ -1021,11 +1036,11 @@ export function createKitchen(api) {
     const coming = HELPERS.filter(h => !ready.includes(h)).sort((a, b) => a.opens - b.opens)[0];
     const helpers = ready.map(h => {
       const art = `<svg class="k-helper" viewBox="-22 -32 44 56" aria-hidden="true">${A.helper(h.id, 0, 0)}</svg>`;
-      let right, title = `<b>${h.name}</b>`, note = h.job;
+      let right, title = `<b>${h.name}</b>`, note = `<i>${h.trait}</i> ${h.job}`;
       if (hired(h.id)) {
         const lv = helperLevel(h.id), next = HELPER_LEVELS[lv];
         title = `<b>${h.name} ${pips(lv, HELPER_LEVELS.length)}</b>`;
-        if (!next) note = `${h.job} <b>Top level!</b>`;
+        if (!next) note = `<i>${h.trait}</i> ${h.job} <b>Top level!</b>`;
         right = next ? `<button class="btn primary k-buy" data-train="${h.id}"${s.dollars >= next.cost ? '' : ' disabled'}>Train<br>$${next.cost.toLocaleString()}</button>` : `<span class="k-done">All done!</span>`;
       } else right = `<button class="btn primary k-buy" data-hire="${h.id}"${s.dollars >= h.cost ? '' : ' disabled'}>Hire<br>$${h.cost.toLocaleString()}</button>`;
       return `<li class="k-appl">${art}<div>${title}<span>${note}</span></div>${right}</li>`;
@@ -1035,7 +1050,7 @@ export function createKitchen(api) {
     showCard(`<h2>Cooking shifts</h2>
       <p class="muted small">Pick a shift. Serve every customer for three stars. Tips go in this restaurant's tip jar ($${s.dollars.toLocaleString()} now).</p>
       <div class="k-shifts">${shifts}</div>
-      <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.rush ? `Rush hour! ${sh.rush.secs} seconds. Earn $${goals(sh, api.mood()).join(', $')} for 1, 2, 3 stars.` : `${sh.customers} customers.`} Menu: ${menu}.${crew.length ? ` Helpers: ${crew.map(h => h.name).join(', ')}.` : ''}${sh.away && crew.length ? ` Watch out: ${sh.away === 1 ? 'a helper' : 'up to two helpers'} may call in sick.` : ''}</p>
+      <p class="k-menu"><b>Shift ${chosen + 1}:</b> ${sh.rush ? `Rush hour! ${sh.rush.secs} seconds. Earn $${goals(sh, api.mood()).join(', $')} for 1, 2, 3 stars.` : `${sh.customers} customers.`} Menu: ${menu}.${crew.length ? ` Helpers: ${crew.map(h => h.name).join(', ')}.` : ''}${sh.away && crew.length ? ` Watch out: ${sh.away === 1 ? 'a helper' : `up to ${['', '', 'two', 'three'][sh.away] || sh.away} helpers`} may call in sick.` : ''}${sh.rush ? ' No hearts lost in rush hour.' : ''}</p>
       <button class="btn primary k-start" data-start="${chosen}">Start shift ${chosen + 1}</button>
       <h3>Kitchen helpers</h3>
       ${ready.length ? `<p class="muted small">Helpers you hire work every shift. Train them with tips to make them quicker and steadier.</p>

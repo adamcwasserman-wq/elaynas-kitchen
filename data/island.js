@@ -53,6 +53,7 @@ export const PIECES = {
   marina: { size: [3, 2], on: 'water' },
   cart: { size: [1, 1], on: 'shore' },
   cafeboat: { size: [2, 2], on: 'water' },
+  huts: { size: [2, 1], on: 'shore' },
 };
 
 // Decorations: little things she can place as many of as she likes, just for looks (no buzz).
