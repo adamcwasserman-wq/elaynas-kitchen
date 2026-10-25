@@ -256,6 +256,19 @@ export const HELPER_LEVELS = [
 // Before training cost tips, helpers levelled up by doing jobs. Older saves keep the level they earned.
 export const OLD_HELPER_JOBS = [0, 12, 35, 80, 150];
 
+// Another restaurant's shifts: the bakery's, food for food (same: bakery food -> its food) with its
+// own news cards (intros: by the bakery card's id).
+export const themedShifts = (same, intros) => SHIFTS.map(sh => {
+  const out = { ...sh, menu: sh.menu.map(f => same[f] || f) };
+  if (sh.intro) out.intro = intros[sh.intro.id] || { ...sh.intro, food: same[sh.intro.food] || sh.intro.food };
+  return out;
+});
+// Another restaurant's machines: the bakery's, renamed (names: id -> [name, [[level name, perk], ...]]).
+export const renamedAppliances = names => APPLIANCES.map(a => {
+  const n = names[a.id];
+  return n ? { ...a, name: n[0], levels: a.levels.map((l, i) => ({ ...l, name: n[1][i][0], perk: n[1][i][1] })) } : a;
+});
+
 // How the bakery kitchen looks and talks (data/kitchens.js has every restaurant's kitchen).
 //   room, wall      which room to draw (js/kitchenArt.js roomBack)
 //   ovenArt, drinkArt  which drawings stand for the oven and the coffee machine
@@ -263,7 +276,7 @@ export const OLD_HELPER_JOBS = [0, 12, 35, 80, 150];
 //   vipWants        what a VIP with wants: 'treat' orders here
 export const BAKERY = {
   room: 'toronto', wall: null, ovenArt: 'oven', drinkArt: 'coffee', pourColour: '#6b3a1e', drink: 'coffee',
-  words: { oven: 'oven', machine: 'coffee machine', cup: 'cup', pour: 'pour', pouring: 'Pouring', cold: 'went cold', coldTo: 'goes cold', mixer: 'mixer', cook: 'bake', cooking: 'Baking', doughs: 'bagel or pretzel', bread: 'bread' },
+  words: { oven: 'oven', machine: 'coffee machine', cup: 'cup', pour: 'pour', pouring: 'Pouring', cold: 'went cold', coldTo: 'goes cold', goCold: 'go cold', mixer: 'mixer', cook: 'bake', cooking: 'Baking', doughs: 'bagel or pretzel', bread: 'bread' },
   blurb: 'Bake bagels and pretzels, pour coffee, serve customers',
   vipWants: { bubbie: 'creamBagel' },
   foods: FOODS, pantry: PANTRY, shifts: SHIFTS, appliances: APPLIANCES, helpers: HELPERS, doughIntro: DOUGH_INTRO,

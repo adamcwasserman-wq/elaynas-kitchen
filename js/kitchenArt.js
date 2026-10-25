@@ -153,7 +153,7 @@ const glassArt = state => {
   return path('M-12,-8 L12,-8 L3,3 L3,10 L7,12 L-7,12 L-3,10 L-3,3 Z', '#dff2f2', { stroke: '#9fc9c6', 'stroke-width': 1 }) +
     (state !== 'empty' ? path('M-11,-7 L11,-7 L2.5,2.5 L-2.5,2.5 Z', state === 'melted' ? '#cfe8b8' : '#8fd05a') : '') + slush + top +
     line('M-12,-8 L12,-8', '#fff', 2) + [-11, -8, -5, -2, 1, 4, 7, 10].map((x, i) => rect(x - .7, -9.6 - (i % 2) * .8, 1.6, 1.6, .3, '#fff', { stroke: '#cfe0e0', 'stroke-width': .3 })).join('') + (state === 'full' ? circ(10, -10, 4.5, '#3f8f2c') + circ(10, -10, 3.2, '#c9e88a') + line('M-4,-12 L-9,-22', '#e8475f', 2) : '') +
-    (state === 'melted' ? line('M-13,-12 l3,3 M-13,-9 l3,-3', '#e2412f', 1.4, { opacity: 0 }) + path('M-8,-3 q-2,4 0,6', '#8fd05a') : '');
+    (state === 'melted' ? path('M-8,-3 q-2,4 0,6', '#8fd05a') : '');
 };
 // A pretzel: two loops and crossed arms, drawn as a thick rope. Salt grains on top when salted.
 const KNOT = 'M0,-1 C-4,-9 -13,-9 -13,-1 C-13,7 -6,10 0,10 C6,10 13,7 13,-1 C13,-9 4,-9 0,-1 M-7,8 Q0,2 4,-6 M7,8 Q0,2 -4,-6';
@@ -315,7 +315,7 @@ export function stove(level) {
     `<g class="flame">${path(`M${W / 2 - 12},-4 Q${W / 2 - 8},-24 ${W / 2},-14 Q${W / 2 + 6},-28 ${W / 2 + 12},-4 Z`, '#f08a2a')}</g>`;
   s += rect(-4, top - 10, W + 4, 12, 6, '#2e1d16') + rect(-4, top - 10, W + 4, 4, 3, '#57382a');
   if (level >= 2) s += path(`M10,${-H} L${W - 14},${-H} L${W - 4},${top - 26} L0,${top - 26} Z`, '#b86b3a') + rect(4, top - 30, W - 12, 6, 3, '#d98a52') + rect(W / 2 - 8, -H - 10, 16, 12, 2, '#8a4a1e');
-  if (level === 3) s += rect(0, top - 8, W, 3, 1.5, GOLD) + path(`M${W / 2 - 10},${-H + 8} l4,-6 l4,6 l4,-6 l4,6 l4,-6`, GOLD, { opacity: 0 }) + circ(W / 2, -H + 14, 6, GOLD) + circ(W / 2, -H + 14, 3, '#f6d27a');
+  if (level === 3) s += rect(0, top - 8, W, 3, 1.5, GOLD) + circ(W / 2, -H + 14, 6, GOLD) + circ(W / 2, -H + 14, 3, '#f6d27a');
   const slots = [], rings = [];
   for (let i = 0; i < n; i++) { const x = (W - 4) * (i + .5) / n; slots.push([x, top - 14]); rings.push([x, top - (level >= 2 ? 44 : 38)]); }
   return { art: s, W, H, slots, rings, scale: level === 3 ? .8 : .85 };

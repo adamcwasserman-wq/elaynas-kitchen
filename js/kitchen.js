@@ -3,8 +3,8 @@
 // to bake it, taps the oven to put baked food on a plate, taps toppings onto plates, pours coffee,
 // and taps a finished food to hand it to the first customer who wants it.
 // Each restaurant with a kitchen has its own menu, shifts, machines and crew (data/kitchens.js; the
-// bakery's in data/kitchen.js, La Cocina's in data/cocina.js); the shared rules are in
-// data/kitchen.js and the drawings in js/kitchenArt.js.
+// bakery's in data/kitchen.js, La Cocina's in data/cocina.js, the Trattoria's in data/trattoria.js);
+// the shared rules are in data/kitchen.js and the drawings in js/kitchenArt.js.
 
 import { SHIFT_RULES, HELPER_LEVELS, OLD_HELPER_JOBS, KITCHEN_VIPS, EXCUSES } from '../data/kitchen.js';
 import { KITCHENS, KITCHEN_CITIES } from '../data/kitchens.js';
@@ -168,7 +168,7 @@ export function createKitchen(api) {
   const clock = secs => { const n = Math.ceil(secs); return `${Math.floor(n / 60)}:${String(n % 60).padStart(2, '0')}`; };
 
   // What a VIP who always orders the same thing wants in this kitchen ('treat': its own favourite).
-  const vipWants = v => (v.wants === 'treat' ? K.vipWants[v.id] : v.wants);
+  const vipWants = v => (v.wants === 'treat' ? K.vipWants?.[v.id] : v.wants);
   function newCustomer() {
     const { sh, m } = run;
     const max = Math.max(1, Math.min(sh.wantsMax, m.wantsMax ?? 9));
@@ -188,7 +188,7 @@ export function createKitchen(api) {
     run.first = false;
     const here = run.cust.filter(Boolean).map(c => c.kind);
     const kind = pick(A.CUSTOMER_KINDS.filter(k => !here.includes(k)));
-    if (vip) say(vip.hello.replace('{wants}', `${article(vipWants(vip))} ${FOODS[vipWants(vip)].name.toLowerCase()}`), 3.5);
+    if (vip) say(vip.wants ? vip.hello.replace('{wants}', `${article(wants[0])} ${FOODS[wants[0]].name.toLowerCase()}`) : vip.hello, 3.5);
     return { kind, vip, wants: wants.map(f => ({ f, got: false })), wait: 0, leaving: 0, sad: false,
       patience: (sh.patience + SHIFT_RULES.itemPatience * (count - 1)) * m.patience * (vip?.patience || 1) };
   }
@@ -301,7 +301,7 @@ export function createKitchen(api) {
   const atCounter = i => [custX(i), 172];
   const washerPt = () => [DISHWASHER[0], DISHWASHER[1] + 52];
   function pantryPt(id) {
-    const pa = A.pantry(level('pantry'), pantryItems(), K.room), sp = pa.spots.find(q => q.id === id);
+    const pa = pantryLayout(), sp = pa.spots.find(q => q.id === id);
     return sp ? [CENTRE.pantry - pa.W / 2 + sp.x, BOTTOM + sp.y + 22] : [CENTRE.pantry, BOTTOM + 20];
   }
   // Each plan: the stops to walk to, what happens at each stop (return false if it can't be done
@@ -555,7 +555,7 @@ export function createKitchen(api) {
   // ---------- dragging dough from the mixer to a shelf ----------
   // The dough is a plain lump in the mixer. As she drags it toward a shelf it takes that shelf's shape.
   function doughSpots() {
-    const pa = A.pantry(level('pantry'), pantryItems(), K.room), px = CENTRE.pantry - pa.W / 2;
+    const pa = pantryLayout(), px = CENTRE.pantry - pa.W / 2;
     return pa.spots.filter(sp => sp.id in run.stock).map(sp => ({ id: sp.id, x: px + sp.x, y: BOTTOM + sp.y }));
   }
   function nearest(p) {
@@ -768,7 +768,12 @@ export function createKitchen(api) {
   // Once customers take plates away (dirty dishes), the board gets extra plates.
   const extraPlates = () => ((run ? run.i : chosen) + 1 >= SHIFT_RULES.dirtyFrom ? SHIFT_RULES.dirtyPlates : 0);
   const plateSpot = i => { const p = A.prep(level('prep'), extraPlates()).plates[i]; return [PREP_X + p[0], PREP_Y + p[1]]; };
-  const cupSpot = i => { const c = A[K.drinkArt](level('coffee')); return [CENTRE.coffee - c.W / 2 + c.cups[i][0], BOTTOM + c.cups[i][1]]; };
+  // Where the cups and shelves are only changes with the machine's level and the menu, so the
+  // drawings are measured once for each and kept.
+  const layouts = new Map();
+  const layout = (key, draw) => { if (!layouts.has(key)) layouts.set(key, draw()); return layouts.get(key); };
+  const pantryLayout = () => { const items = pantryItems(), lv = level('pantry'); return layout(`pantry:${K.room}:${lv}:${items}`, () => A.pantry(lv, items, K.room)); };
+  const cupSpot = i => { const lv = level('coffee'), c = layout(`drink:${K.drinkArt}:${lv}`, () => A[K.drinkArt](lv)); return [CENTRE.coffee - c.W / 2 + c.cups[i][0], BOTTOM + c.cups[i][1]]; };
   const pantryItems = () => PANTRY.filter(p => (run?.sh || SHIFTS[chosen]).menu.includes(p.for)).map(p => p.id);
 
   // What Tomato says, and which station glows: early shifts and new foods get step-by-step help.
@@ -1110,7 +1115,7 @@ export function createKitchen(api) {
     const out = run.hearts <= 0 || run.binFull;
     const title = out ? 'Shift over' : got === 3 ? 'Perfect shift!' : got ? 'Shift done!' : 'Shift done';
     const g = run.sh.rush ? goals(run.sh, run.m) : null;
-    const line = run.binFull ? `The bin got too full! Try not to let food burn or drinks ${W.coldTo === 'melts' ? 'melt' : 'go cold'}.`
+    const line = run.binFull ? `The bin got too full! Try not to let food burn or drinks ${W.goCold}.`
       : out ? 'Too many customers left. Try again, maybe on a calmer mood?'
       : g ? (got === 3 ? `You earned $${run.earned} before the clock ran out!` : `You earned $${run.earned}. Earn $${g[got]} for ${got + 1} star${got ? 's' : ''}.`)
       : got ? `You served ${run.served} of ${run.sh.customers} customers.` : `You served ${run.served} of ${run.sh.customers}. Serve at least ${Math.ceil(run.sh.customers * SHIFT_RULES.stars[0])} for a star.`;

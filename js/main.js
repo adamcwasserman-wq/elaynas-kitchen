@@ -2766,11 +2766,11 @@ function boot() {
     celebrate({ art: trattoriaNewsArt(), title: 'New: the Trattoria has a kitchen!', name: 'Pizza, lasagna and gelato',
       line: S.city === 'rome' ? 'Tap Restaurant, then Cook a shift.' : `Go to ${cityOf('rome').name}, tap Restaurant, then Cook a shift.` });
     save();
-  } else {
-    // The leaderboard question comes once, a moment after the game opens (and never on top of a celebration).
-    setTimeout(() => { if ($('#celebrate').hidden && !document.querySelector('.sheet:not([hidden])')) lboard.askJoin(); }, 3000);
-    lboard.startUp();
   }
+  // The leaderboard question comes once, a moment after the game opens (and never on top of a
+  // celebration; a new player gets it after the welcome).
+  if (S.profile?.name) setTimeout(() => { if ($('#celebrate').hidden && !document.querySelector('.sheet:not([hidden])')) lboard.askJoin(); }, 3000);
+  lboard.startUp();
   // The splash (the icon and the name) stays up a moment, then fades away.
   setTimeout(() => { $('#splash').classList.add('gone'); setTimeout(() => $('#splash').remove(), 600); }, Math.max(0, 900 - performance.now()));
 

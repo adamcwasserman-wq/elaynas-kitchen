@@ -3,7 +3,7 @@
 // It keeps its own shifts, tip jar and helpers. Its shifts follow the bakery's difficulty curve
 // food for food: a pizza is the bagel, gelato is the coffee, and so on.
 
-import { SHIFTS as BAKERY_SHIFTS, APPLIANCES as BAKERY_APPLIANCES } from './kitchen.js';
+import { themedShifts, renamedAppliances } from './kitchen.js';
 
 export const FOODS = {
   pizza: { name: 'Pizza', price: 8, from: 'oven', dough: 'pizzaDough', bake: 6 },
@@ -35,11 +35,7 @@ const INTROS = {
   finale: { id: 'finale', food: 'parmLasagna', art: 'clock', title: 'The grand finale!', line: 'The busiest night at the Trattoria: three minutes of rush hour, VIPs everywhere, and half the team is out. Andiamo!' },
 };
 
-export const SHIFTS = BAKERY_SHIFTS.map(sh => {
-  const out = { ...sh, menu: sh.menu.map(f => SAME[f] || f) };
-  if (sh.intro) out.intro = INTROS[sh.intro.id] || { ...sh.intro, food: SAME[sh.intro.food] || sh.intro.food };
-  return out;
-});
+export const SHIFTS = themedShifts(SAME, INTROS);
 
 // The Trattoria's machines: they work like the bakery's, with their own names.
 const NAMES = {
@@ -49,10 +45,7 @@ const NAMES = {
   mixer: ['Pasta maker', [['Dough bowl', 'Makes 2 doughs at a time.'], ['Pasta roller', 'Makes 3 doughs at a time, a bit faster.'], ['Pasta machine', 'Makes 4 doughs quickly, and starts by itself when a dough runs low.']]],
   prep: ['Prep counter', [['Wooden board', 'Room for 2 plates.'], ['Long board', 'Room for 3 plates.'], ['Marble counter', 'Room for 4 plates.']]],
 };
-export const APPLIANCES = BAKERY_APPLIANCES.map(a => {
-  const n = NAMES[a.id];
-  return n ? { ...a, name: n[0], levels: a.levels.map((l, i) => ({ ...l, name: n[1][i][0], perk: n[1][i][1] })) } : a;
-});
+export const APPLIANCES = renamedAppliances(NAMES);
 
 export const HELPERS = [
   { id: 'garlic', name: 'Garlic', station: 'oven', cost: 150, opens: 8, x: 190,
@@ -77,7 +70,7 @@ export const DOUGH_INTRO = { id: 'dough', art: 'dough', title: 'New: the pasta m
 // How the Trattoria looks and talks.
 export const TRATTORIA = {
   room: 'rome', wall: 'ochre', ovenArt: 'pizzaOven', drinkArt: 'gelatoCase', pourColour: '#f6b3c8', drink: 'gelato',
-  words: { oven: 'oven', machine: 'gelato case', cup: 'cup', pour: 'scoop', pouring: 'Scooping', cold: 'melted', coldTo: 'melts', mixer: 'pasta maker', cook: 'bake', cooking: 'Baking', doughs: 'pizza or lasagna', bread: 'food' },
+  words: { oven: 'oven', machine: 'gelato case', cup: 'cup', pour: 'scoop', pouring: 'Scooping', cold: 'melted', coldTo: 'melts', goCold: 'melt', mixer: 'pasta maker', cook: 'bake', cooking: 'Baking', doughs: 'pizza or lasagna', bread: 'food' },
   blurb: 'Bake pizza and lasagna, scoop gelato, serve customers',
   vipWants: { bubbie: 'parmLasagna' },
   foods: FOODS, pantry: PANTRY, shifts: SHIFTS, appliances: APPLIANCES, helpers: HELPERS, doughIntro: DOUGH_INTRO,

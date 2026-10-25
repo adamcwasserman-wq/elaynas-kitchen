@@ -3,7 +3,7 @@
 // It keeps its own shifts, tip jar and helpers. Its shifts follow the bakery's difficulty curve
 // food for food: a taco is the bagel, a frozen margarita is the coffee, and so on.
 
-import { SHIFTS as BAKERY_SHIFTS, APPLIANCES as BAKERY_APPLIANCES } from './kitchen.js';
+import { themedShifts, renamedAppliances } from './kitchen.js';
 
 // Everything a customer can order (same fields as the bakery's FOODS).
 export const FOODS = {
@@ -37,11 +37,7 @@ const INTROS = {
 };
 
 // The bakery's 25 shifts, with La Cocina's foods and news cards.
-export const SHIFTS = BAKERY_SHIFTS.map(sh => {
-  const out = { ...sh, menu: sh.menu.map(f => SAME[f] || f) };
-  if (sh.intro) out.intro = INTROS[sh.intro.id] || { ...sh.intro, food: SAME[sh.intro.food] || sh.intro.food };
-  return out;
-});
+export const SHIFTS = themedShifts(SAME, INTROS);
 
 // La Cocina's machines: they work like the bakery's, with their own names.
 const NAMES = {
@@ -51,10 +47,7 @@ const NAMES = {
   mixer: ['Masa maker', [['Masa bowl', 'Makes 2 doughs at a time.'], ['Tortilla press', 'Makes 3 doughs at a time, a bit faster.'], ['Masa machine', 'Makes 4 doughs quickly, and starts by itself when a dough runs low.']]],
   prep: ['Prep counter', [['Wooden board', 'Room for 2 plates.'], ['Long board', 'Room for 3 plates.'], ['Tile counter', 'Room for 4 plates.']]],
 };
-export const APPLIANCES = BAKERY_APPLIANCES.map(a => {
-  const n = NAMES[a.id];
-  return n ? { ...a, name: n[0], levels: a.levels.map((l, i) => ({ ...l, name: n[1][i][0], perk: n[1][i][1] })) } : a;
-});
+export const APPLIANCES = renamedAppliances(NAMES);
 
 // La Cocina's crew (same fields as the bakery's HELPERS).
 export const HELPERS = [
@@ -80,7 +73,7 @@ export const DOUGH_INTRO = { id: 'dough', art: 'dough', title: 'New: the masa ma
 // How La Cocina looks and talks.
 export const COCINA = {
   room: 'mexico', wall: 'pink', ovenArt: 'stove', drinkArt: 'slushie', pourColour: '#8fd05a', drink: 'margarita',
-  words: { oven: 'stove', machine: 'margarita machine', cup: 'glass', pour: 'pour', pouring: 'Pouring', cold: 'melted', coldTo: 'melts', mixer: 'masa maker', cook: 'cook', cooking: 'Cooking', doughs: 'taco or churro', bread: 'food' },
+  words: { oven: 'stove', machine: 'margarita machine', cup: 'glass', pour: 'pour', pouring: 'Pouring', cold: 'melted', coldTo: 'melts', goCold: 'melt', mixer: 'masa maker', cook: 'cook', cooking: 'Cooking', doughs: 'taco or churro', bread: 'food' },
   blurb: 'Cook tacos and churros, pour frozen margaritas, serve customers',
   vipWants: { bubbie: 'dulceChurro' },
   foods: FOODS, pantry: PANTRY, shifts: SHIFTS, appliances: APPLIANCES, helpers: HELPERS, doughIntro: DOUGH_INTRO,
