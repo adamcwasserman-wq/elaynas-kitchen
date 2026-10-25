@@ -138,8 +138,8 @@ const lasagnaArt = (dark, light, parm) => rect(-12, -7, 24, 15, 3, dark) + rect(
 const gelatoArt = state => rect(-9, -2, 18, 13, 3, '#5b8fd0') + rect(-9, -2, 17, 12, 3, '#7ab0ea') + rect(-9, 2, 17, 2, 0, '#fff', { opacity: .6 }) +
   (state === 'full' ? circ(-3, -4, 6, '#f6b3c8') + circ(4, -5, 6, '#c9e88a') + circ(0, -9, 5, '#fff3dc') + line('M6,-12 L10,-17', '#c98a2a', 2) + rect(7, -19, 6, 3, 1, '#c98a2a') : '') +
   (state === 'melted' ? path('M-10,-2 Q-6,-6 0,-3 Q6,-6 10,-2 L10,0 Q0,-1 -10,0 Z', '#f6b3c8', { opacity: .85 }) + path('M-6,0 q-1,4 0,7 M3,0 q1,3 0,5', '#f6b3c8') : '');
-// A taco: a folded tortilla with meat, lettuce and tomato.
-const tacoArt = (dark, light, filled) => (filled ? ell(0, -3, 11, 3.5, '#7a4524') + path('M-11,-4 q3,-4 5,-1 q3,-4 5,-1 q3,-4 5,-1 q3,-4 5,-1 L11,-2 L-11,-2 Z', '#5cb85a') + circ(-4, -6, 1.6, '#e2412f') + circ(4, -6, 1.6, '#e2412f') : '') +
+// A taco: a folded tortilla with meat, lettuce and cheese.
+const tacoArt = (dark, light, filled) => (filled ? ell(0, -3, 11, 3.5, '#7a4524') + path('M-11,-4 q3,-4 5,-1 q3,-4 5,-1 q3,-4 5,-1 q3,-4 5,-1 L11,-2 L-11,-2 Z', '#5cb85a') + [[-5, -6], [0, -7], [5, -6]].map(([x, y]) => rect(x - 2, y - .6, 4, 1.3, .6, '#f6d24a')).join('') : '') +
   path('M-13,-3 Q0,20 13,-3 Q0,4 -13,-3 Z', dark) + path('M-12,-3 Q0,17 12,-3 Q0,3 -12,-3 Z', light) + shine(-6, 3, 2.5, 1.2);
 // A churro: a ridged golden stick, with cinnamon sugar when "sugar".
 const churroArt = (dark, light, sugar) => g('rotate(-25)', rect(-14, -4, 28, 8, 4, dark) + rect(-14, -4.5, 27, 7, 3.5, light) +
@@ -184,7 +184,11 @@ export const FOOD = {
   taco: () => tacoArt('#e9a640', '#f3c34a', true),
   tacoDough: () => ell(0, 3, 13, 6, '#e8cf98') + ell(-1, 2, 12, 5, '#f8e7b8') + [[-5, 1], [4, 3], [0, 0], [6, 0]].map(([x, y]) => circ(x, y, .8, '#e2c27a')).join(''),
   tacoBurnt: () => tacoArt('#2e1d16', '#57382a', false),
-  salsaTaco: () => tacoArt('#e9a640', '#f3c34a', true) + [[-6, -6], [-1, -8], [4, -6], [8, -7]].map(([x, y]) => circ(x, y, 2.2, '#d7372a')).join('') + [[-3, -9], [6, -9]].map(([x, y]) => circ(x, y, 1.1, '#3f9b3c')).join(''),
+  // Heaped with red salsa that spills down the front, so it reads apart from a plain taco at a glance.
+  salsaTaco: () => tacoArt('#e9a640', '#f3c34a', true) + [[-8, -6, 3.6], [-3, -8, 4], [3, -8, 3.8], [8, -6, 3.4], [0, -5, 4]].map(([x, y, r]) => circ(x, y, r, '#d7372a')).join('') +
+    path('M-6,-3 q1.4,3 0,4.5 q-1.4,-1.5 0,-4.5 Z', '#d7372a') +
+    [[-7, -7], [-1, -10], [5, -9], [2, -5]].map(([x, y]) => rect(x - 1, y - 1, 2, 2, .4, '#fff4dc')).join('') +
+    [[-4, -9], [1, -7], [7, -7], [-9, -5]].map(([x, y]) => circ(x, y, 1.1, '#3f9b3c')).join(''),
   churro: () => churroArt('#b8732f', '#e3a24f', false),
   churroDough: () => churroArt('#d9bf94', '#f3e2c2', false),
   churroBurnt: () => churroArt('#2e1d16', '#57382a', false),

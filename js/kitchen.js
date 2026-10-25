@@ -136,7 +136,10 @@ export function createKitchen(api) {
     // The helpers who came in say hello, one after another, as the shift starts.
     run.team.forEach((h, n) => quip(h, run.help[h.id], .5 + n * 2.1, true));
     if (run.out.length) run.cards.push([null, { art: 'out', out: run.out.map(o => o.h), title: `${andList(run.out.map(o => o.h.name))} can't make it today!`,
-      line: run.out.map(o => `<b>${o.h.name}:</b> "Sorry, I'm ${o.why}"`).join('<br>') + '<br>You will have to cover for them.' }]);
+      // One excuse is enough of a laugh; then what each of them usually does, so she knows what to cover.
+      line: `<b>${run.out[0].h.name}:</b> "Sorry, I'm ${run.out[0].why}"<br>` +
+        `You will cover for ${run.out.length > 1 ? 'them' : run.out[0].h.name} today:` +
+        run.out.map(o => `<br>${o.h.name} usually ${o.h.job.split('. ')[0].replace(/^./, c => c.toLowerCase()).replace(/\.$/, '')}.`).join('') }]);
     if (run.cards.length) { showIntro(run.cards[0][1]); return; }
     card = null;
     hideCard();
@@ -144,10 +147,10 @@ export function createKitchen(api) {
   }
   const gap = () => run.sh.gap * (run.m.patience > 1 ? 1.25 : run.m.patience < 1 ? .85 : 1);
   const noBurn = () => !!spec('oven').noBurn || run.m.complaints === false;
-  const keepWarm = () => SHIFT_RULES.keepWarm * Math.max(1, run.m.patience);
+  const keepWarm = () => SHIFT_RULES.keepWarm * (K.pace?.keepWarm ?? 1) * Math.max(1, run.m.patience);
   // New rules that switch on partway through the shifts.
   const coldOn = () => run.i + 1 >= SHIFT_RULES.coldFrom && run.m.complaints !== false;
-  const hot = () => SHIFT_RULES.hot * Math.max(1, run.m.patience);
+  const hot = () => SHIFT_RULES.hot * (K.pace?.hot ?? 1) * Math.max(1, run.m.patience);
   // Dirty dishes: from this shift a served plate leaves the board with the customer. When they go,
   // their dishes (and sometimes a tip) wait on the counter, and nobody new sits there until she taps
   // them. Tapped dishes go in the dishwasher and come back to the board clean.
@@ -190,7 +193,7 @@ export function createKitchen(api) {
     const kind = pick(A.CUSTOMER_KINDS.filter(k => !here.includes(k)));
     if (vip) say(vip.wants ? vip.hello.replace('{wants}', `${article(wants[0])} ${FOODS[wants[0]].name.toLowerCase()}`) : vip.hello, 3.5);
     return { kind, vip, wants: wants.map(f => ({ f, got: false })), wait: 0, leaving: 0, sad: false,
-      patience: (sh.patience + SHIFT_RULES.itemPatience * (count - 1)) * m.patience * (vip?.patience || 1) };
+      patience: (sh.patience + SHIFT_RULES.itemPatience * (count - 1)) * (K.pace?.patience ?? 1) * m.patience * (vip?.patience || 1) };
   }
 
   function tick() {
@@ -1062,7 +1065,8 @@ export function createKitchen(api) {
         title = `<b>${h.name} ${pips(lv, HELPER_LEVELS.length)}</b>`;
         if (!next) note = `<i>${h.trait}</i> ${h.job} <b>Top level!</b>`;
         right = next ? `<button class="btn primary k-buy" data-train="${h.id}"${s.dollars >= next.cost ? '' : ' disabled'}>Train<br>$${next.cost.toLocaleString()}</button>` : `<span class="k-done">All done!</span>`;
-      } else right = `<button class="btn primary k-buy" data-hire="${h.id}"${s.dollars >= h.cost ? '' : ' disabled'}>Hire<br>$${h.cost.toLocaleString()}</button>`;
+      } else if (chosen + 1 < h.opens) right = `<span class="k-done">Works from<br>shift ${h.opens}</span>`; // no hiring a helper who wouldn't work this shift
+      else right = `<button class="btn primary k-buy" data-hire="${h.id}"${s.dollars >= h.cost ? '' : ' disabled'}>Hire<br>$${h.cost.toLocaleString()}</button>`;
       return `<li class="k-appl">${art}<div>${title}<span>${note}</span></div>${right}</li>`;
     }).join('');
     const sh = SHIFTS[chosen], crew = team().filter(h => chosen + 1 >= h.opens);

@@ -133,8 +133,8 @@ export const SHIFT_RULES = {
   rushRefill: 1.5,      // rush hour: seconds before an empty spot at the counter fills again
   doughFrom: 6,         // from this shift on, dough runs out and is made at the mixer
   startDough: 2,        // doughs of each kind on the pantry shelf when a shift starts
-  doughMax: 6,
-  vipGap: 2,            // at least this many regular customers between two VIPs          // the most of each dough the shelf holds
+  doughMax: 6,          // the most of each dough the shelf holds
+  vipGap: 2,            // at least this many regular customers between two VIPs
   speedTip: 0.25,       // served while the bar is still more than half full: a tip this share of the price
   stars: [0.5, 0.8, 1], // share of customers served happily for 1, 2 and 3 stars (3 also means nobody left)
   openNext: 1,          // stars needed on a shift to open the next one
@@ -274,10 +274,19 @@ export const renamedAppliances = names => APPLIANCES.map(a => {
 //   ovenArt, drinkArt  which drawings stand for the oven and the coffee machine
 //   drink           the poured drink's food id; words: how the kitchen talks about its things
 //   vipWants        what a VIP with wants: 'treat' orders here
+//   pace            how much faster this kitchen runs than the shift data: shares of customer
+//                   patience, keep-warm time and hot-cup time (smaller is harder)
+// The bakery runs fast: Adam found it too easy (2026-10-25), so customers wait less, food burns and
+// coffee goes cold sooner, and the bin is smaller.
+const BAKERY_BIN = [
+  { name: 'Green bin', perk: 'Holds 3 things before it is full.', holds: 3 },
+  { name: 'Big bin', perk: 'Holds 5 things.', cost: 150, holds: 5 },
+  { name: 'Compost bin', perk: 'Holds 6, and turns waste into compost: one space frees up every 20 seconds.', cost: 500, holds: 6, compost: 20 }];
 export const BAKERY = {
   room: 'toronto', wall: null, ovenArt: 'oven', drinkArt: 'coffee', pourColour: '#6b3a1e', drink: 'coffee',
   words: { oven: 'oven', machine: 'coffee machine', cup: 'cup', pour: 'pour', pouring: 'Pouring', cold: 'went cold', coldTo: 'goes cold', goCold: 'go cold', mixer: 'mixer', cook: 'bake', cooking: 'Baking', doughs: 'bagel or pretzel', bread: 'bread' },
   blurb: 'Bake bagels and pretzels, pour coffee, serve customers',
   vipWants: { bubbie: 'creamBagel' },
-  foods: FOODS, pantry: PANTRY, shifts: SHIFTS, appliances: APPLIANCES, helpers: HELPERS, doughIntro: DOUGH_INTRO,
+  pace: { patience: .8, keepWarm: .7, hot: .7 },
+  foods: FOODS, pantry: PANTRY, shifts: SHIFTS, appliances: APPLIANCES.map(a => (a.id === 'bin' ? { ...a, levels: BAKERY_BIN } : a)), helpers: HELPERS, doughIntro: DOUGH_INTRO,
 };
