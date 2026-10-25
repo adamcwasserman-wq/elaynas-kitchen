@@ -263,7 +263,7 @@ export const OLD_HELPER_JOBS = [0, 12, 35, 80, 150];
 //   vipWants        what a VIP with wants: 'treat' orders here
 export const BAKERY = {
   room: 'toronto', wall: null, ovenArt: 'oven', drinkArt: 'coffee', pourColour: '#6b3a1e', drink: 'coffee',
-  words: { oven: 'oven', machine: 'coffee machine', cup: 'cup', cold: 'went cold', coldTo: 'goes cold', mixer: 'mixer', cook: 'bake', cooking: 'Baking', doughs: 'bagel or pretzel', bread: 'bread' },
+  words: { oven: 'oven', machine: 'coffee machine', cup: 'cup', pour: 'pour', pouring: 'Pouring', cold: 'went cold', coldTo: 'goes cold', mixer: 'mixer', cook: 'bake', cooking: 'Baking', doughs: 'bagel or pretzel', bread: 'bread' },
   blurb: 'Bake bagels and pretzels, pour coffee, serve customers',
   vipWants: { bubbie: 'creamBagel' },
   foods: FOODS, pantry: PANTRY, shifts: SHIFTS, appliances: APPLIANCES, helpers: HELPERS, doughIntro: DOUGH_INTRO,

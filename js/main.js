@@ -29,7 +29,7 @@ import { createKitchen } from './kitchen.js';
 import { createTrack } from './track.js';
 import { createBoard } from './board.js';
 import { KITCHEN_CITIES, KITCHENS } from '../data/kitchens.js';
-import { newsArt as kitchenNewsArt, cocinaNewsArt } from './kitchenArt.js';
+import { newsArt as kitchenNewsArt, cocinaNewsArt, trattoriaNewsArt } from './kitchenArt.js';
 import { GEMS, TICKETS_PER_GEM, SHOP } from '../data/arcade.js';
 
 const COLS = CONFIG.board.cols;
@@ -2759,6 +2759,12 @@ function boot() {
     S.cocinaNews = true;
     celebrate({ art: cocinaNewsArt(), title: 'New: La Cocina has a kitchen!', name: 'Tacos, churros and frozen margaritas',
       line: S.city === 'mexico' ? 'Tap Restaurant, then Cook a shift.' : `Go to ${cityOf('mexico').name}, tap Restaurant, then Cook a shift.` });
+    save();
+  } else if (!S.trattoriaNews && S.openCities.includes('rome')) {
+    // The Trattoria's kitchen arrived in ek-0.43.0: tell her once, when the Trattoria is open.
+    S.trattoriaNews = true;
+    celebrate({ art: trattoriaNewsArt(), title: 'New: the Trattoria has a kitchen!', name: 'Pizza, lasagna and gelato',
+      line: S.city === 'rome' ? 'Tap Restaurant, then Cook a shift.' : `Go to ${cityOf('rome').name}, tap Restaurant, then Cook a shift.` });
     save();
   } else {
     // The leaderboard question comes once, a moment after the game opens (and never on top of a celebration).

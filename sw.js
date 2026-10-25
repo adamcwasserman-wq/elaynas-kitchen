@@ -1,7 +1,7 @@
 // Keeps a copy of the game on the phone so it works with no connection.
 // When you change any game file, bump VERSION so phones pick up the new copy.
 
-const VERSION = 'ek-0.42.0';
+const VERSION = 'ek-0.43.0';
 // The testing copy and the real game share one website, so each keeps its saved copy under its own name
 // and only ever clears out its own old ones.
 const SITE = new URL(self.registration.scope).pathname;
@@ -39,6 +39,7 @@ const FILES = [
   'data/kitchen.js',
   'data/cocina.js',
   'data/kitchens.js',
+  'data/trattoria.js',
   'js/kitchen.js',
   'js/kitchenArt.js',
   'js/track.js',

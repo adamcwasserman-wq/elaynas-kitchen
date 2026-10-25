@@ -659,7 +659,7 @@ export function createKitchen(api) {
     if (free < 0) {
       const cold = run.cups.findIndex(x => x?.state === 'cold');
       if (cold >= 0) { serveCup(cold); return; }
-      if (ready >= 0) nope(`Nobody wants ${article(DRINK)} ${drinkName()} right now.`); else say('Pouring...');
+      if (ready >= 0) nope(`Nobody wants ${article(DRINK)} ${drinkName()} right now.`); else say(`${W.pouring}...`);
       render();
       return;
     }
@@ -672,7 +672,7 @@ export function createKitchen(api) {
     const c = run.cups[i];
     if (!c) { coffeeTap(); return; }
     if (c.state === 'cold') { run.cups[i] = null; api.buzz('tap'); say(`That one ${W.cold}, so it went in the bin.`); trash(); render(); return; }
-    if (c.state !== 'done') { say('Still pouring...'); render(); return; }
+    if (c.state !== 'done') { say(`Still ${W.pouring.toLowerCase()}...`); render(); return; }
     if (deliver(DRINK, cupSpot(i))) run.cups[i] = null;
     render();
   }
@@ -799,8 +799,8 @@ export function createKitchen(api) {
     if (want === DRINK) {
       const c = run.cups.findIndex(x => x?.state === 'done');
       if (c >= 0) return { text: `Tap the full ${W.cup} to serve it.`, target: `cup:${c}` };
-      if (run.cups.some(Boolean)) return { text: `Pouring the ${drinkName()}...` };
-      return { text: `Tap the ${W.machine} to pour a ${W.cup}.`, target: 'coffee' };
+      if (run.cups.some(Boolean)) return { text: `${W.pouring} the ${drinkName()}...` };
+      return { text: `Tap the ${W.machine} to ${W.pour} a ${W.cup}.`, target: 'coffee' };
     }
     if (plateWith(want) >= 0) return { text: `Tap the ${FOODS[want].name.toLowerCase()} to serve it.`, target: `plate:${plateWith(want)}` };
     const base = FOODS[want].on || want;

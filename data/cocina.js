@@ -80,7 +80,7 @@ export const DOUGH_INTRO = { id: 'dough', art: 'dough', title: 'New: the masa ma
 // How La Cocina looks and talks.
 export const COCINA = {
   room: 'mexico', wall: 'pink', ovenArt: 'stove', drinkArt: 'slushie', pourColour: '#8fd05a', drink: 'margarita',
-  words: { oven: 'stove', machine: 'margarita machine', cup: 'glass', cold: 'melted', coldTo: 'melts', mixer: 'masa maker', cook: 'cook', cooking: 'Cooking', doughs: 'taco or churro', bread: 'food' },
+  words: { oven: 'stove', machine: 'margarita machine', cup: 'glass', pour: 'pour', pouring: 'Pouring', cold: 'melted', coldTo: 'melts', mixer: 'masa maker', cook: 'cook', cooking: 'Cooking', doughs: 'taco or churro', bread: 'food' },
   blurb: 'Cook tacos and churros, pour frozen margaritas, serve customers',
   vipWants: { bubbie: 'dulceChurro' },
   foods: FOODS, pantry: PANTRY, shifts: SHIFTS, appliances: APPLIANCES, helpers: HELPERS, doughIntro: DOUGH_INTRO,

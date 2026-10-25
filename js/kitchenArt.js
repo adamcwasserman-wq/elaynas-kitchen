@@ -61,6 +61,16 @@ const FRIEND = {
   cactus: s => rect(-10, -18, 20, 38, 10, '#2e7a2c') + rect(-9, -17, 17, 36, 9, '#4fa84a') +
     rect(-20, -6, 8, 16, 4, '#4fa84a') + rect(-20, -6, 6, 6, 3, '#4fa84a') + rect(12, -12, 8, 14, 4, '#4fa84a') +
     [[-5, -10], [5, -12], [-6, 12], [6, 10], [-17, 2], [16, -6]].map(([x, y]) => circ(x, y, .9, '#d9f2a6')).join('') + face(0, -2, .85, s),
+  // Trattoria's helpers.
+  garlic: s => path('M0,-20 Q4,-14 12,-8 Q20,2 14,14 Q8,20 0,20 Q-8,20 -14,14 Q-20,2 -12,-8 Q-4,-14 0,-20 Z', '#e3dccd') + path('M0,-18 Q3,-13 10,-7 Q17,2 12,12 Q7,17 0,17 Q-7,17 -12,12 Q-17,2 -10,-7 Q-3,-13 0,-18 Z', '#fbf7ee') +
+    line('M-5,-12 Q-9,2 -6,16 M5,-12 Q9,2 6,16', '#e3dccd', 1.4) + path('M-2,-20 L0,-27 L2,-20 Z', '#c9bf9e') + shine(-8, -3, 2.6, 4) + face(0, 3, .9, s),
+  olive: s => ell(0, 1, 15, 19, '#3f5a1c') + ell(-1, 0, 13.5, 17.5, '#6e8f2e') + circ(6, -11, 3.5, '#c7413a') + ell(-6, -6, 3, 5, '#fff', { opacity: .35 }) + face(0, 2, .9, s),
+  basil: s => path('M0,-20 Q18,-14 16,4 Q12,18 0,20 Q-12,18 -16,4 Q-18,-14 0,-20 Z', '#2e7a2c') + path('M0,-18 Q15,-12 14,4 Q10,16 0,18 Q-10,16 -14,4 Q-15,-12 0,-18 Z', '#4fa84a') +
+    line('M0,-18 L0,18 M0,-6 L8,-12 M0,0 L-9,-6 M0,6 L9,2', '#2e7a2c', 1.2, { opacity: .6 }) + face(0, 1, .85, s),
+  penne: s => g('rotate(-12)', path('M-11,-18 L9,-21 L12,17 L-8,20 Z', '#e0a43a') + path('M-9,-17 L8,-19 L10,15 L-6,18 Z', '#f3c46a') +
+    [-12, -5, 2, 9].map(y => line(`M-8,${y} L9,${y - 2}`, '#e0a43a', 1.2, { opacity: .6 })).join('') + ell(-1, -19.5, 10, 2.5, '#c98a2a')) + face(0, 1, .85, s),
+  meatball: s => circ(0, 1, 18, '#7a3d1e') + circ(-1, 0, 16.5, '#9c5230') + [[-8, -8], [6, -10], [10, 4], [-10, 6], [2, 12], [-2, -2]].map(([x, y]) => circ(x, y, 1.6, '#6b3418')).join('') +
+    path('M-12,-12 Q0,-20 12,-12 Q8,-8 0,-9 Q-8,-8 -12,-12 Z', '#d7372a') + shine(-8, -4, 3, 2) + face(0, 3, .9, s),
   peach: s => circ(0, 0, 17, '#e0704a') + circ(-2, -2, 15.5, '#f5a06a') + line('M0,-15 Q-4,-2 0,10', '#e0704a', 1.6, { opacity: .6 }) + path('M1,-17 Q8,-24 14,-20 Q8,-15 1,-17 Z', '#3f9b3c') + shine(-8, -6, 3.5, 2.2) + face(0, 2, 1, s),
 };
 export const CUSTOMER_KINDS = ['eggplant', 'lemon', 'blueberry', 'pear', 'peach'];
@@ -85,6 +95,12 @@ const LOOK = {
   lime: { anim: 'h-lean', extra: () => [0, 72, 144, 216, 288].map(a => ell(12, -16, 2.2, 4, '#ff7eb6', { transform: `rotate(${a} 12 -12)` })).join('') + circ(12, -12, 1.8, GOLD) },
   corn: { anim: 'h-shy', extra: () => rect(-10, -19, 20, 3, 1.5, '#e8475f') },
   cactus: { anim: 'h-breathe', extra: () => [0, 72, 144, 216, 288].map(a => ell(0, -24, 2.4, 4.2, '#ff7eb6', { transform: `rotate(${a} 0 -20)` })).join('') + circ(0, -20, 2, GOLD) },
+  // Trattoria: Garlic twirls a moustache, Olive wears a little bow tie, Basil a flower, Penne a striped scarf, Meatball a napkin.
+  garlic: { anim: 'h-hop', extra: () => path('M-1,9 q-5,-3 -9,1 q4,-1 6,2 Z M1,9 q5,-3 9,1 q-4,-1 -6,2 Z', '#5a3a2a') },
+  olive: { anim: 'h-sway', extra: () => path('M0,15 L-6,12 L-6,18 Z M0,15 L6,12 L6,18 Z', '#d7372a') + circ(0, 15, 1.6, '#a82a22') },
+  basil: { anim: 'h-lean', extra: () => [0, 72, 144, 216, 288].map(a => ell(12, -18, 2, 3.6, '#fff', { transform: `rotate(${a} 12 -14)` })).join('') + circ(12, -14, 1.6, GOLD) },
+  penne: { anim: 'h-shy', extra: () => path('M-11,10 Q0,14 11,10 L11,14 Q0,18 -11,14 Z', '#fff') + rect(-4, 10, 3, 6, 0, '#3f9b3c') + rect(2, 10, 3, 6, 0, '#d7372a') },
+  meatball: { anim: 'h-breathe', extra: () => path('M-8,12 L8,12 L4,20 L-4,20 Z', '#fff', { stroke: '#e8dccb', 'stroke-width': .8 }) + line('M-4,15 L4,15', '#d7372a', 1) },
   cinnamon: { anim: 'h-breathe', extra: () => `<g class="kheart">${path('M0,2 C-3,-1 -6,1 -4,4 L0,7 L4,4 C6,1 3,-1 0,2 Z', '#ff7eb6', { transform: 'translate(15 -24)' })}</g>` },
 };
 // "quip" is something they're saying; "atX" is where they really are on the floor (when x is 0 inside
@@ -110,6 +126,18 @@ export const vip = (art, x, y, cls = '') => g(`translate(${x} ${y})`, `<g class=
 const RING = (r, h) => `M${-r},0 a${r},${r} 0 1,0 ${2 * r},0 a${r},${r} 0 1,0 ${-2 * r},0 Z M${-h},0 a${h},${h} 0 1,0 ${2 * h},0 a${h},${h} 0 1,0 ${-2 * h},0 Z`;
 const bagelArt = (dark, light, seeds) => g('scale(1 .8)', path(RING(12, 4), dark, { 'fill-rule': 'evenodd' }) + g('translate(-1 -1.5)', path(RING(11, 4.2), light, { 'fill-rule': 'evenodd' })) +
   (seeds ? [[-6, -6], [3, -8], [7, -2], [-8, 2], [5, 5]].map(([x, y]) => ell(x, y, 1.4, .8, CREAM)).join('') : '') + shine(-6, -5, 3, 1.4));
+// A pizza: tomato, melted cheese and basil, with pepperoni slices when "pepperoni".
+const pizzaArt = pep => circ(0, 1, 12.5, '#c98a2a') + circ(-.5, .5, 11.5, '#e9a640') + circ(-.5, .5, 9.5, '#d7372a') + circ(-.5, .5, 8.5, '#f6d27a') +
+  [[-4, -3], [3, -4], [4, 3], [-3, 4], [0, 0]].map(([x, y]) => circ(x, y, 1.6, '#fff3dc', { opacity: .9 })).join('') +
+  (pep ? [[-4, -2], [3, -3], [4, 3], [-3, 4]].map(([x, y]) => circ(x, y, 2.6, '#c7413a') + circ(x - .8, y - .8, .9, '#e86a5a')).join('') : ell(-3, -1, 2, 1.2, '#3f9b3c') + ell(3, 3, 2, 1.2, '#3f9b3c'));
+// A slice of lasagna: layers of pasta and sauce, with grated parmesan when "parm".
+const lasagnaArt = (dark, light, parm) => rect(-12, -7, 24, 15, 3, dark) + rect(-12, -7, 23, 14, 3, light) +
+  [-3, 2].map(y => rect(-12, y, 23, 2.4, 0, '#d7372a', { opacity: .85 })).join('') + rect(-12, -7, 23, 3, 2, '#f6d27a') +
+  (parm ? [[-8, -7], [-4, -8], [0, -7], [4, -8], [8, -7], [-6, -9], [2, -9], [6, -9]].map(([x, y]) => rect(x, y, 2, 1.4, .4, '#fff3c4')).join('') : '');
+// A scoop of gelato in a cup: "melted" when it waited too long, "empty" while it's being scooped.
+const gelatoArt = state => rect(-9, -2, 18, 13, 3, '#5b8fd0') + rect(-9, -2, 17, 12, 3, '#7ab0ea') + rect(-9, 2, 17, 2, 0, '#fff', { opacity: .6 }) +
+  (state === 'full' ? circ(-3, -4, 6, '#f6b3c8') + circ(4, -5, 6, '#c9e88a') + circ(0, -9, 5, '#fff3dc') + line('M6,-12 L10,-17', '#c98a2a', 2) + rect(7, -19, 6, 3, 1, '#c98a2a') : '') +
+  (state === 'melted' ? path('M-10,-2 Q-6,-6 0,-3 Q6,-6 10,-2 L10,0 Q0,-1 -10,0 Z', '#f6b3c8', { opacity: .85 }) + path('M-6,0 q-1,4 0,7 M3,0 q1,3 0,5', '#f6b3c8') : '');
 // A taco: a folded tortilla with meat, lettuce and tomato.
 const tacoArt = (dark, light, filled) => (filled ? ell(0, -3, 11, 3.5, '#7a4524') + path('M-11,-4 q3,-4 5,-1 q3,-4 5,-1 q3,-4 5,-1 q3,-4 5,-1 L11,-2 L-11,-2 Z', '#5cb85a') + circ(-4, -6, 1.6, '#e2412f') + circ(4, -6, 1.6, '#e2412f') : '') +
   path('M-13,-3 Q0,20 13,-3 Q0,4 -13,-3 Z', dark) + path('M-12,-3 Q0,17 12,-3 Q0,3 -12,-3 Z', light) + shine(-6, 3, 2.5, 1.2);
@@ -140,6 +168,18 @@ export const FOOD = {
   bagelDough: () => bagelArt('#d9bf94', '#f3e2c2', false),
   bagelBurnt: () => bagelArt('#2e1d16', '#57382a', false),
   creamBagel: () => FOOD.bagel() + path('M-9,-3 Q-7,-8 0,-8 Q8,-8 9,-3 Q4,1 0,-1 Q-5,2 -9,-3 Z', CREAM) + path('M-3,-2 Q0,-6 4,-4 Q1,-2 -3,-2 Z', '#e8dccb'),
+  // Trattoria
+  pizza: () => pizzaArt(false), pizzaDough: () => circ(0, 1, 12, '#e8d2a6') + circ(-.5, .5, 11, '#f6e7c6') + shine(-5, -3, 3, 1.4),
+  pizzaBurnt: () => circ(0, 1, 12, '#2e1d16') + circ(-.5, .5, 10, '#57382a'), pepperoniPizza: () => pizzaArt(true),
+  lasagna: () => lasagnaArt('#c96a3a', '#e88a4a', false), lasagnaDough: () => lasagnaArt('#e8d2a6', '#f6e7c6', false),
+  lasagnaBurnt: () => lasagnaArt('#2e1d16', '#57382a', false), parmLasagna: () => lasagnaArt('#c96a3a', '#e88a4a', true),
+  gelato: () => gelatoArt('full'), gelatoEmpty: () => gelatoArt('empty'), gelatoCold: () => gelatoArt('melted'),
+  pepperoni: () => ell(0, 4, 12, 5, '#e8dccb') + ell(0, 3, 11, 4.5, '#fffaf0') + [[-5, 2], [1, 0], [6, 3], [-1, 5]].map(([x, y]) => circ(x, y, 3.2, '#c7413a') + circ(x - 1, y - 1, 1, '#e86a5a')).join(''),
+  parmesan: () => path('M-11,6 L9,-6 L11,8 Z', '#f3d77a') + path('M-11,6 L9,-6 L9,-3 L-9,7 Z', '#e0b84a') + [[2, 3], [6, 1], [5, 5]].map(([x, y]) => circ(x, y, .9, '#e0b84a')).join('') +
+    rect(-12, -12, 9, 5, 2, '#b5ada2') + rect(-11, -11, 7, 3, 1, '#d6cfc6'),
+  oliveOil: () => path('M-4,-14 L4,-14 L4,-9 Q8,-6 8,0 L8,12 Q8,14 6,14 L-6,14 Q-8,14 -8,12 L-8,0 Q-8,-6 -4,-9 Z', '#7a8f2e', { opacity: .9 }) + rect(-6, 2, 12, 7, 2, '#f6e7b0') + rect(-3, -18, 6, 5, 1.5, '#3a2a2a'),
+  tomatoCan: () => rect(-8, -10, 16, 22, 3, '#d7372a') + rect(-8, -2, 16, 8, 0, '#fff3dc') + circ(0, 2, 3, '#d7372a') + rect(-8, -12, 16, 3, 1.5, '#b5ada2'),
+  basilPot: () => path('M-7,4 L7,4 L5,14 L-5,14 Z', '#c96a3a') + [[-4, -2], [0, -6], [4, -2], [-2, 0], [2, 0]].map(([x, y]) => ell(x, y, 3, 4.5, '#4fa84a', { transform: `rotate(${x * 8} ${x} ${y})` })).join(''),
   // La Cocina
   taco: () => tacoArt('#e9a640', '#f3c34a', true),
   tacoDough: () => ell(0, 3, 13, 6, '#e8cf98') + ell(-1, 2, 12, 5, '#f8e7b8') + [[-5, 1], [4, 3], [0, 0], [6, 0]].map(([x, y]) => circ(x, y, .8, '#e2c27a')).join(''),
@@ -235,6 +275,36 @@ export function oven(level) {
   return { art: s, W, H, slots, rings, scale: level === 3 ? .8 : level === 2 ? .78 : .85 };
 }
 
+// Trattoria's wood-fired pizza oven (in place of the oven): a brick dome with a fire inside, where the
+// food sits while it bakes. Returns the same shape as oven().
+export function pizzaOven(level) {
+  const W = [104, 120, 136][level - 1], H = [118, 138, 160][level - 1], n = level + 1, cx = W / 2 - 2;
+  let s = rect(0, -46, W, 46, 6, '#9c8a7a') + rect(0, -46, W - 4, 42, 6, '#c9b8a8');
+  for (let r = 0; r < 2; r++) for (let x = (r % 2) * 10 + 4; x < W - 8; x += 20) s += rect(x, -42 + r * 20, 18, 18, 2, '#d6c7b8');
+  const dome = level === 3 ? '#e0703a' : '#c96a3a';
+  s += path(`M2,-46 Q2,${-H} ${cx},${-H} Q${W - 6},${-H} ${W - 6},-46 Z`, '#a8562e') + path(`M6,-46 Q6,${-H + 6} ${cx},${-H + 6} Q${W - 10},${-H + 6} ${W - 10},-46 Z`, dome);
+  if (level === 3) for (let i = 0; i < 6; i++) s += circ(16 + i * (W - 34) / 5, -52, 3.5, '#2f78c0') + circ(16 + i * (W - 34) / 5, -52, 1.4, GOLD);
+  s += path(`M${cx - 30},-46 L${cx - 30},-62 Q${cx},-88 ${cx + 30},-62 L${cx + 30},-46 Z`, '#3a2a2a') + `<g class="flame">${path(`M${cx - 18},-48 Q${cx - 12},-70 ${cx - 4},-58 Q${cx + 2},-78 ${cx + 8},-58 Q${cx + 16},-68 ${cx + 20},-48 Z`, '#f08a2a')}</g>`;
+  s += rect(cx - 6, -H - 22, 12, 20, 2, '#a8562e') + (level >= 2 ? rect(cx - 9, -H - 26, 18, 6, 2, '#8a4a1e') : '');
+  const slots = [], rings = [];
+  for (let i = 0; i < n; i++) { const x = 14 + (W - 32) * (i + .5) / n; slots.push([x, -34]); rings.push([x, -H + 16 + (i % 2) * 2]); }
+  return { art: s, W, H, slots, rings, scale: level === 3 ? .8 : .85 };
+}
+// Trattoria's gelato case (in place of the coffee machine): tubs of gelato under glass, then two,
+// then three flavours. Returns the same shape as coffee().
+export function gelatoCase(level) {
+  const W = [66, 80, 90][level - 1], H = [104, 116, 128][level - 1], n = level;
+  const cols = ['#f6b3c8', '#c9e88a', '#fff3dc'];
+  let s = rect(0, -60, W, 60, 8, '#4a6fa5') + rect(0, -60, W - 4, 56, 8, '#5b8fd0') + rect(4, -52, W - 12, 6, 3, '#3f5f90');
+  s += rect(2, -H, W - 6, H - 62, 8, '#dff2f2', { opacity: .9 }) + rect(2, -H, W - 6, 8, 4, level === 3 ? GOLD : '#d7372a');
+  const tw = (W - 10) / n;
+  for (let i = 0; i < n; i++) { const x = 5 + i * tw; s += rect(x + 1, -74, tw - 2, 10, 2, '#b5ada2') + path(`M${x + 2},-74 Q${x + tw / 2},-${86 + i % 2 * 2} ${x + tw - 2},-74 Z`, cols[i]); }
+  s += shine(10, -H + 20, 1.6, 8);
+  const xs = Array.from({ length: n }, (_, i) => 5 + (i + .5) * tw);
+  const cups = xs.map(x => [x, -22]);
+  return { art: s, W, H, cups, scale: level === 1 ? .95 : level === 2 ? .82 : .74, spoutY: -64 };
+}
+
 // La Cocina's stove (in place of the oven): a talavera-tiled stove with a black comal on top,
 // where the food sits while it cooks. Returns the same shape as oven().
 export function stove(level) {
@@ -316,6 +386,7 @@ export function pantry(level, items, theme = 'toronto') {
     decor.push(['salt', 30, -H + 48], ['creamCheese', 54, -H + 48], ['flour', 78, -H + 48], ['dough', 34, -30], ['beans', 66, -28]);
   }
   // La Cocina stocks corn, chilies and limes instead of flour and beans.
+  if (theme === 'rome') for (const d of decor) d[0] = { flour: 'flour', beans: 'tomatoCan', dough: 'basilPot', salt: 'oliveOil', creamCheese: 'tomatoCan' }[d[0]] || d[0];
   if (theme === 'mexico') for (const d of decor) d[0] = { flour: 'cornCob', beans: 'tequila', dough: 'limeHalf', salt: 'chiliPepper', creamCheese: 'limeHalf' }[d[0]] || d[0];
   // Tappable spots, spread across their row.
   const usable = level === 3 ? W - 30 : W;
@@ -425,6 +496,30 @@ const pinata = (x, y) => g(`translate(${x} ${y})`, line('M0,-30 L0,-12', '#5a2a1
   circ(0, 0, 9, '#fff3dc') + [0, 72, 144, 216, 288].map(a => line('M0,0 L0,14', '#e8475f', 1.4, { transform: `rotate(${a + 36}) translate(0 8)` })).join(''));
 const potCactus = (x, y) => g(`translate(${x} ${y})`, rect(-9, -26, 18, 26, 8, '#2e7a2c') + rect(-8, -25, 15, 24, 7, '#4fa84a') + rect(-17, -18, 7, 10, 3.5, '#4fa84a') +
   path('M-11,0 L11,0 L8,12 L-8,12 Z', '#c96a3a') + rect(-12, -2, 24, 4, 2, '#a8562e') + circ(0, -27, 3, '#ff7eb6'));
+// Trattoria's room: a scalloped basil-green awning, café globe lights, a lemon tree, warm plaster
+// (ochre with a painted lemon border, or sage with a checked band), olive cupboards and a checked floor.
+function trattoriaAwning() {
+  let s = '';
+  for (let i = 0; i < 8; i++) { const c = i % 2 ? '#fff3dc' : '#3f9b3c', w = 43; s += rect(i * w, 0, w, 22, 0, c) + circ(i * w + w / 2, 22, w / 2, c) + (i % 2 ? '' : circ(i * w + w / 2, 40, 3, GOLD)); }
+  return s + rect(0, 0, 344, 3, 0, '#2e5a2c');
+}
+function globeLights() {
+  let s = line('M0,56 Q172,72 344,56', '#5a3a2a', 1.2);
+  for (let i = 0; i < 12; i++) { const x = 14 + i * 29, y = 56 + 16 * Math.sin(Math.PI * x / 344) * .9; s += line(`M${x},${y} L${x},${y + 5}`, '#5a3a2a', 1) + circ(x, y + 10, 5.5, '#ffe7a3') + circ(x - 1.5, y + 8.5, 1.8, '#fff', { opacity: .8 }); }
+  return s;
+}
+const lemonTree = (x, y) => g(`translate(${x} ${y})`, path('M-9,0 L9,0 L7,12 L-7,12 Z', '#c96a3a') + rect(-10, -2, 20, 4, 2, '#a8562e') + line('M0,0 L0,-18', '#7a4b3a', 2.4) +
+  circ(0, -26, 12, '#4fa84a') + circ(-6, -30, 6, '#5cb85a') + [[-6, -24], [5, -28], [2, -20], [-2, -32]].map(([lx, ly]) => ell(lx, ly, 2.6, 2, '#f8d23a')).join(''));
+function trattoriaWall(wall) {
+  if (wall === 'sage') {
+    let s = rect(0, 178, 344, 210, 0, '#dfe8cf');
+    for (let x = 0; x < 344; x += 12) s += rect(x, 180, 6, 6, 0, '#d7372a', { opacity: .75 }) + rect(x + 6, 186, 6, 6, 0, '#d7372a', { opacity: .75 });
+    return s;
+  }
+  let s = rect(0, 178, 344, 210, 0, '#f6dfa6') + [[60, 250], [170, 320], [280, 240], [120, 350], [300, 340]].map(([x, y]) => circ(x, y, 1.3, '#ecc87e')).join('');
+  for (let x = 14; x < 344; x += 30) s += ell(x, 190, 4, 3, '#f8d23a') + ell(x + 6, 187, 3, 1.6, '#4fa84a', { transform: `rotate(-30 ${x + 6} 187)` });
+  return s;
+}
 // The parts of the room that never change during a shift: harbour, awning, counter, tiles, cupboards, floor.
 // "theme" is the restaurant: 'toronto' (the bakery) or 'mexico' (La Cocina).
 // La Cocina's wall, three calm choices: warm mango plaster with a tile border, pink stucco with a
@@ -445,6 +540,7 @@ function cocinaWall(wall) {
 }
 export function roomBack(theme = 'toronto', wall = 'plaster') {
   const sea = rect(0, 0, 344, 150, 0, '#cfeeea') + rect(0, 84, 344, 66, 0, '#7cc6c2') + line('M30,98 q8,-4 16,0 M150,106 q8,-4 16,0 M250,96 q8,-4 16,0', '#fff', 2, { opacity: .7 }) + ferry(214, 74, .55);
+  if (theme === 'rome') return rect(0, 0, 344, 672, 0, '#f6dfa6') + sea + circ(300, 46, 16, '#ffe08a') + trattoriaAwning() + globeLights() + trattoriaWall(wall);
   if (theme === 'mexico') {
     return rect(0, 0, 344, 672, 0, '#fbf6ec') + sea + sarape() + papelPicado() + pinata(304, 86) + cocinaWall(wall);
   }
@@ -452,14 +548,15 @@ export function roomBack(theme = 'toronto', wall = 'plaster') {
   return rect(0, 0, 344, 672, 0, '#fdebd0') + sea + circ(300, 46, 16, '#ffe08a') + awning() + tiles + rect(0, 178, 344, 210, 0, 'url(#ktiles)');
 }
 export function roomFront(theme = 'toronto') {
-  const mx = theme === 'mexico';
-  const [top, edge, low, door, floor, floorLine] = mx ? ['#e3a06a', '#c96a3a', '#1f9e9a', '#167a77', '#e8a56f', '#c96a3a'] : [WOODL, WOOD, WOODM, '#b5774a', '#e7c49a', '#c98a5a'];
+  const mx = theme === 'mexico', it = theme === 'rome';
+  const [top, edge, low, door, floor, floorLine] = mx ? ['#e3a06a', '#c96a3a', '#1f9e9a', '#167a77', '#e8a56f', '#c96a3a']
+    : it ? ['#efe7da', '#b5774a', '#7a8f4e', '#5e7238', '#f3e7d2', '#c98a5a'] : [WOODL, WOOD, WOODM, '#b5774a', '#e7c49a', '#c98a5a'];
   const cupboards = [[10, 154], [178, 156]].map(([x, w]) => rect(x, 448, w, 92, 8, 'none', { stroke: door, 'stroke-width': 3 }) + circ(x + w / 2, 494, 4, mx ? '#f6b62e' : door)).join('');
-  const floorTiles = mx ? `<defs><pattern id="kbarro" width="32" height="32" patternUnits="userSpaceOnUse"><rect width="32" height="32" fill="${floor}"/><path d="M32 0 L0 0 0 32" fill="none" stroke="#d98a52" stroke-width="2"/></pattern></defs>` : '';
-  return rect(0, 144, 344, 12, 0, top) + rect(0, 156, 344, 22, 0, edge) + (mx ? potCactus(326, 156) : '') +
+  const floorTiles = it ? `<defs><pattern id="kcheck" width="32" height="32" patternUnits="userSpaceOnUse"><rect width="32" height="32" fill="${floor}"/><rect width="16" height="16" fill="#c96a3a" opacity=".28"/><rect x="16" y="16" width="16" height="16" fill="#c96a3a" opacity=".28"/></pattern></defs>` : mx ? `<defs><pattern id="kbarro" width="32" height="32" patternUnits="userSpaceOnUse"><rect width="32" height="32" fill="${floor}"/><path d="M32 0 L0 0 0 32" fill="none" stroke="#d98a52" stroke-width="2"/></pattern></defs>` : '';
+  return rect(0, 144, 344, 12, 0, top) + rect(0, 156, 344, 22, 0, edge) + (mx ? potCactus(326, 156) : it ? lemonTree(326, 156) : '') +
     rect(0, 388, 344, 50, 0, top) + rect(0, 388, 344, 3, 0, mx ? '#f39a1e' : '#d9a066') +
     rect(0, 438, 344, 112, 0, low) + cupboards +
-    floorTiles + rect(0, 550, 344, 122, 0, mx ? 'url(#kbarro)' : floor) + line('M0,550 L344,550', floorLine, 3);
+    floorTiles + rect(0, 550, 344, 122, 0, mx ? 'url(#kbarro)' : it ? 'url(#kcheck)' : floor) + line('M0,550 L344,550', floorLine, 3);
 }
 // The green bin on the counter, for tossing food nobody wants. "on" when she has picked it up.
 // The bin at level 1 to 3: green, a bigger green one, then a wooden compost bin with a leaf.
@@ -471,6 +568,8 @@ export function bin(on, level = 1) {
     line(`M-6,${-h + 8} L-6,-6 M0,${-h + 8} L0,-6 M6,${-h + 8} L6,-6`, '#2e7a2c', 2.2, { opacity: on ? 0 : 1 }) + (on ? line('M-7,-16 L-2,-10 L8,-22', '#fff', 3) : '');
 }
 
+// For the "New: the Trattoria has a kitchen!" card: Garlic with a pizza and a cup of gelato.
+export const trattoriaNewsArt = () => `<svg viewBox="-60 -50 120 80" aria-hidden="true">${friend('garlic', -26, 0, 1.3, chefHat())}${plate(18, 4, 'pizza', 1.3)}${food('gelato', 44, 0, 1.2)}</svg>`;
 // For the "New: La Cocina has a kitchen!" card: Chili with a taco and a frozen margarita.
 export const cocinaNewsArt = () => `<svg viewBox="-60 -50 120 80" aria-hidden="true">${friend('chili', -26, 0, 1.3, chefHat())}${plate(18, 4, 'taco', 1.3)}${food('margarita', 44, 0, 1.2)}</svg>`;
 // For the "New: cooking shifts!" card: Tomato in a chef's hat with a fresh bagel.

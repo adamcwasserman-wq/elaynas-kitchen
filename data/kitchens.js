@@ -4,6 +4,7 @@
 
 import { BAKERY } from './kitchen.js';
 import { COCINA } from './cocina.js';
+import { TRATTORIA } from './trattoria.js';
 
-export const KITCHENS = { toronto: BAKERY, mexico: COCINA };
+export const KITCHENS = { toronto: BAKERY, mexico: COCINA, rome: TRATTORIA };
 export const KITCHEN_CITIES = Object.keys(KITCHENS);
